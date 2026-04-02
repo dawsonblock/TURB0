@@ -253,3 +253,34 @@ def int32():
     import mlx.core as mx
 
     return mx.int32
+
+
+# ── Benchmark helpers ─────────────────────────────────────────────────────────
+
+
+def dummy_quantize_main(x, *, config):
+    """Trivial quantizer for benchmarks: cast to uint8 (no real compression)."""
+    import mlx.core as mx
+
+    group_size = config.k_group_size
+    *prefix, d = x.shape
+    d_pad = ((d + group_size - 1) // group_size) * group_size
+    if d_pad > d:
+        zeros = mx.zeros((*prefix, d_pad - d), dtype=x.dtype)
+        x = mx.concatenate([x, zeros], axis=-1)
+    n_groups = d_pad // group_size
+    x_groups = x.reshape(*prefix, n_groups, group_size)
+    scales = mx.abs(x_groups).max(axis=-1, keepdims=True)  # [..., n_groups, 1]
+    scales = mx.maximum(scales, mx.array(1e-6, dtype=scales.dtype))
+    # Pack as float16 — "dummy", not real bit-packing
+    packed = x_groups.astype(mx.float16)
+    return packed, scales.squeeze(-1)
+
+
+def dummy_dequantize_main(packed, scales, *, config):
+    """Trivial dequantizer matching dummy_quantize_main."""
+    import mlx.core as mx
+
+    *prefix, n_groups, group_size = packed.shape
+    x_groups = packed.astype(mx.float32) * scales[..., None].astype(mx.float32)
+    return x_groups.reshape(*prefix, n_groups * group_size)
