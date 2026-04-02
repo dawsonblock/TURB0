@@ -1,0 +1,48 @@
+name: static-ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  package-and-syntax:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine nox
+      - name: Preflight Check (Advisory)
+        run: python scripts/preflight.py
+      - name: Build wheel and sdist
+        run: python -m build
+      - name: Compile source tree
+        run: python -m compileall turboquant mlx_lm tests
+      - name: Check Distributions
+        run: twine check dist/*
+      - name: Run Static and Import Smoke Tests
+        run: nox -s tests_static --python ${{ matrix.python-version }}
+      - name: Verify packaging metadata
+        run: |
+          python - <<'PY'
+          import sys
+          import pathlib
+          if sys.version_info >= (3, 11):
+              import tomllib
+              data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+              assert data['project']['name'] == 'turboquant'
+          assert pathlib.Path('dist').exists()
+          print('packaging metadata ok')
+          PY
+      - name: Archive distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: turboquant-dist
+          path: dist/*

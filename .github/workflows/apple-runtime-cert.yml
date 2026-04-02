@@ -1,0 +1,139 @@
+# Apple-Silicon runtime certification.
+#
+# Runs on a self-hosted macOS-arm64 runner.  Two tiers:
+#   1. Structural tests (always) — no model weights needed, ~1 s.
+#   2. Model-weight stages (optional) — needs TQ_TEST_LLAMA_MODEL / TQ_TEST_GEMMA_MODEL
+#      secrets.  Skipped gracefully when secrets are absent.
+#
+# The full certification script (scripts/certify_apple_runtime.sh) runs end-to-end
+# and writes structured JSON/XML artifacts to artifacts/runtime-cert/.
+#
+# Trigger: push to main, PRs that touch turboquant/ or mlx_lm/, and manual dispatch.
+
+name: apple-runtime-cert
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'turboquant/**'
+      - 'mlx_lm/**'
+      - 'tests/integration_mlx/**'
+      - 'benchmarks/runtime_cert/**'
+      - 'scripts/certify_apple_runtime.sh'
+  pull_request:
+    paths:
+      - 'turboquant/**'
+      - 'mlx_lm/**'
+      - 'tests/integration_mlx/**'
+      - 'benchmarks/runtime_cert/**'
+  workflow_dispatch:
+    inputs:
+      run_model_stages:
+        description: 'Run model-weight stages (requires secrets)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: apple-cert-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Tier 1: Structural tests — no model weights, fast, always runs.
+  # -----------------------------------------------------------------------
+  structural:
+    name: Structural Tests (no weights)
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[apple,test]'
+
+      - name: Verify MLX version bounds
+        run: |
+          python -c "
+          from turboquant._deps import check_mlx_version
+          check_mlx_version()
+          print('MLX version check passed')
+          "
+
+      - name: Run structural integration tests
+        run: |
+          python -m pytest tests/integration_mlx/ \
+            -v --tb=short \
+            -k "not llama and not gemma" \
+            --junitxml=artifacts/junit_structural.xml
+
+      - name: Upload structural artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structural-test-results
+          path: artifacts/junit_structural.xml
+
+  # -----------------------------------------------------------------------
+  # Tier 2: Full certification — model weights required.
+  # Runs only when secrets are available (push to main or manual dispatch).
+  # -----------------------------------------------------------------------
+  full-certification:
+    name: Full Runtime Certification
+    needs: structural
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_model_stages)
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 60
+    env:
+      TQ_TEST_LLAMA_MODEL: ${{ secrets.TQ_TEST_LLAMA_MODEL }}
+      TQ_TEST_GEMMA_MODEL: ${{ secrets.TQ_TEST_GEMMA_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[apple,test]'
+
+      - name: Run full certification
+        run: |
+          # Run inside existing venv — skip the cert script's own venv creation.
+          export VIRTUAL_ENV="${{ runner.tool_cache }}/dummy"
+          bash scripts/certify_apple_runtime.sh
+
+      - name: Upload certification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-cert-${{ github.sha }}
+          path: artifacts/runtime-cert/
+          retention-days: 90
+
+      - name: Model smoke tests
+        if: env.TQ_TEST_LLAMA_MODEL != '' || env.TQ_TEST_GEMMA_MODEL != ''
+        run: |
+          python -m pytest tests/integration_mlx/ \
+            -v --tb=short \
+            --junitxml=artifacts/junit_model_smoke.xml
+
+      - name: Upload model smoke results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-smoke-results
+          path: artifacts/junit_model_smoke.xml
+          if-no-files-found: ignore

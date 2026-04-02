@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual envs
+.venv/
+.venv-cert/
+venv/
+env/
+.venv*
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MLX / model weights
+*.safetensors
+*.bin
+*.pt
+*.gguf
+*.npz
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Type checker caches
+.mypy_cache/
+.ruff_cache/
+.nox/
+
+# Editor
+.vscode/
+*.swp
+*.code-workspace
+
+# Artifacts and logs
+artifacts/
+temp_out/
+*.log
+err*.txt
+err*.log
+error*.txt
+mlx_error.txt
+cert_log.txt
+
+# Scratch files
+Session
+fix_*.py
+test_scatter.py
+test_tq_run.py
+inspect_mx.py
+*.bak
+turboquant.egg-info/

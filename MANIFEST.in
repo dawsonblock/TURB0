@@ -1,0 +1,14 @@
+include README.md
+include LICENSE
+recursive-include mlx_lm py.typed
+recursive-include docs *.md
+
+# Exclude caches and scratch files
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store
+exclude fix_*.py
+exclude test_*.py
+exclude inspect_mx.py
+exclude Session
+exclude *.code-workspace

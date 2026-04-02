@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+import mlx.core as mx
+
+from turboquant.config import TurboQuantConfig
+from turboquant.core.pipeline import EncodedKeyBlock
+from turboquant.core.residual_codec import build_residual_codec
+
+
+def score_block(
+    q_rot: mx.array,
+    block: EncodedKeyBlock,
+    *,
+    config: TurboQuantConfig,
+    dequantize_main,
+) -> mx.array:
+    """
+    Compute attention scores against one encoded key block.
+
+    q_rot:
+        [..., q_len, d_rot]
+
+    Returns:
+        [..., q_len, k_len]
+    """
+    config.validate()
+
+    main_hat = dequantize_main(block.packed_main, block.scales, config=config)
+    main_rot = main_hat[..., : block.d_rot]
+
+    if int(q_rot.shape[-1]) != int(main_rot.shape[-1]):
+        raise ValueError(
+            f"q_rot dim {int(q_rot.shape[-1])} != main_rot dim {int(main_rot.shape[-1])}"
+        )
+
+
+    if q_rot.shape[-3] != main_rot.shape[-3]:
+        n_rep = q_rot.shape[-3] // main_rot.shape[-3]
+        main_rot = mx.repeat(main_rot, n_rep, axis=-3)
+
+
+    if q_rot.shape[-3] != main_rot.shape[-3]:
+        n_rep = q_rot.shape[-3] // main_rot.shape[-3]
+        main_rot = mx.repeat(main_rot, n_rep, axis=-3)
+
+
+    if q_rot.shape[-3] != main_rot.shape[-3]:
+        n_rep = q_rot.shape[-3] // main_rot.shape[-3]
+        main_rot = mx.repeat(main_rot, n_rep, axis=-3)
+
+    main_scores = q_rot @ mx.swapaxes(main_rot, -1, -2)
+
+
+
+
+    codec = build_residual_codec(config)
+
+    if block.residual.mode == "none":
+        return main_scores
+
+    if block.residual.mode == "topk":
+        resid_hat = codec.decode(block.residual, config=config)
+        resid_rot = resid_hat[..., : block.d_rot]
+
+        if q_rot.shape[-3] != resid_rot.shape[-3]:
+            resid_rot = mx.repeat(resid_rot, q_rot.shape[-3] // resid_rot.shape[-3], axis=-3)
+
+        resid_scores = q_rot @ mx.swapaxes(resid_rot, -1, -2)
+        return main_scores + resid_scores
+
+
+
+
+    if block.residual.mode == "qjl":
+        """
+        QJL path:
+        dot_estimate() is expected to return residual score contribution
+        in [..., q_len, k_len] form.
+        """
+        resid_scores = codec.dot_estimate(q_rot, block.residual, config=config)
+        if tuple(resid_scores.shape) != tuple(main_scores.shape):
+            raise ValueError(
+                f"QJL residual score shape {tuple(resid_scores.shape)} "
+                f"!= main score shape {tuple(main_scores.shape)}"
+            )
+        return main_scores + resid_scores
+
+    raise ValueError(f"Unsupported residual mode: {block.residual.mode}")
+
+def streaming_scores(
+    q_rot: mx.array,
+    *,
+    cache,
+    config: TurboQuantConfig,
+    dequantize_main,
+) -> list[mx.array]:
+    """
+    Produce per-block score tensors.
+    """
+    out: list[mx.array] = []
+    for block in cache.iter_blocks():
+        scores = score_block(
+            q_rot,
+            block,
+            config=config,
+            dequantize_main=dequantize_main,
+        )
+        out.append(scores)
+    return out
+
+# Legacy compatibility shim for MLX integrations (llama, gemma, etc.)
+def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None):
+    cache = keys_view.cache
+    import mlx.core as mx
+
+    # The actual config and dequantization lives in cache._impl
+    config = cache._impl.config
+    dequantize_main = cache._impl.dequantize_main
+
+    # compute streaming scores
+    scores = streaming_scores(
+        queries * scale,
+        cache=cache._impl,
+        config=config,
+        dequantize_main=dequantize_main,
+    )
+
+    # We concatenate scores then softmax
+    scores = mx.concatenate(scores, axis=-1)
+    if mask == "causal":
+        q_len = queries.shape[-2]
+        k_len = mx.concatenate(cache.v_cache, axis=-2).shape[-2] if cache.v_cache else q_len
+        if q_len > 1:
+            inds = mx.arange(k_len)[None, None, :]
+            q_inds = mx.arange(k_len - q_len, k_len)[None, :, None]
+            mask = mx.where(inds > q_inds, mx.array(-1e9, dtype=scores.dtype), mx.array(0.0, dtype=scores.dtype))
+        else:
+            mask = None
+    if mask == "causal":
+        q_len = queries.shape[-2]
+        k_len = mx.concatenate(cache.v_cache, axis=-2).shape[-2] if cache.v_cache else q_len
+        if q_len > 1:
+            inds = mx.arange(k_len)[None, None, :]
+            q_inds = mx.arange(k_len - q_len, k_len)[None, :, None]
+            mask = mx.where(inds > q_inds, mx.array(-1e9, dtype=scores.dtype), mx.array(0.0, dtype=scores.dtype))
+        else:
+            mask = None
+    if mask is not None:
+        scores = scores + mask
+
+
+    # Values might be in the dense cache wrapper if not compressed yet.
+    # The cache adapter stores `v_cache` natively in MLX arrays.
+    vals = mx.concatenate(cache.v_cache, axis=-2)
+
+
+    attn = mx.softmax(scores, axis=-1)
+    if queries.shape[-3] != vals.shape[-3]:
+        n_rep = queries.shape[-3] // vals.shape[-3]
+        vals = mx.repeat(vals, n_rep, axis=-3)
+    return attn @ vals
+
