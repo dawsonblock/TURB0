@@ -113,14 +113,15 @@ def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None):
     cache = keys_view.cache
     import mlx.core as mx
 
-    # The actual config and dequantization lives in cache._impl
-    config = cache._impl.config
-    dequantize_main = cache._impl.dequantize_main
+    # Support both TurboQuantKCache (has ._impl) and TurboQuantKVCache (direct).
+    impl = getattr(cache, "_impl", cache)
+    config = impl.config
+    dequantize_main = impl.dequantize_main
 
     # compute streaming scores
     scores = streaming_scores(
         queries * scale,
-        cache=cache._impl,
+        cache=impl,
         config=config,
         dequantize_main=dequantize_main,
     )

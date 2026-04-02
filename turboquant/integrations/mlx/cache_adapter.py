@@ -52,14 +52,15 @@ class TurboQuantKCache(_BaseCache):
         from turboquant.runtime.kv_interface import TurboQuantKVCache
         from turboquant.core.quantizer import GroupScalarQuantizer
         
-        k_quant = GroupScalarQuantizer(bits=config.k_bits, group_size=config.k_group_size)
-        
+        k_quant = GroupScalarQuantizer(n_bits=config.k_bits, group_size=config.k_group_size)
+
         self._impl = TurboQuantKVCache(
             config=config,
             quantize_main=k_quant.quantize,
-            dequantize_main=k_quant.dequantize
+            dequantize_main=k_quant.dequantize,
         )
         self.offset = 0
+        self.v_cache: list = []
 
     @property
     def nbytes(self):
@@ -72,14 +73,14 @@ class TurboQuantKCache(_BaseCache):
         # For the sake of the 'finish the build' task, we delegate to the impl
         from turboquant.runtime.kv_interface import TurboQuantKeysView
         
-        block = self._impl.append_keys(keys)
+        self._impl.append_keys(keys)
+        start = self.offset
         self.offset += keys.shape[2]
-        
-        # Compute start token of this block for the keys view.
-        start = self.offset - keys.shape[2]
+        self.v_cache.append(values)
 
-        # Return a view for the streaming attention path
-        return TurboQuantKeysView(self._impl, start, self.offset), values
+        # Return a view pointing to this adapter (so attention.py can find
+        # ._impl and .v_cache through keys_view.cache).
+        return TurboQuantKeysView(self, start, self.offset), values
 
     @property
     def state(self):

@@ -334,3 +334,25 @@ class GroupScalarQuantizer:
     def decode(self, packed: mx.array, scales: mx.array, d_orig: int) -> mx.array:
         """(packed [..., n_words], scales [..., n_groups]) → [..., d_orig]."""
         return dequantize_groups(packed, scales, self.n_bits, self.group_size, d_orig)
+
+    # ── Pipeline adapter wrappers ─────────────────────────────────────────────
+
+    def quantize(self, x: mx.array, *, config=None) -> tuple[mx.array, mx.array]:
+        """Adapter matching the ``quantize_main(x, *, config)`` pipeline signature.
+
+        The *config* argument is accepted but ignored — all parameters
+        are baked into this quantizer at construction time.
+        """
+        return self.encode(x)
+
+    def dequantize(
+        self, packed: mx.array, scales: mx.array, *, config=None
+    ) -> mx.array:
+        """Adapter matching the ``dequantize_main(packed, scales, *, config)`` signature.
+
+        Decodes to the padded dimension (n_words × codes_per_word); callers
+        are expected to slice to the original head dimension afterwards, which
+        ``decode_k_block`` already does via ``block.d_rot``.
+        """
+        d_pad = int(packed.shape[-1]) * _codes_per_word(self.n_bits)
+        return self.decode(packed, scales, d_pad)

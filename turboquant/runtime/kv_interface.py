@@ -15,19 +15,31 @@ class TurboQuantKVCache:
 
     def __init__(
         self,
+        config: TurboQuantConfig | None = None,
         *,
-        config: TurboQuantConfig,
-        quantize_main,
-        dequantize_main,
+        quantize_main=None,
+        dequantize_main=None,
     ):
+        if config is None:
+            raise TypeError("TurboQuantKVCache requires a TurboQuantConfig.")
         config.validate()
         self.config = config
+        if quantize_main is None or dequantize_main is None:
+            from turboquant.core.quantizer import GroupScalarQuantizer
+            _q = GroupScalarQuantizer(
+                n_bits=config.k_bits, group_size=config.k_group_size
+            )
+            if quantize_main is None:
+                quantize_main = _q.quantize
+            if dequantize_main is None:
+                dequantize_main = _q.dequantize
         self.quantize_main = quantize_main
         self.dequantize_main = dequantize_main
         self._blocks: list[Any] = []
         self._offset: int = 0
         self._d_head: int = 0
         self._d_pad: int = 0
+        self.v_cache: list = []
 
     @property
     def num_blocks(self) -> int:
@@ -35,6 +47,10 @@ class TurboQuantKVCache:
 
     def clear(self) -> None:
         self._blocks.clear()
+        self.v_cache.clear()
+        self._offset = 0
+        self._d_head = 0
+        self._d_pad = 0
 
     def append_keys(self, k):
         """
@@ -80,6 +96,45 @@ class TurboQuantKVCache:
 
     def byte_size(self):
         return sum(b.packed_main.nbytes + b.scales.nbytes for b in self._blocks)
+
+    @property
+    def nbytes(self) -> int:
+        """Total compressed bytes (alias for byte_size())."""
+        return self.byte_size()
+
+    @property
+    def k_packed(self):
+        """Packed tensor of the first key block, or None if cache is empty."""
+        if not self._blocks:
+            return None
+        return self._blocks[0].packed_main
+
+    def update_and_fetch(self, keys, values):
+        """Append *keys* (compressed) and *values* (dense), return (keys_view, values).
+
+        This is the MLX-LM cache-adapter protocol convenience method, so
+        TurboQuantKVCache can be used directly as a drop-in benchmark stand-in
+        without going through TurboQuantKCache.
+        """
+        start = self._offset
+        self.append_keys(keys)
+        self.v_cache.append(values)
+        return TurboQuantKeysView(self, start, self._offset), values
+
+    def memory_breakdown(self) -> dict:
+        """Return a mapping of buffer name → byte size."""
+        k_main = sum(b.packed_main.nbytes for b in self._blocks)
+        k_scales = sum(b.scales.nbytes for b in self._blocks)
+        v_dense = sum(
+            v.nbytes for v in self.v_cache if hasattr(v, "nbytes")
+        )
+        total = k_main + k_scales + v_dense
+        return {
+            "k_packed_main": k_main,
+            "k_scales": k_scales,
+            "v_dense": v_dense,
+            "total": total,
+        }
 
     def state(self) -> dict[str, Any]:
         """Return the canonical flat state dict for serialisation.
