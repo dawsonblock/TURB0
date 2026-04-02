@@ -180,7 +180,7 @@ def upgrade_cache_list(
         prod_config = TurboQuantConfig(
             k_bits=getattr(config, "k_bits", 3),
             k_group_size=getattr(config, "k_group_size", 64),
-            rotation_mode=getattr(config, "rotation_mode", "hadamard"),
+            rotation=getattr(config, "rotation", getattr(config, "rotation_mode", "hadamard")),
             residual_topk=getattr(config, "residual_topk", 2),
             v_bits=getattr(config, "v_bits", 4),
             v_group_size=getattr(config, "v_group_size", 64),

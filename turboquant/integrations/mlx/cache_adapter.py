@@ -1,17 +1,16 @@
 """
-turboquant.integrations.mlx.adapter — single MLX boundary layer.
+turboquant.integrations.mlx.adapter — MLX integration layer.
 
-All interaction between TurboQuant production code and the MLX framework
-is channelled through this module.  Any other file that needs an MLX
-primitive should import it from here rather than importing ``mlx.core``
-directly, so that the boundary is auditable in one place.
+This module provides the MLX adapter and helper utilities for TurboQuant.
+Note: MLX imports appear in multiple TurboQuant modules (kv_interface,
+layout, pipeline, etc.) and are deferred to avoid breaking static analysis
+on non-Apple platforms.  This file is the canonical home for adapter-level
+MLX helpers (version checking, dtype casting, eval/sync).
 
-Why one boundary file?
+Why an adapter module?
 -----------------------
 * **Testability** — unit tests that mock this module can exercise the full
   TurboQuant stack without a physical Apple Silicon GPU.
-* **Auditability** — ``tools/audit_vendored_surface.py`` checks that only
-  ``integrations/mlx/adapter.py`` imports directly from ``mlx.*``.
 * **Compatibility** — version checks and dtype helpers live here; callers
   never inspect ``mx.__version__`` directly.
 
@@ -76,12 +75,15 @@ class TurboQuantKCache(_BaseCache):
         block = self._impl.append_keys(keys)
         self.offset += keys.shape[2]
         
+        # Compute start token of this block for the keys view.
+        start = self.offset - keys.shape[2]
+
         # Return a view for the streaming attention path
-        return TurboQuantKeysView(self._impl), values
+        return TurboQuantKeysView(self._impl, start, self.offset), values
 
     @property
     def state(self):
-        return self._impl.state().to_dict()
+        return self._impl.state()
 
     @property
     def meta_state(self):
@@ -91,8 +93,8 @@ class TurboQuantKCache(_BaseCache):
 logger = logging.getLogger("turboquant.integrations.mlx.adapter")
 
 # Minimum MLX version that TurboQuant officially supports.
-# See docs/support_matrix.md.
-SUPPORTED_MLX_MIN: str = "0.16.0"
+# See docs/support_matrix.md and turboquant/_deps.py.
+SUPPORTED_MLX_MIN: str = "0.30.0"
 
 
 def is_mlx_available() -> bool:

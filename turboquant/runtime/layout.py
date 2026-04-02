@@ -8,10 +8,8 @@ All tensors entering the compression pipeline must be [B, H, T, D].
 
 from __future__ import annotations
 
-import mlx.core as mx
 
-
-def ensure_layout(x: mx.array, name: str = "tensor") -> mx.array:
+def ensure_layout(x, name: str = "tensor"):
     """Assert x has shape [B, H, T, D] and return it unchanged.
 
     Parameters
