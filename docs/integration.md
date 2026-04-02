@@ -150,7 +150,18 @@ that bypass `base.py`:
 
 ---
 
-## 7. Testing
+## 7. Common integration pitfalls
+
+| Pitfall | Fix |
+|---|---|
+| `GroupScalarQuantizer(bits=...)` | Use `n_bits=` — the constructor parameter is `n_bits`, not `bits` |
+| Positional `TurboQuantKVCache(cfg)` fails | `config` is positional-or-keyword; both `TurboQuantKVCache(cfg)` and `TurboQuantKVCache(config=cfg)` are valid |
+| `cache._impl.config` hardcoded in attention | Use `impl = getattr(cache, "_impl", cache)` to support both `TurboQuantKCache` and `TurboQuantKVCache` |
+| `quantize_main` / `dequantize_main` required | Since v0.2.2 these are optional; a `GroupScalarQuantizer` is auto-created from `config.k_bits` / `config.k_group_size` |
+
+---
+
+## 8. Testing
 
 ```bash
 # Unit tests (turboquant package)
@@ -161,4 +172,4 @@ pytest tests/integration/
 
 # Full suite
 pytest tests/
-```text
+```

@@ -1,7 +1,7 @@
 # TurboQuant Architecture
 
 > **Status**: research-grade  
-> **Last updated**: 2025
+> **Last updated**: April 2026
 
 ---
 
@@ -96,30 +96,55 @@ Production configuration dataclass.  Fields:
 > (`main_bits`, `group_size`, `return_mode`, …).  It is a shim that maps to the
 > production dataclass — see [integration.md](integration.md).
 
-### 3.2 KVCompressor (`turboquant/runtime/kv_interface.py`)
+### 3.2 TurboQuantKVCache (`turboquant/runtime/kv_interface.py`)
 
-The single implementation of KV quantisation.  Lifecycle:
+The core compressed K-block store. Can be used directly as a self-contained
+MLX-LM adapter or wrapped by `TurboQuantKCache` for full protocol compliance.
 
-1. `__init__(config)` — creates a `TurboQuantPipeline` (lazy; no MLX arrays yet)
-2. `update_and_fetch(k, v)` → `(TurboQuantKeysView, v_or_none)` — appends new
-   tokens, quantises them, returns a view object for streaming attention
-3. `iter_rotated_kv_blocks(view, block_tokens)` — yields `(s, e, k_rot, v_blk)`
-   blocks; callers accumulate online-softmax accumulators
-4. `rotate_queries_for_attention(q)` — applies the same rotation as K so Q and
-   K are in the same space
-5. `state()` / `from_state(state, config)` — serialise/restore (schema v2)
-6. `memory_breakdown()` — returns per-buffer byte counts + total
-7. `trim(n)` — decrease `offset` by n (for prompt trimming)
+**Constructor:**
+```python
+TurboQuantKVCache(
+    config: TurboQuantConfig,          # positional or keyword
+    *,
+    quantize_main=None,                # optional — auto-creates GroupScalarQuantizer
+    dequantize_main=None,              # optional — auto-creates GroupScalarQuantizer
+)
+```
+If `quantize_main` or `dequantize_main` are omitted, a `GroupScalarQuantizer`
+is constructed automatically from `config.k_bits` and `config.k_group_size`.
+
+**Core lifecycle:**
+
+1. `append_keys(k)` — encode and store one key block
+2. `update_and_fetch(k, v)` → `(TurboQuantKeysView, v)` — MLX-LM adapter
+   protocol: appends keys (compressed) and values (dense), returns a view
+   for streaming attention
+3. `iter_blocks()` — yield `EncodedKeyBlock` objects for streaming attention
+4. `decode_block_full(index)` → decoded `mx.array` for a specific block
+5. `state()` / `from_state(state, *, quantize_main, dequantize_main)` — serialise/restore (schema v2)
+6. `clear()` — reset all buffers (blocks, v_cache, offsets)
+
+**Convenience properties:**
+
+| property / method | description |
+|---|---|
+| `nbytes` | total compressed bytes (alias for `byte_size()`) |
+| `k_packed` | `packed_main` tensor of the first block, or `None` |
+| `v_cache` | list of dense value tensors appended via `update_and_fetch` |
+| `num_blocks` | number of stored key blocks |
+| `memory_breakdown()` | dict: `k_packed_main`, `k_scales`, `v_dense`, `total` bytes |
 
 ### 3.3 Streaming attention (`turboquant/runtime/attention.py`)
 
 `turboquant_streaming_attention(queries, keys_view, *, scale)`:
 
-- Rotates queries via `cache.rotate_queries_for_attention(q)`
-- Iterates over K/V blocks with `iter_rotated_kv_blocks`
+- Rotates queries via `cache.rotate_queries_for_attention(q)` if available
+- Iterates over K/V blocks with `iter_blocks()` / `decode_block_full()`
 - Accumulates attention scores with the **online softmax** (2-accumulator)
   algorithm: tracks running max `m` and log-sum-exp `lse` without materialising
   the full attention matrix
+- Supports both `TurboQuantKCache` (via `._impl`) and `TurboQuantKVCache`
+  (direct) through `impl = getattr(cache, "_impl", cache)` dispatch
 
 `maybe_turboquant_attention(q, k, v, mask, scale, fallback, cache)`:
 - Dispatches: if `isinstance(k, TurboQuantKeysView)` → streaming path;
@@ -186,7 +211,16 @@ For a sequence of T tokens, N KV heads, head dimension d, at b bits/group of g:
 
 $$\text{bytes}_{K} \approx \frac{b \cdot N \cdot T \cdot d}{8} + \frac{2 \cdot N \cdot T \cdot d}{g \cdot 8} \cdot \text{sizeof}(\text{scale\_dtype})$$
 
-The V component is analogous.  At 3-bit K + 4-bit V with group=64 and float16 scales, TurboQuant uses roughly **4–5×** less memory than float16 dense KV for sequences > 512 tokens (see `benchmarks/bench_memory_footprint.py`).
+The V component is analogous.  At 3-bit K + 4-bit V with group=64 and float16 scales, TurboQuant uses roughly **7–9×** less memory than float16 dense K for sequences > 256 tokens. Measured compression ratios (Apple Silicon, April 2026):
+
+| bits | group | bytes/token | vs dense |
+|---|---|---|---|
+| 4 | 64 | 272 | 7.5x |
+| 3 | 64 | 240 | 8.5x |
+| 2 | 64 | 144 | 14.2x |
+| 3 | 32 | 256 | 8.0x |
+
+See `benchmarks/exploratory/bench_memory_footprint.py` and `artifacts/benchmarks/memory_footprint.txt`.
 
 ---
 

@@ -111,25 +111,65 @@ index  field
 
 ---
 
-## 4. Serialisation example
+## 4. Convenience API (`TurboQuantKVCache`)
+
+`TurboQuantKVCache` can be used directly as a benchmark stand-in or MLX-LM
+adapter without going through `TurboQuantKCache`. Additional properties:
+
+| property / method | description |
+|---|---|
+| `nbytes` | total compressed bytes (alias for `byte_size()`) |
+| `k_packed` | `packed_main` tensor of the first block, or `None` if empty |
+| `v_cache` | list of dense value tensors appended via `update_and_fetch` |
+| `update_and_fetch(k, v)` | appends keys (compressed) and values (dense), returns `(TurboQuantKeysView, v)` |
+| `memory_breakdown()` | `{"k_packed_main": int, "k_scales": int, "v_dense": int, "total": int}` |
+
+`quantize_main` and `dequantize_main` are optional constructor arguments. When
+omitted, a `GroupScalarQuantizer` is created automatically from
+`config.k_bits` and `config.k_group_size`.
+
+```python
+from turboquant.runtime.kv_interface import TurboQuantKVCache
+from turboquant.config import TurboQuantConfig
+import mlx.core as mx
+
+cfg = TurboQuantConfig(k_bits=3, k_group_size=64)
+tq = TurboQuantKVCache(cfg)          # quantizers created automatically
+
+k = mx.random.normal([1, 8, 256, 64], dtype=mx.float16)
+v = mx.random.normal([1, 8, 256, 64], dtype=mx.float16)
+view, _ = tq.update_and_fetch(k, v)
+
+print(tq.nbytes)           # compressed byte count
+print(tq.memory_breakdown())
+# {'k_packed_main': 229376, 'k_scales': 16384, 'v_dense': 1048576, 'total': 1294336}
+```
+
+---
+
+## 5. Serialisation example
 
 ```python
 import mlx.core as mx
-from turboquant.runtime.kv_interface import KVCompressor
+from turboquant.runtime.kv_interface import TurboQuantKVCache
 from turboquant.config import TurboQuantConfig
 
 cfg = TurboQuantConfig(k_bits=3, k_group_size=64)
-comp = KVCompressor(cfg)
+tq = TurboQuantKVCache(cfg)
 k = mx.random.normal([1, 8, 32, 64], dtype=mx.float16)
 v = mx.random.normal([1, 8, 32, 64], dtype=mx.float16)
-comp.update_and_fetch(k, v)
+tq.update_and_fetch(k, v)
 
 # Save
-state = comp.state()
+state = tq.state()
 mx.savez("kv_state.npz", **{k: v for k, v in state.items()
                               if isinstance(v, mx.array)})
 
 # Restore
-restored = KVCompressor.from_state(state, cfg)
-assert restored.offset == comp.offset
+restored = TurboQuantKVCache.from_state(
+    state,
+    quantize_main=tq.quantize_main,
+    dequantize_main=tq.dequantize_main,
+)
+assert restored._offset == tq._offset
 ```
