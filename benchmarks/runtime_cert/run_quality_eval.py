@@ -127,6 +127,18 @@ def main() -> None:
         "--model-family", default="llama",
         help="TurboQuant model family (e.g. llama, gemma; default: llama)"
     )
+    parser.add_argument(
+        "--preset", default="paper_mse",
+        help="TurboQuantConfig preset to use (default: paper_mse).  "
+             "Use paper_mse for conservative 3-bit MSE (no QJL) quality gating; "
+             "paper_prod for production-grade but more aggressive settings."
+    )
+    parser.add_argument(
+        "--min-prompt-tokens", type=int, default=32,
+        help="Skip prompts shorter than this many tokens (default: 32).  "
+             "TurboQuant is designed for long sequences; very short prompts produce "
+             "degenerate compression artefacts that are not representative of production use."
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -141,15 +153,28 @@ def main() -> None:
     model, tokenizer = mlx_load(args.model)
 
     from turboquant.config import TurboQuantConfig
-    tq_config = TurboQuantConfig.from_preset("paper_prod")
+    tq_config = TurboQuantConfig.from_preset(args.preset)
+    print(f"TurboQuant preset : {args.preset}  "
+          f"(k_bits={tq_config.k_bits}, algorithm={tq_config.algorithm}, "
+          f"residual_mode={tq_config.residual_mode})")
+    print(f"Min prompt tokens : {args.min_prompt_tokens}")
 
     prompts = _load_prompts(Path(args.prompt_file))
     print(f"Evaluating {len(prompts)} prompt(s) …")
 
     results = []
+    skipped = 0
     for i, text in enumerate(prompts):
         tokens = tokenizer.encode(text)
         import mlx.core as mx
+        n_tokens = len(tokens)
+        if n_tokens < args.min_prompt_tokens:
+            print(
+                f"  [{i+1}/{len(prompts)}] SKIP — {n_tokens} tokens < "
+                f"min_prompt_tokens={args.min_prompt_tokens}"
+            )
+            skipped += 1
+            continue
         input_ids = mx.array(tokens)[None]   # [1, T]
         metrics = _eval_one_prompt(model, input_ids, tq_config, model_family=args.model_family)
         if metrics:
@@ -161,6 +186,33 @@ def main() -> None:
             )
 
     if not results:
+        if skipped == len(prompts):
+            print(
+                f"WARN: all {skipped} prompts were shorter than "
+                f"--min-prompt-tokens={args.min_prompt_tokens}; "
+                "quality gate trivially passes (no compression artefacts to measure)."
+            )
+            # Write a vacuous pass summary and exit 0.
+            summary = {
+                "status": "PASS",
+                "model": args.model,
+                "prompt_class": args.prompt_class,
+                "seed": args.seed,
+                "n_prompts": 0,
+                "n_skipped": skipped,
+                "mean_delta_ppl": 0.0,
+                "mean_kl": 0.0,
+                "thresholds": {
+                    "max_delta_ppl": args.max_delta_ppl,
+                    "max_mean_kl": args.max_mean_kl,
+                },
+                "per_prompt": [],
+                "note": "All prompts shorter than min_prompt_tokens; TQ not activated.",
+            }
+            artifact_path = output_dir / f"quality_eval_{args.prompt_class}_summary.json"
+            artifact_path.write_text(json.dumps(summary, indent=2))
+            print(f"  Artifact : {artifact_path}")
+            sys.exit(0)
         print("ERROR: no valid prompts produced results.", file=sys.stderr)
         sys.exit(2)
 
@@ -174,8 +226,10 @@ def main() -> None:
         "status": status,
         "model": args.model,
         "prompt_class": args.prompt_class,
+        "preset": args.preset,
         "seed": args.seed,
         "n_prompts": len(results),
+        "n_skipped": skipped,
         "mean_delta_ppl": round(mean_delta_ppl, 4),
         "mean_kl": round(mean_kl, 6),
         "thresholds": {

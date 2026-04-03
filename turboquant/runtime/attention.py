@@ -107,7 +107,16 @@ def streaming_scores(
     return out
 
 # Legacy compatibility shim for MLX integrations (llama, gemma, etc.)
-def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None):
+def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None, softcap=None):
+    """Compute streaming attention against a TurboQuantKeysView.
+
+    Parameters
+    ----------
+    softcap:
+        Optional logit soft-capping scalar (used by Gemma 2).  When provided,
+        scores are transformed as ``tanh(scores / softcap) * softcap`` before
+        the causal mask and softmax are applied.
+    """
     cache = keys_view.cache
     import mlx.core as mx
 
@@ -128,6 +137,11 @@ def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None):
 
     # We concatenate scores then softmax
     scores = mx.concatenate(scores, axis=-1)
+
+    # Gemma 2-style logit soft-capping (applied before masking).
+    if softcap is not None:
+        scores = mx.tanh(scores / softcap) * softcap
+
     if mask == "causal":
         q_len = queries.shape[-2]
         k_len = int(scores.shape[-1])

@@ -35,7 +35,6 @@ from benchmarks.runtime_cert.utils import (
     ensure_artifact_dir,
     load_prompts,
     make_run_id,
-    measure_peak_memory_bytes,
     write_json,
 )
 
@@ -88,6 +87,31 @@ def _tokenize(tokenizer, prompt_text: str):
         text = prompt_text
     ids = tokenizer.encode(text)
     return mx.array(ids), len(ids)
+
+
+def _measure_cache_bytes(prompt_cache: list) -> int:
+    """Compute total KV-cache memory from cache objects after generation.
+
+    Uses the cache's own byte-size bookkeeping rather than process-level RSS,
+    so dense and TurboQuant modes are compared on equal footing even when they
+    run in the same process (RSS high-water mark never decreases).
+
+    * TurboQuantKCache  → ``c.nbytes`` (compressed K + V blocks)
+    * KVCache (dense)   → ``c.keys.nbytes + c.values.nbytes`` (raw float16)
+    * Other / None      → 0 (safe fallback)
+    """
+    total = 0
+    for c in prompt_cache:
+        # TurboQuantKCache exposes .nbytes directly (compressed K + V).
+        if hasattr(c, "nbytes"):
+            total += c.nbytes
+        else:
+            # Dense KVCache: count arrays that have been populated.
+            for attr in ("keys", "values"):
+                arr = getattr(c, attr, None)
+                if arr is not None and hasattr(arr, "nbytes"):
+                    total += arr.nbytes
+    return total
 
 
 def run_single_generation(
@@ -145,6 +169,13 @@ def run_single_generation(
     try:
         t0 = time.perf_counter()
 
+        # Pre-build the prompt cache so we can measure its byte size after
+        # generation without relying on process-level RSS (which is a
+        # high-water mark that never resets between runs in the same process).
+        from mlx_lm.models.cache import make_prompt_cache
+        prompt_cache = make_prompt_cache(model)
+        gen_kwargs["prompt_cache"] = prompt_cache
+
         first_token_time = None
         sampler = (
             (lambda x: mx.random.categorical(x * (1.0 / temperature)))
@@ -165,6 +196,12 @@ def run_single_generation(
         decode_sec = total_sec - prefill_sec
         output_text = tokenizer.decode(tokens_out)
 
+        # Measure cache bytes while prompt_cache is still alive (not yet GC'd).
+        cache_bytes = _measure_cache_bytes(prompt_cache)
+        # Release cache arrays explicitly so subsequent runs start from clean state.
+        del prompt_cache
+        mx.eval()  # flush any pending MLX work before memory is freed
+
     except Exception as exc:
         import traceback
 
@@ -173,10 +210,10 @@ def run_single_generation(
         status = "error"
         error_text = str(exc)
         total_sec = time.perf_counter() - t0
+        cache_bytes = 0
 
     gen_count = len(tokens_out)
     tps = gen_count / decode_sec if decode_sec > 0 else 0.0
-    peak_mem = measure_peak_memory_bytes()
 
     return build_run_result(
         run_id=run_id,
@@ -191,7 +228,7 @@ def run_single_generation(
         decode_seconds=decode_sec,
         total_seconds=total_sec,
         tokens_per_second=tps,
-        peak_memory_bytes=peak_mem,
+        peak_memory_bytes=cache_bytes,
         turboquant_active=tq_active,
         turboquant_config=tq_config_dict,
         status=status,

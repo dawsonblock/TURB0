@@ -82,6 +82,16 @@ class Attention(nn.Module):
 
         queries = queries * self.scale
 
+        # TurboQuant path: keys is a TurboQuantKeysView — expand_dims would
+        # fail; route directly through streaming attention with softcapping.
+        if type(keys).__name__ == "TurboQuantKeysView":
+            from turboquant.runtime.attention import turboquant_streaming_attention
+            out = turboquant_streaming_attention(
+                queries, keys, scale=1.0, mask=mask,
+                softcap=self.attn_logit_softcapping,
+            )
+            return self.o_proj(out.transpose(0, 2, 1, 3).reshape(B, L, -1))
+
         if self.repeats > 1:
             queries = queries.reshape(
                 B, self.n_kv_heads, self.repeats, L, self.head_dim
