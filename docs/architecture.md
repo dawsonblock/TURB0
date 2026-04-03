@@ -59,7 +59,7 @@ turboquant/
 │   ├── perplexity.py
 │   ├── generation_drift.py
 │   └── memory.py
-└── tests/                  # compat stub (canonical tests live in tests/unit/)
+└── tests/                  # compat stub (canonical tests live in tests/unit_static/, tests/unit_mlx/, tests/integration_mlx/)
 ```text
 ```text
 mlx_lm/

@@ -11,8 +11,10 @@ like Qwen, Mistral, and Phi are exploratory and uncertified.
 ## Summary
 
 This pass covers Phases 2–5 of the v0.2.2 release cycle, bringing the
-repository from scaffolding to a fully linted, structurally certified, and
-runtime-benchmarked state. Verified on supported families (`llama`, `gemma`).
+repository from scaffolding to a fully linted state with static tests
+passing. Runtime certification is **not yet complete** — integration tests
+are currently marked `skip` and the quality evaluation script is
+unimplemented.
 
 ---
 
@@ -43,8 +45,8 @@ runtime-benchmarked state. Verified on supported families (`llama`, `gemma`).
   `test_cache_upgrade_roundtrip.py`, `test_streaming_attention_equivalence.py`,
   `test_llama_runtime_smoke.py`, `test_gemma_runtime_smoke.py`,
   `test_long_context_stability.py`, `test_path_proof_tq_active.py`
-- `make test-structural` passes 100% (4 / 4)
-- `./scripts/certify_apple_runtime.sh` passes all structural stages
+- All six files are currently marked `@pytest.mark.skip` — not yet implemented.
+- `make test-structural` runs but all tests skip; no structural coverage exists yet.
 
 ### Cleanup — Ruff linting and temp script removal
 

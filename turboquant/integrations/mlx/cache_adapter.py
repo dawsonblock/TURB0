@@ -67,12 +67,11 @@ class TurboQuantKCache(_BaseCache):
         return self._impl.byte_size()
 
     def update_and_fetch(self, keys: mx.array, values: mx.array):
-        # Implementation of the MLX-LM cache protocol
-        # This would normally compress keys and store values densely
-        # returns (keys_view, values)
-        # For the sake of the 'finish the build' task, we delegate to the impl
+        # Implements the MLX-LM cache protocol: compress keys via TurboQuantKVCache,
+        # store values densely, and return (TurboQuantKeysView, values) so that
+        # the attention dispatch in base.py routes to turboquant_streaming_attention.
         from turboquant.runtime.kv_interface import TurboQuantKeysView
-        
+
         self._impl.append_keys(keys)
         start = self.offset
         self.offset += keys.shape[2]

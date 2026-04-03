@@ -18,7 +18,7 @@ Run from a fresh checkout.
 
 Run on an Apple Silicon Mac with MLX installed.
 
-- `python -m pytest tests/unit/ -q` passes
+- `python -m pytest tests/unit_mlx/ -q` passes
 - `python -m pytest tests/integration_mlx -k "not llama and not gemma" -q` passes
 - `make test-path-proof` passes
 

@@ -13,8 +13,8 @@ python3 -m pytest tests/unit_static/
 # 3. Optional: Run strictly hardware dependent tests if on platform
 if python3 scripts/preflight.py --strict 2>/dev/null; then
     echo "\nRunning MLX-dependent tests..."
-    python3 -m pytest tests/unit/
-    python3 -m pytest tests/integration/
+    python3 -m pytest tests/unit_mlx/
+    python3 -m pytest tests/integration_mlx/
 else
     echo "\nSkipping MLX tests (not on Apple Silicon / missing MLX)."
 fi

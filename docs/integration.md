@@ -210,12 +210,12 @@ that bypass `base.py`:
 ## 8. Testing
 
 ```bash
-# Unit tests (turboquant package)
-pytest tests/unit/
+# Static tests (no MLX required)
+pytest tests/unit_static/
 
-# Integration tests (mlx_lm + turboquant)
-pytest tests/integration/
+# MLX unit tests (Apple Silicon only)
+pytest tests/unit_mlx/
 
-# Full suite
-pytest tests/
+# Integration tests (Apple Silicon only)
+pytest tests/integration_mlx/
 ```

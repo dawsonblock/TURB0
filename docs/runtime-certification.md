@@ -1,5 +1,12 @@
 # Runtime Certification
 
+> **STATUS: NOT CERTIFIED.**
+> No real certification artifacts have been produced. The integration tests
+> that would prove this path are currently marked `skip`. The quality
+> evaluation script (`run_quality_eval.py`) exits with an error rather than
+> producing metrics. This document describes the *intended* certification
+> process, not a state that currently exists.
+
 ## Purpose
 
 This document describes the **narrow** Apple-Silicon MLX runtime

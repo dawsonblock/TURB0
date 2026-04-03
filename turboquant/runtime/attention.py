@@ -38,16 +38,6 @@ def score_block(
         n_rep = q_rot.shape[-3] // main_rot.shape[-3]
         main_rot = mx.repeat(main_rot, n_rep, axis=-3)
 
-
-    if q_rot.shape[-3] != main_rot.shape[-3]:
-        n_rep = q_rot.shape[-3] // main_rot.shape[-3]
-        main_rot = mx.repeat(main_rot, n_rep, axis=-3)
-
-
-    if q_rot.shape[-3] != main_rot.shape[-3]:
-        n_rep = q_rot.shape[-3] // main_rot.shape[-3]
-        main_rot = mx.repeat(main_rot, n_rep, axis=-3)
-
     main_scores = q_rot @ mx.swapaxes(main_rot, -1, -2)
 
 
@@ -128,15 +118,6 @@ def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None):
 
     # We concatenate scores then softmax
     scores = mx.concatenate(scores, axis=-1)
-    if mask == "causal":
-        q_len = queries.shape[-2]
-        k_len = mx.concatenate(cache.v_cache, axis=-2).shape[-2] if cache.v_cache else q_len
-        if q_len > 1:
-            inds = mx.arange(k_len)[None, None, :]
-            q_inds = mx.arange(k_len - q_len, k_len)[None, :, None]
-            mask = mx.where(inds > q_inds, mx.array(-1e9, dtype=scores.dtype), mx.array(0.0, dtype=scores.dtype))
-        else:
-            mask = None
     if mask == "causal":
         q_len = queries.shape[-2]
         k_len = mx.concatenate(cache.v_cache, axis=-2).shape[-2] if cache.v_cache else q_len

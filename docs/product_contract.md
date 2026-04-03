@@ -26,9 +26,14 @@ Root-level `integrations/` are legacy compatibility shims and will be removed in
 
 ## 5. Experimental Features
 - **Metal Kernels:** Custom Metal kernels (invoked via `TQ_USE_METAL=1`) are **experimental**. The default certified path uses the standard MLX Python/C++ boundary.
-- **Exploratory Presets:** Any configuration not defined in `turboquant/presets.py` is considered exploratory.
+- **Exploratory Presets:** Any configuration not reachable via `TurboQuantConfig.from_preset()` is considered exploratory.
 
 ## 6. Runtime Certification
-"Full TurboQuant" status requires artifact-backed evidence generated via `make certify-apple-runtime`. 
+
+> **STATUS: NOT CERTIFIED.** No real certification artifacts have been produced yet.
+> The quality evaluation script is unimplemented and integration tests are skipped.
+
+"Full TurboQuant" status requires artifact-backed evidence generated via `make certify-apple-runtime`.
 - Generic CI passes do not constitute runtime certification.
-- Certification artifacts must include memory, latency, and quality benchmarks for at least one Llama and one Gemma model.
+- Certification artifacts must include memory, latency, and quality benchmarks.
+- Certification must begin with **Llama-family only** before Gemma is attempted.

@@ -504,7 +504,7 @@ make test-path-proof
 | Target | Directory | Needs MLX | Needs weights |
 |---|---|:---:|:---:|
 | `test-static` | `tests/unit_static/` | ✗ | ✗ |
-| `test-mlx` | `tests/unit/` | ✓ | ✗ |
+| `test-mlx` | `tests/unit_mlx/` | ✓ | ✗ |
 | `test-structural` | `tests/integration_mlx/` | ✓ | ✗ |
 | `test-path-proof` | `tests/integration_mlx/test_path_not_dense_fallback.py` | ✓ | ✗ |
 
@@ -563,8 +563,8 @@ python benchmarks/exploratory/bench_k_encode.py            # K-encode micro-benc
 
 | Architecture | Status | Notes |
 |---|:---:|---|
-| **Llama** (Llama 2, Llama 3, TinyLlama) | ✅ Runtime verified | Full certification path |
-| **Gemma** (Gemma 2) | ✅ Runtime verified | Full certification path |
+| **Llama** (Llama 2, Llama 3, TinyLlama) | ⬜ Wired, uncertified | Integration tests pending |
+| **Gemma** (Gemma 2) | ⬜ Wired, uncertified | Integration tests pending |
 | Qwen | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
 | Mistral | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
 | Phi | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
