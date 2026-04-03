@@ -114,6 +114,7 @@ If you have old code using `TurboQuantConfig(main_bits=3, group_size=64, ...)`:
 | `main_bits` | `k_bits` | |
 | `group_size` | `k_group_size` | |
 | `rotation` | `rotation` | same values |
+| — | `quantizer_mode` | `"scalar"` (default) or `"polar"` — see §4a below |
 | `return_mode` | — | adapter-only; production upgrade path always uses streaming view mode |
 | `resid_scale_bits` | — | adapter metadata only; production residual behavior is `residual_topk` |
 | `residual` | — | ignored |
@@ -123,6 +124,50 @@ If you have old code using `TurboQuantConfig(main_bits=3, group_size=64, ...)`:
 
 `mlx_lm.models.cache.TurboQuantConfig` is a legacy shim that performs this
 mapping automatically.
+
+---
+
+## 4a. PolarQuant mode
+
+Set `quantizer_mode="polar"` to use the `PolarQuantizer` (arXiv:2502.02617) instead of
+`GroupScalarQuantizer` as the main K-cache quantiser.  All other configuration
+fields (`rotation`, `residual_mode`, etc.) behave identically.
+
+```python
+from turboquant.config import TurboQuantConfig
+from turboquant.core.pipeline import TurboQuantPipeline
+
+# Drop-in replacement for scalar mode
+cfg = TurboQuantConfig(
+    quantizer_mode="polar",   # <-- switch here
+    rotation="hadamard",       # recommended — makes angle distribution uniform
+    residual_mode="none",      # polar encodes residual implicitly; QJL optional
+)
+pipe = TurboQuantPipeline(cfg)
+
+block = pipe.encode_k(k_rotated)   # returns EncodedKeyBlock with .polar set
+k_hat = pipe.decode_k(block)       # reconstructs via polar inverse
+```
+
+Or use the lower-level API directly:
+
+```python
+from turboquant.core.polar_quant import PolarQuantizer
+
+pq = PolarQuantizer(n_levels=4, bits_l1=4, bits_le=2)
+payload = pq.encode(x)   # → PolarQuantPayload (angle codes + final radii)
+x_hat  = pq.decode(payload)
+```
+
+**When to prefer PolarQuant:**
+- Encode-latency sensitive workloads (7–18× faster encode than scalar).
+- Lower reconstruction error is required at the same bit-budget (~40% lower MSE at 3.875 bits/dim vs 3-bit scalar).
+- Memory overhead from scale factors is undesirable (PolarQuant stores zero scales).
+
+**Limitations:**
+- Decode is slightly slower than scalar at large sequence lengths (interleaved reconstruction).
+- Does not currently support QJL residual correction (residual is skipped).
+- `paper_faithful_mode=True` is a deprecated stub; use `quantizer_mode="polar"` directly.
 
 ---
 
@@ -154,10 +199,11 @@ that bypass `base.py`:
 
 | Pitfall | Fix |
 |---|---|
-| `GroupScalarQuantizer(bits=...)` | Use `n_bits=` — the constructor parameter is `n_bits`, not `bits` |
 | Positional `TurboQuantKVCache(cfg)` fails | `config` is positional-or-keyword; both `TurboQuantKVCache(cfg)` and `TurboQuantKVCache(config=cfg)` are valid |
 | `cache._impl.config` hardcoded in attention | Use `impl = getattr(cache, "_impl", cache)` to support both `TurboQuantKCache` and `TurboQuantKVCache` |
 | `quantize_main` / `dequantize_main` required | Since v0.2.2 these are optional; a `GroupScalarQuantizer` is auto-created from `config.k_bits` / `config.k_group_size` |
+| Using PolarQuant with residual | PolarQuant sets `residual_mode` to `"none"` internally; set `residual_mode="none"` explicitly in config to avoid mismatch noise |
+| `paper_faithful_mode=True` has no effect | It is a deprecated dead stub. Use `quantizer_mode="polar"` instead |
 
 ---
 

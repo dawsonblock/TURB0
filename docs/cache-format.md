@@ -111,7 +111,55 @@ index  field
 
 ---
 
-## 4. Convenience API (`TurboQuantKVCache`)
+## 4. PolarQuantPayload format
+
+When `TurboQuantConfig(quantizer_mode="polar")` is used, `EncodedKeyBlock.packed_main`
+and `EncodedKeyBlock.scales` are both `None`.  The compressed data lives in
+`EncodedKeyBlock.polar`, a `PolarQuantPayload` dataclass:
+
+| field | type | description |
+|---|---|---|
+| `angle_codes` | `list[mx.array]` (n_levels items) | per-level uint8 codebook indices; `angle_codes[ℓ]` has shape `[..., d // 2^{ℓ+1}]` |
+| `final_radii` | `mx.array` float16 | `[..., d // 2^n_levels]` — the final Euclidean norms after all polar steps |
+| `d_orig` | `int` | original head dimension before padding |
+| `d_pad` | `int` | padded dimension (multiple of `2^n_levels`) |
+| `n_levels` | `int` | recursion depth (default 4) |
+
+### Codebook sizes
+
+| level | bits | centroids | angle range | distribution |
+|---|---|---|---|---|
+| 1 | 4 | 16 | [0, 2π) | uniform (Gaussian preconditioning) |
+| 2 | 2 | 4 | [0, π/2) | f(ψ) ∝ sin(2ψ) |
+| 3 | 2 | 4 | [0, π/2) | f(ψ) ∝ sin²(2ψ) |
+| 4 | 2 | 4 | [0, π/2) | f(ψ) ∝ sin⁴(2ψ) |
+
+Codebooks are built offline via 1-D Lloyd's algorithm on 400k samples from each
+distribution and cached globally in `turboquant.core.polar_quant._CB_CACHE`.
+
+### Memory layout (d = 128, L = 4)
+
+```text
+angle_codes[0]: [B, H·T, 64]   uint8  →  64 × 4 bits  = 256 bits
+angle_codes[1]: [B, H·T, 32]   uint8  →  32 × 2 bits  =  64 bits
+angle_codes[2]: [B, H·T, 16]   uint8  →  16 × 2 bits  =  32 bits
+angle_codes[3]: [B, H·T,  8]   uint8  →   8 × 2 bits  =  16 bits
+final_radii:    [B, H·T,  8]   fp16   →   8 × 16 bits = 128 bits
+                                          TOTAL = 496 bits / 128 dims = 3.875 bits/dim
+```
+
+No scale factors are stored — **zero memory overhead** compared to scalar quantisation.
+
+### Residual interaction
+
+PolarQuant does not use residual correction.  When `quantizer_mode="polar"`,
+`encode_k_block` stores `ResidualPayload(mode="none", data={})` and the decode
+path skips the residual step entirely.  To use QJL residuals, switch to
+`quantizer_mode="scalar"`.
+
+---
+
+## 5. Convenience API (`TurboQuantKVCache`)
 
 `TurboQuantKVCache` can be used directly as a benchmark stand-in or MLX-LM
 adapter without going through `TurboQuantKCache`. Additional properties:

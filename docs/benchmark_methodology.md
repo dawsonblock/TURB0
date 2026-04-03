@@ -18,13 +18,37 @@ Located in `benchmarks/exploratory/`. Run individually or via `scripts/run_bench
 | `bench_dense_vs_turboquant.py` | Head-to-head memory and encode latency across bit-width configs | `artifacts/benchmarks/` |
 | `bench_memory_footprint.py` | Per-buffer memory breakdown across token counts and configs | `artifacts/benchmarks/memory_footprint.txt` |
 | `bench_decode_streaming.py` | Streaming attention decode latency vs dense baseline | `artifacts/benchmarks/decode_streaming.txt` |
+| `bench_polar_vs_scalar.py` | PolarQuantizer vs GroupScalarQuantizer: encode/decode latency and MSE | `artifacts/benchmarks/polar_vs_scalar.json` |
 
 **Measured numbers (Apple Silicon M-series, April 2026):**
 
 ```text
-K-Encode Benchmark:       0.29 ms / step   (shape [1, 32, 128, 128], 100 iterations)
+K-Encode Benchmark:       0.30 ms / step   (shape [1, 32, 128, 128], 100 iterations)
 Decode Step Benchmark:    0.04 ms / step   (append_keys, 1 new token, 100 iterations)
 ```
+
+**PolarQuant vs GroupScalarQuantizer (3-bit, group=64) — Apple Silicon M-series, April 2026:**
+
+Config: batch=1, n_heads=8, reps=50, warmup=10.  All shapes [B·H·T, d_head].
+
+```text
+d_head    T    scalar enc ms  scalar dec ms  scalar MSE  scalar b/d    polar enc ms  polar dec ms   polar MSE  polar b/d  MSE ratio
+    64  256    0.518±0.208    0.229±0.058    0.064083      3.250       0.043±0.004   0.361±0.141   0.038403     3.875      0.60x
+    64  512    0.326±0.079    0.201±0.089    0.063783      3.250       0.049±0.007   0.309±0.089   0.038263     3.875      0.60x
+    64 1024    0.376±0.095    0.196±0.071    0.063502      3.250       0.047±0.013   0.338±0.080   0.038252     3.875      0.60x
+   128  256    0.334±0.084    0.193±0.060    0.063783      3.250       0.042±0.002   0.311±0.097   0.038263     3.875      0.60x
+   128  512    0.376±0.092    0.199±0.083    0.063502      3.250       0.044±0.003   0.337±0.070   0.038252     3.875      0.60x
+   128 1024    0.468±0.103    0.246±0.104    0.063460      3.250       0.042±0.001   0.493±0.081   0.038175     3.875      0.60x
+   256  256    0.379±0.077    0.197±0.086    0.063502      3.250       0.051±0.020   0.331±0.071   0.038252     3.875      0.60x
+   256  512    0.467±0.063    0.250±0.106    0.063460      3.250       0.044±0.006   0.520±0.118   0.038175     3.875      0.60x
+   256 1024    0.912±0.094    0.339±0.085    0.063266      3.250       0.051±0.022   1.044±0.096   0.038119     3.875      0.60x
+```
+
+Key observations:
+- PolarQuant **encode** is 7–18× faster (arctan2 + argmin vs bit-packing).
+- PolarQuant **MSE** is uniformly 40% lower (0.60× ratio) at slightly higher bit-rate.
+- PolarQuant **decode** is comparable or slightly slower at large T due to interleaved reconstruction.
+- Full JSON results in `artifacts/benchmarks/polar_vs_scalar.json`.
 
 **Dense vs TurboQuant — memory compression and encode latency:**
 
