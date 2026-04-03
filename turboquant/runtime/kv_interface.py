@@ -25,10 +25,16 @@ class TurboQuantKVCache:
         config.validate()
         self.config = config
         if quantize_main is None or dequantize_main is None:
-            from turboquant.core.quantizer import GroupScalarQuantizer
-            _q = GroupScalarQuantizer(
-                n_bits=config.k_bits, group_size=config.k_group_size
-            )
+            if config.is_mse_mode() or config.is_prod_mode():
+                from turboquant.core.quantizer import LloydMaxScalarQuantizer
+                _q = LloydMaxScalarQuantizer(
+                    n_bits=config.k_bits, group_size=config.k_group_size
+                )
+            else:
+                from turboquant.core.quantizer import GroupScalarQuantizer
+                _q = GroupScalarQuantizer(
+                    n_bits=config.k_bits, group_size=config.k_group_size
+                )
             if quantize_main is None:
                 quantize_main = _q.quantize
             if dequantize_main is None:
@@ -39,7 +45,36 @@ class TurboQuantKVCache:
         self._offset: int = 0
         self._d_head: int = 0
         self._d_pad: int = 0
-        self.v_cache: list = []
+        # V-block storage — "paper_kv" mode encodes V alongside K.
+        # "k_only" legacy mode stores dense values in v_cache.
+        self.storage_mode: str = (
+            "paper_kv"
+            if (config.is_mse_mode() or config.is_prod_mode())
+            else "k_only"
+        )
+        self.v_blocks: list[Any] = []
+        self.v_cache: list = []  # kept for backward compat + k_only mode
+
+        if self.storage_mode == "paper_kv":
+            from turboquant.core.quantizer import LloydMaxScalarQuantizer
+            _v = LloydMaxScalarQuantizer(
+                n_bits=config.v_bits, group_size=config.v_group_size
+            )
+            self._v_quantize = _v.quantize
+            self._v_dequantize = _v.dequantize
+            # Derived config for V: MSE-only, no residual, same rotation
+            self._v_config = TurboQuantConfig(
+                k_bits=config.v_bits,
+                k_group_size=config.v_group_size,
+                algorithm="turboquant_mse",
+                residual_mode="none",
+                rotation=config.rotation,
+                rotation_seed=config.rotation_seed,
+            )
+        else:
+            self._v_quantize = None
+            self._v_dequantize = None
+            self._v_config = None
 
     @property
     def num_blocks(self) -> int:
@@ -47,6 +82,7 @@ class TurboQuantKVCache:
 
     def clear(self) -> None:
         self._blocks.clear()
+        self.v_blocks.clear()
         self.v_cache.clear()
         self._offset = 0
         self._d_head = 0
@@ -96,13 +132,29 @@ class TurboQuantKVCache:
             dequantize_main=self.dequantize_main,
         )
 
+    def decode_v_block(self, index: int):
+        """Decode the *index*-th V block back to original coordinate space."""
+        from turboquant.core.pipeline import decode_k_block
+        return decode_k_block(
+            self.v_blocks[index],
+            config=self._v_config,
+            dequantize_main=self._v_dequantize,
+        )
+
     def byte_size(self):
         k_bytes = sum(
             (b.packed_main.nbytes if b.packed_main is not None else 0)
             + (b.scales.nbytes if b.scales is not None else 0)
             for b in self._blocks
         )
-        v_bytes = sum(v.nbytes for v in self.v_cache if hasattr(v, "nbytes"))
+        if self.storage_mode == "paper_kv":
+            v_bytes = sum(
+                (b.packed_main.nbytes if b.packed_main is not None else 0)
+                + (b.scales.nbytes if b.scales is not None else 0)
+                for b in self.v_blocks
+            )
+        else:
+            v_bytes = sum(v.nbytes for v in self.v_cache if hasattr(v, "nbytes"))
         return k_bytes + v_bytes
 
     @property
@@ -118,7 +170,11 @@ class TurboQuantKVCache:
         return self._blocks[0].packed_main
 
     def update_and_fetch(self, keys, values):
-        """Append *keys* (compressed) and *values* (dense), return (keys_view, values).
+        """Append *keys* (compressed) and *values* (dense or compressed), return (keys_view, values).
+
+        In paper mode (``storage_mode == "paper_kv"``): encodes V blocks for
+        memory-efficient storage.  Dense *values* are still returned so that
+        callers can pass them directly to attention.
 
         This is the MLX-LM cache-adapter protocol convenience method, so
         TurboQuantKVCache can be used directly as a drop-in benchmark stand-in
@@ -126,7 +182,20 @@ class TurboQuantKVCache:
         """
         start = self._offset
         self.append_keys(keys)
-        self.v_cache.append(values)
+
+        if self.storage_mode == "paper_kv":
+            from turboquant.core.pipeline import encode_k_block
+            v_block = encode_k_block(
+                values,
+                config=self._v_config,
+                quantize_main=self._v_quantize,
+                dequantize_main=self._v_dequantize,
+            )
+            self.v_blocks.append(v_block)
+            # v_cache stays empty in paper mode; attention uses decode_v_block()
+        else:
+            self.v_cache.append(values)
+
         return TurboQuantKeysView(self, start, self._offset), values
 
     def memory_breakdown(self) -> dict:
@@ -139,14 +208,34 @@ class TurboQuantKVCache:
             b.scales.nbytes if b.scales is not None else 0
             for b in self._blocks
         )
-        v_dense = sum(
-            v.nbytes for v in self.v_cache if hasattr(v, "nbytes")
+        k_residual = sum(
+            (b.residual.data.get("bits", None).nbytes
+             if hasattr(b.residual.data.get("bits", None), "nbytes") else 0)
+            + (b.residual.data.get("norms", None).nbytes
+               if hasattr(b.residual.data.get("norms", None), "nbytes") else 0)
+            for b in self._blocks
         )
-        total = k_main + k_scales + v_dense
+
+        if self.storage_mode == "paper_kv":
+            v_main = sum(
+                b.packed_main.nbytes if b.packed_main is not None else 0
+                for b in self.v_blocks
+            )
+            v_scales = sum(
+                b.scales.nbytes if b.scales is not None else 0
+                for b in self.v_blocks
+            )
+        else:
+            v_main = 0
+            v_scales = 0
+            # Legacy dense path — not counted here
+        total = k_main + k_scales + k_residual + v_main + v_scales
         return {
-            "k_packed_main": k_main,
+            "k_main": k_main,
             "k_scales": k_scales,
-            "v_dense": v_dense,
+            "k_residual": k_residual,
+            "v_main": v_main,
+            "v_scales": v_scales,
             "total": total,
         }
 

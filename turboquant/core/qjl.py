@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 import mlx.core as mx
@@ -11,9 +11,15 @@ class QJLMeta:
     input_dim: int
     proj_dim: int
     seed: int
+    algorithm: str = "turboquant_prod"  # for future-proofing
 
-    def to_dict(self) -> dict[str, int]:
-        return asdict(self)
+    def to_dict(self) -> dict:
+        return {
+            "input_dim": self.input_dim,
+            "proj_dim": self.proj_dim,
+            "seed": self.seed,
+            "algorithm": self.algorithm,
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> QJLMeta:
@@ -21,6 +27,7 @@ class QJLMeta:
             input_dim=int(data["input_dim"]),
             proj_dim=int(data["proj_dim"]),
             seed=int(data["seed"]),
+            algorithm=str(data.get("algorithm", "turboquant_prod")),
         )
 
 
@@ -171,4 +178,19 @@ class QJLProjector:
 
         return scores * (norm_scale[..., None, :] / q_norm[..., :, None])
 
+    def estimate_inner_product(
+        self,
+        q: mx.array,
+        bits: mx.array,
+        norms: mx.array,
+        meta: QJLMeta | dict[str, Any],
+    ) -> mx.array:
+        """Primary high-level API for inner-product estimation.
+
+        Estimates ``q · residual`` for all query/key pairs in rotated space,
+        without fully reconstructing the residual vector.
+
+        Alias of ``dot_estimate``; prefer this name in new code.
+        """
+        return self.dot_estimate(q, bits, norms, meta)
 

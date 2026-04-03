@@ -81,6 +81,11 @@ class TurboQuantPipeline:
         if config.quantizer_mode == "polar":
             from .polar_quant import PolarQuantizer
             self._k_quant = PolarQuantizer()
+        elif config.is_mse_mode() or config.is_prod_mode():
+            from .quantizer import LloydMaxScalarQuantizer
+            self._k_quant = LloydMaxScalarQuantizer(
+                n_bits=config.k_bits, group_size=config.k_group_size
+            )
         else:
             self._k_quant = GroupScalarQuantizer(n_bits=config.k_bits, group_size=config.k_group_size)
         self._v_quant = GroupScalarQuantizer(n_bits=config.v_bits, group_size=config.v_group_size)

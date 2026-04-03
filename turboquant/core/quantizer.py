@@ -356,3 +356,125 @@ class GroupScalarQuantizer:
         """
         d_pad = int(packed.shape[-1]) * _codes_per_word(self.n_bits)
         return self.decode(packed, scales, d_pad)
+
+
+# ── LloydMaxScalarQuantizer ───────────────────────────────────────────────────
+
+
+class LloydMaxScalarQuantizer:
+    """Lloyd-Max scalar quantizer with Beta(0.5, 0.5) (arcsine) centroid tables.
+
+    Centroids are precomputed offline by Lloyd-Max iteration on the arcsine
+    distribution on [-1, 1], which approximately describes rotated key-vector
+    components after per-group max-absolute normalization (paper §3.1).
+
+    Encoding
+    --------
+    1. Reshape last dim into (n_groups, group_size).
+    2. Compute per-group max-abs scale.
+    3. Normalise each group to [-1, 1].
+    4. Assign each element to its nearest centroid (argmin squared distance).
+    5. Bit-pack centroid indices into uint32 words.
+
+    API is drop-in compatible with GroupScalarQuantizer.
+    """
+
+    # Offline Lloyd-Max centroids for arcsine distribution on [-1, 1].
+    # Computed by 1000-iteration Lloyd-Max on a 2 M-point analytic grid;
+    # enforced to be exactly symmetric around zero.
+    # For b bits, there are 2^b centroids in ascending order.
+    _LLOYDMAX_CENTROIDS: dict[int, list[float]] = {
+        1: [-0.636620,  0.636620],
+        2: [-0.855288, -0.297660,  0.297660,  0.855288],
+        3: [-0.939694, -0.699434, -0.428660, -0.144242,
+             0.144242,  0.428660,  0.699434,  0.939694],
+        4: [-0.974440, -0.870680, -0.751762, -0.624014,
+            -0.490422, -0.352860, -0.212699, -0.071060,
+             0.071060,  0.212699,  0.352860,  0.490422,
+             0.624014,  0.751762,  0.870680,  0.974440],
+    }
+
+    def __init__(
+        self,
+        n_bits: int,
+        group_size: int,
+        eps: float = 1e-6,
+    ) -> None:
+        if n_bits not in self._LLOYDMAX_CENTROIDS:
+            raise TurboQuantShapeError(
+                f"LloydMaxScalarQuantizer: n_bits must be in {{1, 2, 3, 4}}, got {n_bits}"
+            )
+        self.n_bits = n_bits
+        self.group_size = group_size
+        self.eps = eps
+        build_caches(n_bits)
+        self._centroids_mx: mx.array = mx.array(
+            self._LLOYDMAX_CENTROIDS[n_bits], dtype=mx.float32
+        )
+
+    # ── Encode / decode ───────────────────────────────────────────────────────
+
+    def encode(self, x: mx.array) -> tuple[mx.array, mx.array]:
+        """x: [..., D] → (packed [..., n_words], scales [..., n_groups])."""
+        d_orig = int(x.shape[-1])
+        d_pad = _round_up(d_orig, self.group_size)
+
+        if d_pad > d_orig:
+            z = mx.zeros((*x.shape[:-1], d_pad - d_orig), dtype=x.dtype)
+            x = mx.concatenate([x, z], axis=-1)
+
+        prefix = x.shape[:-1]
+        n_groups = d_pad // self.group_size
+
+        # Per-group max-abs scale (keeps normalised values in [-1, 1])
+        xg = x.reshape(*prefix, n_groups, self.group_size)
+        scales = mx.max(mx.abs(xg), axis=-1)  # [..., n_groups]
+        scales = mx.maximum(scales, mx.array(self.eps, dtype=x.dtype))
+
+        # Normalise and flatten
+        x_norm = (xg / scales[..., None]).reshape(*prefix, d_pad)  # [..., d_pad]
+
+        # Nearest centroid: [..., d_pad, 1] vs [n_centroids]
+        c = self._centroids_mx.astype(x.dtype)
+        diffs = x_norm[..., None] - c  # [..., d_pad, n_centroids]
+        codes_idx = mx.argmin(diffs * diffs, axis=-1)  # [..., d_pad]
+
+        # Bit-pack unsigned indices
+        packed = pack_codes(codes_idx.astype(mx.uint32), self.n_bits)
+
+        return packed, scales
+
+    def decode(self, packed: mx.array, scales: mx.array, d_orig: int) -> mx.array:
+        """(packed [..., n_words], scales [..., n_groups]) → [..., d_orig]."""
+        prefix = packed.shape[:-1]
+        n_words = int(packed.shape[-1])
+        n_groups = int(scales.shape[-1])
+        d_pack = n_words * _codes_per_word(self.n_bits)
+        d_g = n_groups * self.group_size
+
+        # Unpack to unsigned centroid indices
+        unsigned = unpack_codes(packed, d_pack, self.n_bits)  # [..., d_pack]
+
+        # Centroid lookup and scale back
+        c = self._centroids_mx.astype(scales.dtype)
+        x_norm = c[unsigned][..., :d_g].reshape(*prefix, n_groups, self.group_size)
+        x_hat = (x_norm * scales.reshape(*prefix, n_groups, 1)).reshape(*prefix, d_g)
+
+        return x_hat[..., :d_orig]
+
+    # ── Pipeline adapter wrappers ─────────────────────────────────────────────
+
+    def quantize(self, x: mx.array, *, config=None) -> tuple[mx.array, mx.array]:
+        """Adapter matching the ``quantize_main(x, *, config)`` pipeline signature."""
+        return self.encode(x)
+
+    def dequantize(
+        self, packed: mx.array, scales: mx.array, *, config=None
+    ) -> mx.array:
+        """Adapter matching the ``dequantize_main(packed, scales, *, config)`` signature.
+
+        Decodes to the padded dimension; callers slice to the original head
+        dimension afterwards (``decode_k_block`` does this via ``block.d_rot``).
+        """
+        d_pad = int(packed.shape[-1]) * _codes_per_word(self.n_bits)
+        return self.decode(packed, scales, d_pad)
