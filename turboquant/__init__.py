@@ -12,7 +12,12 @@ TurboQuantPipeline        — low-level encode/decode pipeline
 TurboQuantKVCache         — canonical KV cache implementation
 KVCompressor              — compatibility alias for TurboQuantKVCache; prefer TurboQuantKVCache for new code
 calibrate                 — calibration pass over representative data
-upgrade_cache_list        — canonical utility to migrate MLX cache lists
+upgrade_cache_list        — canonical support-gated runtime path for allowlisted MLX cache upgrades
+
+Internal adapter note
++--------------------
+`TurboQuantKCache(...)` is an internal/eval-only mlx_lm adapter. It intentionally bypasses the
+support gate and is therefore not exported from the package root.
 """
 
 from turboquant._deps import (

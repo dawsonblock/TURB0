@@ -1,5 +1,5 @@
 """
-turboquant.runtime.events — structured upgrade and failure event log.
+turboquant.runtime.events — optional persistence-side upgrade and failure event log.
 
 **Role in the event architecture**
 -----------------------------------
@@ -15,16 +15,15 @@ There are two distinct ``CacheUpgradeEvent`` types in this codebase:
    additional fields (``timestamp_utc``, ``token_index``, ``event_type``)
    needed for JSONL artifact output during certification runs.
 
-These two types are **not interchangeable**.  If you need JSONL output (e.g.
-for ``make certify-apple-runtime``), build an ``EventLog``, call
-``EventLog.record()`` with this module's ``CacheUpgradeEvent``, then pass the
-log to :meth:`~turboquant.metrics.tracker.MetricsTracker.write`.  The primary
-runtime path returns the simpler type from ``upgrade.py``.
+These two types are **not interchangeable**.  The canonical runtime path
+returns the simpler type from ``upgrade.py`` and does **not** automatically
+persist it.  If a benchmark or certification flow needs JSONL output, build an
+``EventLog``, explicitly convert runtime events into this module's event types,
+then pass the log to :meth:`~turboquant.metrics.tracker.MetricsTracker.write`.
 
-Every cache upgrade or compression failure produces a structured event.
-Events are written to ``events.jsonl`` in the run artifact directory so
-that CI and offline analysis can verify the exact transition point and its
-memory effect without re-running inference.
+The canonical decode path does not create an ``EventLog`` and does not write
+``events.jsonl`` by default. This module is the optional persistence-side layer
+used by certification and instrumentation flows.
 
 Event types
 -----------
@@ -57,7 +56,7 @@ import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Union
+from typing import Iterable, Union
 
 logger = logging.getLogger("turboquant.runtime.events")
 
@@ -153,6 +152,47 @@ class UpgradeFailureEvent:
 AnyEvent = Union[CacheUpgradeEvent, UpgradeFailureEvent]
 
 
+def record_runtime_upgrade_events(
+    event_log: "EventLog",
+    runtime_events: Iterable[object],
+) -> int:
+    """Convert runtime ``upgrade.CacheUpgradeEvent`` objects into persistence events.
+
+    This is the explicit bridge between the canonical runtime path and the
+    optional JSONL persistence layer.  The function intentionally uses duck
+    typing so callers do not need to import the runtime event class here.
+
+    Parameters
+    ----------
+    event_log:
+        Persistence-side log that will receive converted events.
+    runtime_events:
+        Iterable of runtime events returned by
+        ``turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)``.
+
+    Returns
+    -------
+    int
+        Number of successful upgrade events recorded into ``event_log``.
+    """
+    recorded = 0
+    for ev in runtime_events:
+        if not getattr(ev, "upgraded", False):
+            continue
+        event_log.record(
+            CacheUpgradeEvent(
+                layer_index=int(getattr(ev, "layer_index", 0)),
+                token_index=int(getattr(ev, "offset_at_upgrade", 0)),
+                old_type=str(getattr(ev, "old_type", "KVCache")),
+                new_type=str(getattr(ev, "new_type", "TurboQuantKCache")),
+                old_bytes=int(getattr(ev, "old_bytes", 0)),
+                new_bytes=int(getattr(ev, "new_bytes", 0)),
+            )
+        )
+        recorded += 1
+    return recorded
+
+
 # ── EventLog ──────────────────────────────────────────────────────────────────
 
 
@@ -181,6 +221,9 @@ class EventLog:
 
         log.flush()          # writes runs/run_001/events.jsonl
         log.flush()          # idempotent — appends new events only
+
+    ``EventLog`` is optional.  The canonical runtime path does not construct it
+    automatically.
     """
 
     def __init__(self, artifact_dir: Path | None = None) -> None:

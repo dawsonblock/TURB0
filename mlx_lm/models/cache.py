@@ -397,7 +397,7 @@ class KVCache(_BaseCache):
         """Deprecated compatibility helper for converting a dense KVCache.
 
         .. warning::
-            This is a **deprecated internal compatibility helper**.  It
+            This is a **deprecated internal/eval-only compatibility helper**. It
             constructs ``TurboQuantKCache`` directly and **bypasses the
             model-family support gate** — no check is made against the
             certified ``SUPPORTED_FAMILIES`` allowlist.  Callers are

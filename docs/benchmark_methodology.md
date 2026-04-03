@@ -1,9 +1,6 @@
 # Benchmark Methodology
 
-This document records historical benchmark snapshots and reproduction steps for
-local Apple-Silicon testing. It is not part of the certified product contract,
-and the numbers below are not continuously revalidated on every commit. Treat
-them as lab notes, not promises.
+This document records historical and illustrative benchmark snapshots plus reproduction steps for local Apple-Silicon testing. It is not part of the certified product contract, and the numbers below are not continuously revalidated on every commit. Treat them as lab notes, not promises.
 
 ## Execution rules
 
@@ -30,6 +27,10 @@ Located in `benchmarks/exploratory/`. Run individually or via `scripts/run_bench
 > **not** re-verified on every commit.  Treat them as indicative order-of-magnitude
 > figures and historical snapshots, not certification thresholds or continuous-integration baselines.  To reproduce, run
 > `scripts/run_benchmarks.sh` on Apple Silicon.
+
+Some benchmark scripts preserve legacy knobs such as `block_tokens` for
+historical comparison. That does not make those knobs active controls in the
+current supported runtime path.
 
 **Historical snapshots (Apple Silicon M-series, April 2026):**
 

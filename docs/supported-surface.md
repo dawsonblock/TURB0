@@ -40,6 +40,10 @@ These exist in the repo but are not the supported public runtime entry points:
 
 `upgrade_cache_list(...)` returns lightweight runtime upgrade events, but the canonical decode path does not automatically persist `events.jsonl`. Persistence remains an explicit certification workflow.
 
+If a benchmark or certification flow wants persisted JSONL artifacts, it must
+explicitly convert those runtime upgrade decisions into an `EventLog` and flush
+them through the persistence layer.
+
 ## Not claimed
 
 What is **not** claimed by the current repository state:

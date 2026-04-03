@@ -4,11 +4,17 @@
 
 ---
 
-## 0. Preferred approach — centralized dispatch for base.py-routed models
+## 0. Canonical supported runtime path
 
-The simplest integration path requires **no changes to individual model files**.
-`mlx_lm/models/base.py`’s `scaled_dot_product_attention` function now contains
-a type-guard that automatically routes any `TurboQuantKeysView` tensor to
+For supported runtime use, the canonical entry point is
+`upgrade_cache_list(..., model_family=...)` inside the `mlx_lm` decode flow.
+If you use the convenience kwargs in `mlx_lm.generate.generate(...)`, that path
+still delegates to `maybe_turboquant_k_cache(...)` and then to
+`upgrade_cache_list(...)`. The support contract is the support-gated
+`upgrade_cache_list(...)` path, not direct adapter construction.
+
+`mlx_lm/models/base.py`’s `scaled_dot_product_attention` function contains a
+type-guard that routes any `TurboQuantKeysView` tensor to
 `turboquant_streaming_attention`:
 
 ```python
@@ -20,13 +26,11 @@ def scaled_dot_product_attention(queries, keys, values, cache, scale, mask=None,
     ...
 ```
 
-This means the **attention dispatch** routes automatically for any model that calls
-`scaled_dot_product_attention` from `base.py` — but this is **not the same as being supported**.
-The cache upgrade gate (`upgrade_cache_list`) separately enforces the model-family allowlist:
-only `"llama"` and `"gemma"` are in the certified allowlist. Routing through `base.py` does not
-bring a model into the supported set. Verified on Llama and Gemma on Apple Silicon
-(commit `6afc966`). All other architectures are unsupported or exploratory regardless of
-whether they call `scaled_dot_product_attention`.
+This dispatch detail explains how an already-upgraded cache is consumed. It is
+not itself the support contract. The cache upgrade gate (`upgrade_cache_list`)
+separately enforces the model-family allowlist: only `"llama"` and `"gemma"`
+are in the supported set. Routing through `base.py` does not bring a family
+into the supported set.
 
 ---
 
@@ -34,20 +38,22 @@ whether they call `scaled_dot_product_attention`.
 
 TurboQuant inserts itself into two places:
 
-1. **KV cache** — replace `KVCache` with `TurboQuantKCache` after prefill
+1. **KV cache** — promote dense `KVCache` entries through `upgrade_cache_list(...)`
+    after prefill
 2. **Attention** — dispatch to the streaming attention path when the key tensor
    is a `TurboQuantKeysView`
 
 The cache upgrade is done once after prefill. For models that already call
 `mlx_lm.models.base.scaled_dot_product_attention`, the attention dispatch needs
-no extra model-file wiring. Models with custom attention paths still need a
-manual fallback check.
+no extra model-file wiring after the canonical upgrade path runs. Models with
+custom attention paths still need a manual fallback check, but that is a
+secondary integration detail, not the public runtime entry point.
 
 ---
 
 ## 2. Cache upgrade
 
-### Recommended (programmatic)
+### Recommended (canonical)
 
 ```python
 from mlx_lm.models.cache import make_prompt_cache
@@ -63,22 +69,31 @@ events = upgrade_cache_list(
 )
 # decode loop continues with TurboQuant cache
 ```text
-`upgrade_cache_list` returns a list of `CacheUpgradeEvent` objects (one per
-layer) with `upgraded`, `layer_index`, `old_type`, `new_type`, `offset_at_upgrade`.
+`upgrade_cache_list` returns a list of runtime `CacheUpgradeEvent` objects (one
+per layer) with `upgraded`, `layer_index`, `old_type`, `new_type`, and
+`offset_at_upgrade`.
 
 Those runtime events are not persisted automatically by the canonical decode
-path. If you want `events.jsonl` artifacts, use the optional persistence layer
-(`EventLog` plus `MetricsTracker.write(event_log=...)`) explicitly.
+path. If you want `events.jsonl` artifacts, explicitly convert them into an
+`EventLog` and pass that log to `MetricsTracker.write(event_log=...)` in a
+benchmark or certification flow.
 
 ### Legacy (deprecated)
 
 `mlx_lm.generate.maybe_turboquant_k_cache` is still importable for backward
-compatibility but internally delegates to `upgrade_cache_list`.  New code should
-use `upgrade_cache_list` directly.
+compatibility but internally delegates to `upgrade_cache_list`. New code should
+use `upgrade_cache_list` directly. Direct `TurboQuantKCache(...)` construction
+and `KVCache.to_turboquant()` are internal/eval-only escape hatches, not peer
+public runtime surfaces.
 
 ---
 
-## 3. Attention dispatch
+## 3. Secondary attention-wiring details
+
+The canonical runtime integration does not start by constructing
+`TurboQuantKCache(...)` directly. This section only explains how the attention
+side consumes upgraded caches or how to wire unsupported/custom models during
+development.
 
 ### Step 1 — imports
 
@@ -103,7 +118,7 @@ def __call__(self, x, mask=None, cache=None):
     
     if isinstance(k, TurboQuantKeysView):
         attn_out = turboquant_streaming_attention(
-            q, k, v, mask=mask, scale=scale
+            q, k, mask=mask, scale=scale
         )
     else:
         # your existing dense attention implementation
@@ -133,7 +148,7 @@ If you have old code using `TurboQuantConfig(main_bits=3, group_size=64, ...)`:
 | `residual` | — | ignored |
 | `v_bits` | `v_bits` | |
 | `v_group_size` | `v_group_size` | |
-| `block_tokens` | `block_tokens` | compatibility-only knob; accepted but not currently used in the attention dispatch path |
+| `block_tokens` | `block_tokens` | compatibility-only knob retained for old configs and future experimentation; it does not currently affect the attention dispatch path |
 
 `mlx_lm.models.cache.TurboQuantConfig` is a legacy shim that performs this
 mapping automatically.

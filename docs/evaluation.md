@@ -2,9 +2,10 @@
 
 > How to inspect the quality impact of TurboQuant KV compression in a prototype build.
 
-> All thresholds and numeric examples in this document are exploratory tuning
-> heuristics from small-scale Apple-Silicon runs. They are not release gates,
-> not certification gates, and not evidence of production readiness.
+> All thresholds and numeric examples in this document are exploratory or
+> illustrative tuning heuristics from small-scale Apple-Silicon runs. They are
+> not release gates, not certification gates, and not evidence of production
+> readiness.
 
 ---
 
@@ -44,10 +45,10 @@ compared to a dense-cache baseline.
 PPL = exp( mean NLL )
 delta_ppl = tq_ppl - dense_ppl
 ```text
-A `delta_ppl` below **0.5** is an exploratory tuning heuristic from informal
-testing. Values above **2.0** suggest the bit-width is too aggressive. These
-numbers are not certification baselines — runtime certification requires Apple
-Silicon hardware with real model weights.
+A `delta_ppl` below **0.5** is an illustrative local heuristic from informal
+testing. Values above **2.0** often suggest the bit-width is too aggressive.
+These numbers are not certification baselines — runtime certification requires
+Apple Silicon hardware with saved artifacts from real model weights.
 
 `benchmarks/runtime_cert/run_quality_eval.py` currently uses **0.5** as its
 local default `--max-delta-ppl` threshold. That script default is a convenience
@@ -67,7 +68,7 @@ targets — it compares the model's beliefs unconditionally.
 ```text
 KL(P_dense || P_tq) = sum_v P_dense(v) * (log P_dense(v) - log P_tq(v))
 ```text
-A `mean_kl` below **0.01** nats is an exploratory heuristic for negligible
+A `mean_kl` below **0.01** nats is an illustrative heuristic for negligible
 distribution shift in informal testing. It is not a release or certification
 gate.
 
@@ -131,8 +132,8 @@ python benchmarks/<script>.py
 
 ## 5. Interpreting exploratory results
 
-These ranges are informal tuning heuristics from small-scale runs, not
-certified thresholds.
+These ranges are informal or illustrative tuning heuristics from small-scale
+runs, not certified thresholds.
 
 | metric | informal range | action if outside range |
 |---|---|---|

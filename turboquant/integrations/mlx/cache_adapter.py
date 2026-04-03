@@ -47,7 +47,8 @@ class TurboQuantKCache(_BaseCache):
 
     Production callers should prefer ``upgrade_cache_list(...)``, which
     enforces the model-family support gate before constructing this adapter.
-    Direct construction is kept for eval and compatibility helpers.
+    Direct construction is kept for eval and compatibility helpers.  This class
+    is not a peer public runtime entry point.
     """
     def __init__(self, config: TurboQuantConfig):
         # We don't call super().__init__() because we manage our own storage

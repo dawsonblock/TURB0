@@ -363,3 +363,101 @@ def test_event_log_records_and_flushes_in_memory() -> None:
     finally:
         if injected:
             sys.path.remove(str(REPO_ROOT))
+
+
+def test_record_runtime_upgrade_events_converts_runtime_events() -> None:
+    """record_runtime_upgrade_events must bridge runtime events into EventLog explicitly."""
+    injected = _add_repo_to_path()
+    try:
+        from turboquant.runtime.events import EventLog, record_runtime_upgrade_events
+
+        class _RuntimeUpgradeEvent:
+            def __init__(
+                self,
+                *,
+                upgraded: bool,
+                layer_index: int,
+                offset_at_upgrade: int,
+                old_type: str,
+                new_type: str,
+                old_bytes: int,
+                new_bytes: int,
+            ) -> None:
+                self.upgraded = upgraded
+                self.layer_index = layer_index
+                self.offset_at_upgrade = offset_at_upgrade
+                self.old_type = old_type
+                self.new_type = new_type
+                self.old_bytes = old_bytes
+                self.new_bytes = new_bytes
+
+        log = EventLog(artifact_dir=None)
+        recorded = record_runtime_upgrade_events(
+            log,
+            [
+                _RuntimeUpgradeEvent(
+                    upgraded=True,
+                    layer_index=2,
+                    offset_at_upgrade=128,
+                    old_type="KVCache",
+                    new_type="TurboQuantKCache",
+                    old_bytes=262144,
+                    new_bytes=65536,
+                ),
+                _RuntimeUpgradeEvent(
+                    upgraded=False,
+                    layer_index=3,
+                    offset_at_upgrade=128,
+                    old_type="KVCache",
+                    new_type="KVCache",
+                    old_bytes=0,
+                    new_bytes=0,
+                ),
+            ],
+        )
+
+        assert recorded == 1, "Only successful runtime upgrades should be persisted."
+        assert len(log.events) == 1, "Exactly one persistence event should be recorded."
+        persisted = log.events[0]
+        assert persisted.layer_index == 2
+        assert persisted.token_index == 128
+        assert persisted.old_type == "KVCache"
+        assert persisted.new_type == "TurboQuantKCache"
+    except ModuleNotFoundError as exc:
+        pytest.skip(f"turboquant package not importable: {exc}")
+    finally:
+        if injected:
+            sys.path.remove(str(REPO_ROOT))
+
+
+def test_runtime_events_module_marks_persistence_optional() -> None:
+    """runtime/events.py must describe itself as the optional persistence layer."""
+    events_py = REPO_ROOT / "turboquant" / "runtime" / "events.py"
+    assert events_py.exists(), "turboquant/runtime/events.py not found"
+
+    text = events_py.read_text(encoding="utf-8")
+    lowered = text.lower()
+    assert 'does **not** automatically' in text or 'does not automatically' in lowered, (
+        "runtime/events.py must state that canonical runtime execution does not automatically persist events."
+    )
+    assert 'optional persistence' in lowered, (
+        "runtime/events.py must describe itself as the optional persistence-side layer."
+    )
+    assert 'record_runtime_upgrade_events' in text, (
+        "runtime/events.py must expose the explicit runtime-to-persistence adapter."
+    )
+
+
+def test_upgrade_module_marks_runtime_events_as_non_persistent() -> None:
+    """upgrade.py must describe its returned events as lightweight runtime results."""
+    upgrade_py = REPO_ROOT / "turboquant" / "integrations" / "mlx" / "upgrade.py"
+    assert upgrade_py.exists(), "turboquant/integrations/mlx/upgrade.py not found"
+
+    text = upgrade_py.read_text(encoding="utf-8")
+    lowered = text.lower()
+    assert 'lightweight' in lowered and 'does not automatically persist' in lowered, (
+        "upgrade.py must state that its returned CacheUpgradeEvent objects are lightweight runtime results that are not automatically persisted."
+    )
+    assert 'record_runtime_upgrade_events' in text, (
+        "upgrade.py must point persistence-oriented callers at record_runtime_upgrade_events(...)."
+    )

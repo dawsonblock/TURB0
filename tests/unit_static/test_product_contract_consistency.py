@@ -302,6 +302,27 @@ def test_readme_marks_event_persistence_optional():
     )
 
 
+def test_readme_contract_summary_states_narrow_story():
+    """README must carry the repo-level narrow contract summary near the top."""
+    content = _read('README.md')
+
+    assert 'Contract summary:' in content, (
+        "README must contain a short contract summary paragraph near the top."
+    )
+    for needle in (
+        'upgrade_cache_list(...)',
+        'TurboQuantKCache(...)',
+        'KVCache.to_turboquant()',
+        'does not currently affect the attention dispatch path',
+    ):
+        assert needle in content, (
+            f"README contract summary must mention '{needle}'."
+        )
+    assert 'historical' in content.lower() and 'illustrative' in content.lower(), (
+        "README contract summary must frame benchmark numbers as historical or illustrative."
+    )
+
+
 def test_readme_smoke_targets_distinguish_tinymodel_from_real_models():
     """README must say smoke targets default to TinyModel and real-model mode uses env vars."""
     content = _read('README.md')
@@ -357,14 +378,14 @@ def test_eval_and_benchmark_docs_frame_numbers_as_exploratory():
     eval_content = _read('docs/evaluation.md').lower()
     bench_content = _read('docs/benchmark_methodology.md').lower()
 
-    assert 'exploratory tuning' in eval_content and 'heuristics' in eval_content, (
-        "docs/evaluation.md must frame thresholds as exploratory heuristics."
+    assert ('exploratory' in eval_content or 'illustrative' in eval_content) and 'heuristics' in eval_content, (
+        "docs/evaluation.md must frame thresholds as exploratory or illustrative heuristics."
     )
     assert 'not certification' in eval_content and 'gates' in eval_content, (
         "docs/evaluation.md must say its thresholds are not certification gates."
     )
-    assert 'historical benchmark snapshots' in bench_content, (
-        "docs/benchmark_methodology.md must identify benchmark numbers as historical snapshots."
+    assert 'historical' in bench_content and 'benchmark snapshots' in bench_content, (
+        "docs/benchmark_methodology.md must identify benchmark numbers as historical benchmark snapshots."
     )
     assert 'not part of the certified product contract' in bench_content, (
         "docs/benchmark_methodology.md must say it is not part of the certified product contract."
@@ -396,13 +417,33 @@ def test_product_contract_explains_secondary_surfaces_and_event_split():
     assert 'EventLog' in content and 'CacheUpgradeEvent' in content, (
         "product_contract.md must describe the runtime/persistence event split."
     )
+    assert 'record_runtime_upgrade_events' in content, (
+        "product_contract.md must point to the explicit runtime-to-persistence adapter."
+    )
 
 
 def test_block_tokens_marked_compatibility_only_in_docs():
     """Main docs must describe block_tokens as compatibility-only rather than active runtime control."""
-    for rel_path in ('README.md', 'docs/architecture.md', 'docs/integration.md'):
+    for rel_path in ('README.md', 'docs/architecture.md', 'docs/integration.md', 'docs/product_contract.md'):
         content = _read(rel_path).lower()
-        assert 'compatibility-only knob' in content, (
-            f"{rel_path} must label block_tokens as a compatibility-only knob."
+        assert 'compatibility-only' in content, f"{rel_path} must label block_tokens as compatibility-only."
+
+    readme = _read('README.md').lower()
+    integration = _read('docs/integration.md').lower()
+    product = _read('docs/product_contract.md').lower()
+    architecture = _read('docs/architecture.md').lower()
+
+    for rel_path, content in (
+        ('README.md', readme),
+        ('docs/integration.md', integration),
+        ('docs/product_contract.md', product),
+    ):
+        assert 'does not currently affect the attention dispatch path' in content, (
+            f"{rel_path} must say block_tokens does not currently affect the attention dispatch path."
         )
+
+    assert (
+        'does not read `block_tokens` as a' in architecture
+        or 'not a live tuning lever' in architecture
+    ), "docs/architecture.md must make clear that block_tokens is not active in the hot path."
 

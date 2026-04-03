@@ -2,6 +2,8 @@
 
 This document defines the narrow supported surface TurboQuant can honestly claim today.
 
+TurboQuant supports one canonical runtime path for allowlisted Llama and Gemma models via `upgrade_cache_list(...)` inside the `mlx_lm` decode flow. Direct `TurboQuantKCache(...)` construction exists only for internal/eval use and bypasses the support gate. Runtime upgrade events and persisted certification logs are separate layers. Benchmark numbers in this repo are historical or illustrative unless backed by saved certification artifacts. `block_tokens` is retained as a compatibility-only knob for future experimentation, but does not currently affect the attention dispatch path.
+
 ## 1. Supported Hardware
 TurboQuant is designed exclusively for **Apple Silicon** (M1, M2, M3, M4 families). 
 - Non-Apple platforms are supported for packaging, linting, and static analysis only.
@@ -45,6 +47,10 @@ the main support claim:
 	`turboquant.integrations.mlx.upgrade.CacheUpgradeEvent` is the lightweight
 	runtime result type, while `turboquant.runtime.events.EventLog` and its event
 	types are the persistence-side certification surface.
+- Certification or benchmark flows can explicitly convert runtime upgrade
+	decisions into persistence-side events through
+	`record_runtime_upgrade_events(...)` before calling
+	`MetricsTracker.write(event_log=...)`.
 - The canonical decode path does not auto-persist runtime upgrade events.
 	Writing `events.jsonl` remains an explicit certification workflow through
 	`MetricsTracker.write(event_log=...)`.

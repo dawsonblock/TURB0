@@ -66,6 +66,15 @@ All compression runs within the MLX compute graph — no NumPy synchronization i
 > vendored tree) are not supported by the canonical upgrade path. Full surface definition:
 > [docs/supported-surface.md](docs/supported-surface.md).
 
+Contract summary: TurboQuant supports one canonical runtime path for allowlisted Llama and
+Gemma models via `upgrade_cache_list(...)` inside the `mlx_lm` decode flow. Direct
+`TurboQuantKCache(...)` construction and `KVCache.to_turboquant()` remain internal/eval-only
+compatibility surfaces that bypass the support gate. Runtime upgrade decisions and persisted
+certification logs are separate layers. Benchmark numbers in this repo are historical or
+illustrative unless backed by saved certification artifacts. `block_tokens` is retained for
+compatibility and future experimentation, but does not currently affect the attention dispatch
+path.
+
 ---
 
 ## Memory Compression
@@ -235,7 +244,7 @@ uv pip install -e '.[apple,dev]'
 
 ## Quick Start
 
-### Option 1 — kwargs directly to `mlx_lm.generate`
+### Option 1 — `generate()` convenience wrapper over the canonical path
 
 ```python
 from mlx_lm import load, generate
@@ -257,7 +266,12 @@ response = generate(
 )
 ```
 
-### Option 2 — manual cache upgrade after prefill
+This convenience route still delegates to the same support-gated runtime path:
+`generate_step(...)` -> `maybe_turboquant_k_cache(...)` -> `upgrade_cache_list(...)`.
+The canonical support contract is the underlying `upgrade_cache_list(...)` path, not direct
+adapter construction.
+
+### Option 2 — canonical manual cache upgrade after prefill
 
 ```python
 from mlx_lm.models.cache import make_prompt_cache
@@ -279,9 +293,10 @@ for evt in events:
 # Decode loop continues with compressed cache
 ```
 
-`upgrade_cache_list(...)` returns lightweight runtime `CacheUpgradeEvent`
-objects. The canonical decode path does not automatically persist those events
-to `events.jsonl`; JSONL logging remains an optional certification surface.
+`upgrade_cache_list(...)` is the canonical support-gated runtime entry point.
+It returns lightweight runtime `CacheUpgradeEvent` objects. The canonical
+decode path does not automatically persist those events to `events.jsonl`;
+JSONL logging remains an explicit certification/instrumentation surface.
 
 ### Option 3 — preset config
 
@@ -347,7 +362,7 @@ cfg.validate()   # raises ValueError on invalid field combinations
 | `rotation_pad_to_pow2` | `bool` | `True` | Pad head dim to next power-of-two for exact Hadamard. |
 | `residual_mode` | `str` | `"qjl"` | Residual: `"topk"` · `"qjl"` · `"none"`. |
 | `residual_topk` | `int` | `0` | Top-k residual components per group (0 = disabled). |
-| `block_tokens` | `int` | `256` | Compatibility-only knob; accepted by config but not currently used in the attention dispatch path. |
+| `block_tokens` | `int` | `256` | Compatibility-only knob retained for old configs and future experimentation; it does not currently affect the attention dispatch path. |
 | `return_mode` | `str` | `"view"` | Cache return: `"view"` (zero-copy) · `"copy"`. |
 
 ### Rotation modes

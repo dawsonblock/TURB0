@@ -1,15 +1,14 @@
 """
-turboquant.metrics.tracker — per-run metrics collection and artifact writer.
+turboquant.metrics.tracker — per-run metrics collection and optional artifact writer.
 
-Every generation run that uses TurboQuant should create one
-:class:`MetricsTracker` instance, update it with observed measurements,
-then call :meth:`MetricsTracker.write` at the end of the run to produce
-the canonical artifact layout::
+Certification or instrumentation flows may create a :class:`MetricsTracker`,
+update it with observed measurements, then call :meth:`MetricsTracker.write`
+to produce the canonical artifact layout::
 
     runs/
       <run_id>/
         metrics.json    ← top-level scalar summary
-        events.jsonl    ← one JSON object per upgrade/failure event
+        events.jsonl    ← optional JSON objects for explicitly recorded events
 
 The metrics artifact is the **only** authoritative source for claimed
 compression numbers.  README examples and docs must be labelled as
@@ -194,7 +193,9 @@ class MetricsTracker:
             Optional :class:`~turboquant.runtime.events.EventLog` instance.
             If provided, its ``flush()`` method is called, and its
             :meth:`~turboquant.runtime.events.EventLog.summary` is included
-            in ``metrics.json`` under the key ``"events"``.
+            in ``metrics.json`` under the key ``"events"``.  The canonical
+            runtime path does not supply this automatically; benchmark and
+            certification flows must opt in explicitly.
 
         Returns
         -------

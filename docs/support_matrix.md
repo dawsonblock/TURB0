@@ -2,6 +2,8 @@
 
 TurboQuant is an experimental KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation through the allowlisted `upgrade_cache_list(...)` path. Custom Metal kernels are experimental and not part of the default supported runtime.
 
+This table records support status only. Mechanical routing in vendored model code does not widen support.
+
 Please refer to [supported-surface.md](supported-surface.md) for the canonical and complete supported surface details. This file is a status matrix, not a broader support promise.
 
 ## Algorithm Presets

@@ -33,11 +33,6 @@ If this document disagrees with the allowlist or the upgrade gate, the code
 wins. Vendored model files outside the allowlist do not become supported just
 because they exist in `mlx_lm/`.
 
-For custom attention implementations that do not call
-`scaled_dot_product_attention(...)`, the legacy `maybe_turboquant_attention(...)`
-helper still exists as a fallback. It is a legacy compatibility surface, not
-the main integration path.
-
 ## 2. Primary components
 
 ### 2.1 TurboQuantConfig
@@ -106,6 +101,9 @@ artifacts.
 - `mlx_lm.generate.maybe_turboquant_k_cache(...)` currently discards the
   returned runtime events.
 - The canonical decode path does not automatically persist `events.jsonl`.
+- `turboquant.runtime.events.record_runtime_upgrade_events(...)` is the thin
+  explicit adapter for certification or benchmark flows that want to persist
+  runtime upgrade decisions.
 - `turboquant.metrics.tracker.MetricsTracker.write(event_log=...)` is the
   manual boundary for JSONL artifact generation.
 
@@ -131,6 +129,9 @@ The support claim remains narrow:
 - `TurboQuantKCache(...)`, `KVCache.to_turboquant()`, and
   `_collect_logits_compressed()` bypass the canonical upgrade gate and should
   not be treated as peer runtime APIs.
+- For custom attention implementations that do not call
+  `scaled_dot_product_attention(...)`, the legacy `maybe_turboquant_attention(...)`
+  helper remains a compatibility fallback, not a primary integration path.
 - `block_tokens` remains public only for compatibility; it is not a live tuning
   lever in the current attention dispatch path.
 - Real runtime validation still requires Apple Silicon hardware plus

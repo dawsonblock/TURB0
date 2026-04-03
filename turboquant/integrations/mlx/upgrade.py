@@ -13,6 +13,7 @@ Usage
 -----
     from turboquant.config import TurboQuantConfig
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
+    from turboquant.runtime.events import EventLog, record_runtime_upgrade_events
 
     config = TurboQuantConfig(k_bits=3, k_group_size=64, ...)
     events = upgrade_cache_list(prompt_cache, k_start=512, config=config, model_family="llama")
@@ -20,6 +21,10 @@ Usage
         if ev.upgraded:
             print(f"layer {ev.layer_index}: {ev.old_type} → {ev.new_type} "
                   f"at offset {ev.offset_at_upgrade}")
+
+    # Optional persistence bridge for certification / instrumentation flows.
+    log = EventLog(artifact_dir=None)
+    record_runtime_upgrade_events(log, events)
 """
 
 from __future__ import annotations
@@ -41,8 +46,8 @@ class CacheUpgradeEvent:
 
     For JSONL artifact persistence (e.g. writing ``events.jsonl`` during
     certification runs), use :class:`turboquant.runtime.events.EventLog`
-    together with its own ``CacheUpgradeEvent``.  The two types serve
-    different purposes and are not interchangeable.
+    together with its own ``CacheUpgradeEvent`` or the explicit
+    ``record_runtime_upgrade_events(...)`` adapter.  The canonical runtime path returns these lightweight in-process decision events and does not automatically persist them.
 
     Fields
     ------
