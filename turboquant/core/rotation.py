@@ -136,6 +136,40 @@ class FixedRotation:
             return mx.hadamard_transform(x.astype(mx.float32)).astype(x.dtype)
         return x @ self._RT
 
+    # Aliases matching the paper-faithful API
+    def apply(self, x: mx.array) -> mx.array:
+        """Alias for forward(x)."""
+        return self.forward(x)
+
+    def invert(self, x: mx.array) -> mx.array:
+        """Alias for inverse(x)."""
+        return self.inverse(x)
+
+    def is_orthogonal(self, atol: float = 1e-5) -> bool:
+        """Return True if R @ Rᵀ ≈ I within *atol* (Frobenius norm)."""
+        if self.rotation_type == "identity":
+            return True
+        if self._can_use_fast_hadamard:
+            # Exact by construction for power-of-two Hadamard
+            return True
+        R_np = np.array(self._R)
+        err = np.linalg.norm(R_np @ R_np.T - np.eye(self.dim), ord="fro")
+        return float(err) < atol
+
+    def roundtrip_error(self, x: mx.array) -> float:
+        """Return max absolute error of invert(apply(x)) vs x."""
+        roundtripped = self.inverse(self.forward(x))
+        return float(mx.max(mx.abs(roundtripped - x)).item())
+
+    @classmethod
+    def from_config(cls, config: object, dim: int) -> "FixedRotation":
+        """Construct a FixedRotation from a TurboQuantConfig and head-dim."""
+        return cls(
+            dim=dim,
+            seed=config.rotation_seed,
+            rotation_type=config.rotation,
+        )
+
     def save(self, path: str) -> None:
         """Save the rotation matrix as a NumPy .npy file."""
         if self.rotation_type == "identity":

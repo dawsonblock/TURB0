@@ -8,7 +8,7 @@ from turboquant.core.residual_codec import build_residual_codec
 
 
 def score_block(
-    q_rot: mx.array,
+    q: mx.array,
     block: EncodedKeyBlock,
     *,
     config: TurboQuantConfig,
@@ -17,13 +17,21 @@ def score_block(
     """
     Compute attention scores against one encoded key block.
 
-    q_rot:
-        [..., q_len, d_rot]
+    q:
+        [..., q_len, d_head]  (original coordinate space)
 
     Returns:
         [..., q_len, k_len]
+
+    K inside the block is stored in rotated space.  This function rotates
+    *q* internally to match.
     """
     config.validate()
+
+    from turboquant.core.rotation import FixedRotation
+    orig_dim = block.orig_dim if block.orig_dim > 0 else block.d_head
+    rotation = FixedRotation.from_config(config, orig_dim)
+    q_rot = rotation.apply(q.astype(mx.float32)).astype(q.dtype)
 
     main_hat = dequantize_main(block.packed_main, block.scales, config=config)
     main_rot = main_hat[..., : block.d_rot]
@@ -78,19 +86,19 @@ def score_block(
     raise ValueError(f"Unsupported residual mode: {block.residual.mode}")
 
 def streaming_scores(
-    q_rot: mx.array,
+    q: mx.array,
     *,
     cache,
     config: TurboQuantConfig,
     dequantize_main,
 ) -> list[mx.array]:
     """
-    Produce per-block score tensors.
+    Produce per-block score tensors (q in original coordinate space).
     """
     out: list[mx.array] = []
     for block in cache.iter_blocks():
         scores = score_block(
-            q_rot,
+            q,
             block,
             config=config,
             dequantize_main=dequantize_main,
@@ -108,9 +116,11 @@ def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None):
     config = impl.config
     dequantize_main = impl.dequantize_main
 
+    q_scaled = queries * scale
+
     # compute streaming scores
     scores = streaming_scores(
-        queries * scale,
+        q_scaled,
         cache=impl,
         config=config,
         dequantize_main=dequantize_main,

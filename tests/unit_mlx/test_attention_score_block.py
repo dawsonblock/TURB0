@@ -4,7 +4,7 @@ from tests.helpers.mlx_env import MLX_SKIP_MARKER
 
 pytestmark = MLX_SKIP_MARKER
 
-import mlx.core as mx
+mx = pytest.importorskip("mlx.core")
 
 from turboquant.config import TurboQuantConfig
 from turboquant.core.pipeline import encode_k_block
@@ -21,6 +21,7 @@ def fake_dequantize_main(packed, scales, *, config):
 
 def test_score_block_none_mode_shape():
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32, v_group_size=32,
         residual_mode="none",

@@ -64,7 +64,11 @@ class TurboQuantKCache(_BaseCache):
 
     @property
     def nbytes(self):
-        return self._impl.byte_size()
+        # impl.byte_size() covers compressed-key bytes + impl.v_cache (empty
+        # in this path — values are stored on the adapter, not on the impl).
+        k_bytes = self._impl.byte_size()
+        v_bytes = sum(v.nbytes for v in self.v_cache if hasattr(v, "nbytes"))
+        return k_bytes + v_bytes
 
     def update_and_fetch(self, keys: mx.array, values: mx.array):
         # Implements the MLX-LM cache protocol: compress keys via TurboQuantKVCache,

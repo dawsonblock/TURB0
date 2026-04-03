@@ -54,11 +54,13 @@ class TurboQuantKVCache:
 
     def append_keys(self, k):
         """
-        Encode and append one key block.
+        Encode one key block and append it to the store.
 
         Expected input shape:
             [..., seq, d_head] or [seq, d_head]
         depending on caller convention.
+
+        Rotation is applied internally by encode_k_block (pipeline contract).
         """
         from turboquant.core.pipeline import encode_k_block
 
@@ -95,7 +97,13 @@ class TurboQuantKVCache:
         )
 
     def byte_size(self):
-        return sum(b.packed_main.nbytes + b.scales.nbytes for b in self._blocks)
+        k_bytes = sum(
+            (b.packed_main.nbytes if b.packed_main is not None else 0)
+            + (b.scales.nbytes if b.scales is not None else 0)
+            for b in self._blocks
+        )
+        v_bytes = sum(v.nbytes for v in self.v_cache if hasattr(v, "nbytes"))
+        return k_bytes + v_bytes
 
     @property
     def nbytes(self) -> int:
@@ -123,8 +131,14 @@ class TurboQuantKVCache:
 
     def memory_breakdown(self) -> dict:
         """Return a mapping of buffer name → byte size."""
-        k_main = sum(b.packed_main.nbytes for b in self._blocks)
-        k_scales = sum(b.scales.nbytes for b in self._blocks)
+        k_main = sum(
+            b.packed_main.nbytes if b.packed_main is not None else 0
+            for b in self._blocks
+        )
+        k_scales = sum(
+            b.scales.nbytes if b.scales is not None else 0
+            for b in self._blocks
+        )
         v_dense = sum(
             v.nbytes for v in self.v_cache if hasattr(v, "nbytes")
         )
@@ -192,7 +206,7 @@ class TurboQuantKVCache:
                 qjl_proj_dim=int(cfg.get("qjl_proj_dim", 64)),
                 qjl_seed=int(cfg.get("qjl_seed", 42)),
                 qjl_bits=int(cfg.get("qjl_bits", 1)),
-                paper_faithful_mode=bool(cfg.get("paper_faithful_mode", False)),
+                algorithm=cfg.get("algorithm", "turboquant_prod"),
                 return_mode=cfg.get("return_mode", "view"),
             )
             blocks_data = state.get("blocks", [])
@@ -213,6 +227,7 @@ class TurboQuantKVCache:
                 scale_dtype=state.get("scale_dtype", "float16"),
                 v_scale_dtype=state.get("v_scale_dtype", "float16"),
                 eps=float(state.get("eps", 1e-6)),
+                algorithm=state.get("algorithm", "turboquant_prod"),
             )
             blocks_data = state.get("blocks", [])
             offset = int(state.get("offset", 0))

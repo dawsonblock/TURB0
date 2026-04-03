@@ -310,6 +310,7 @@ def maybe_turboquant_k_cache(
     turboquant_v_group_size,
     turboquant_v_enabled,
     turboquant_block_tokens=256,
+    turboquant_model_family=None,
 ):
     """Upgrade KVCache entries to TurboQuantKCache when the offset threshold
     is reached.  Idempotent: already-upgraded entries are skipped.
@@ -358,7 +359,7 @@ def maybe_turboquant_k_cache(
         v_enabled=turboquant_v_enabled,
         block_tokens=turboquant_block_tokens,
     )
-    upgrade_cache_list(prompt_cache, k_start=turboquant_k_start, config=_cfg)
+    upgrade_cache_list(prompt_cache, k_start=turboquant_k_start, config=_cfg, model_family=turboquant_model_family)
 
     # One-shot confirmation that TQ path is active (logged once per process)
     global _tq_upgrade_logged
@@ -404,6 +405,7 @@ def generate_step(
     turboquant_v_group_size: int = 64,
     turboquant_v_enabled: bool = True,
     turboquant_block_tokens: int = 256,
+    turboquant_model_family: Optional[str] = None,
 ) -> Generator[tuple[mx.array, mx.array], None, None]:
     """
     A generator producing token ids based on the given prompt from the model.
@@ -480,6 +482,7 @@ def generate_step(
         turboquant_v_group_size=turboquant_v_group_size,
         turboquant_v_enabled=turboquant_v_enabled,
         turboquant_block_tokens=turboquant_block_tokens,
+        turboquant_model_family=turboquant_model_family,
     )
 
     sampler = sampler or (lambda x: mx.argmax(x, axis=-1))

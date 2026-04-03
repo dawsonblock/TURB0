@@ -41,6 +41,7 @@ def test_streaming_attention_equivalence():
     q_heads = kv_heads  # no GQA in this test
 
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32,
         residual_mode="none",
@@ -72,6 +73,7 @@ def test_streaming_attention_multi_block():
     batch, kv_heads, d_head = 1, 2, 32
 
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32,
         residual_mode="none",

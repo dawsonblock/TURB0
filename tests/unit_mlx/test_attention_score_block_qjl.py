@@ -4,7 +4,7 @@ from tests.helpers.mlx_env import MLX_SKIP_MARKER
 
 pytestmark = MLX_SKIP_MARKER
 
-import mlx.core as mx
+mx = pytest.importorskip("mlx.core")
 
 from turboquant.config import TurboQuantConfig
 from turboquant.core.pipeline import encode_k_block

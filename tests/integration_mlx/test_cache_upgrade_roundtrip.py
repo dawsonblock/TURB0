@@ -35,6 +35,7 @@ def test_cache_upgrade_roundtrip():
     k_start = 4  # upgrade threshold — offset=8 is above it
 
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32,
         residual_mode="none",
@@ -88,6 +89,7 @@ def test_cache_upgrade_below_threshold_skipped():
     k_start = 8  # seq=2 < k_start=8 → no upgrade
 
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32,
         residual_mode="none",
@@ -116,6 +118,7 @@ def test_cache_upgrade_idempotent():
     batch, heads, seq, d_head = 1, 2, 8, 32
 
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32,
         residual_mode="none",

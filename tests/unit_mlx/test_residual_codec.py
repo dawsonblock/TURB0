@@ -4,14 +4,14 @@ from tests.helpers.mlx_env import MLX_SKIP_MARKER
 
 pytestmark = MLX_SKIP_MARKER
 
-import mlx.core as mx
+mx = pytest.importorskip("mlx.core")
 
 from turboquant.config import TurboQuantConfig
 from turboquant.core.residual_codec import build_residual_codec
 
 
 def test_codec_dispatch_none():
-    cfg = TurboQuantConfig(residual_mode="none")
+    cfg = TurboQuantConfig(algorithm="turboquant_mse", residual_mode="none")
     codec = build_residual_codec(cfg)
     assert codec.mode == "none"
 

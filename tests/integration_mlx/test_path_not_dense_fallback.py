@@ -25,6 +25,7 @@ def test_path_not_dense_fallback():
     and no memory savings will be realised.
     """
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32,
         residual_mode="none",
@@ -64,6 +65,7 @@ def test_offset_tracks_across_multiple_appends():
     If offsets reset or skip, attention will attend to the wrong positions.
     """
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32,
         residual_mode="none",
@@ -101,6 +103,7 @@ def test_two_caches_are_independent():
     Shared state would cause position collisions across layers.
     """
     cfg = TurboQuantConfig(
+        algorithm="turboquant_mse",
         k_bits=3,
         k_group_size=32,
         residual_mode="none",

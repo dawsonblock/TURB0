@@ -390,10 +390,13 @@ class KVCache(_BaseCache):
         v_enabled: bool = True,
         block_tokens: int = 256,
     ) -> "TurboQuantKCache":
+        from turboquant.config import TurboQuantConfig
+        from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
+
         tq = TurboQuantKCache(
             TurboQuantConfig(
                 k_bits=k_bits,
-                group_size=group_size,
+                k_group_size=group_size,
                 rotation=rotation,
                 return_mode=return_mode,
                 scale_dtype=scale_dtype,

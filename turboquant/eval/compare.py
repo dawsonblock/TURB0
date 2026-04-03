@@ -267,14 +267,18 @@ class AccuracyComparison:
         """Run the model with TurboQuantKCache; return logits list."""
         import mlx.core as mx
 
-        from turboquant.integrations.mlx.cache_adapter import TurboQuantConfig, TurboQuantKCache
+        from turboquant.config import TurboQuantConfig
+        from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
 
         logits_list: list = []
 
-        # Build a per-layer legacy config from the production config
+        # Build a per-layer config from the production config.
+        # Use residual_mode="none" for the compressed run so we measure
+        # main-quantizer quality in isolation and avoid QJL state mismatches.
         legacy_cfg = TurboQuantConfig(
             k_bits=getattr(self._config, "k_bits", 3),
-            group_size=getattr(self._config, "k_group_size", 64)
+            k_group_size=getattr(self._config, "k_group_size", 64),
+            residual_mode="none",
         )
         cache = [
             TurboQuantKCache(legacy_cfg)
