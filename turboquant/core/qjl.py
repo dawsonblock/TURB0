@@ -38,20 +38,46 @@ def _ensure_float(x: mx.array) -> mx.array:
 
 
 def pack_sign_bits(signs: mx.array) -> mx.array:
-    """
-    Minimal placeholder packer.
+    """Pack binary {0,1} sign values [..., n] → [..., ceil(n/8)] uint8, LSB-first.
 
-    Stores 0/1 as uint8 for correctness-first wiring.
-    Replace with real bit packing later.
+    Each byte stores 8 sign bits: bit-0 of byte-j holds sign j*8+0, bit-1
+    holds sign j*8+1, and so on.  This achieves the paper's claimed 1-bit
+    QJL residual storage exactly.
     """
-    return signs.astype(mx.uint8)
+    *prefix, n = signs.shape
+    signs_u8 = signs.astype(mx.uint8)
+
+    # Pad to a multiple of 8
+    n_pad = ((n + 7) // 8) * 8
+    if n_pad > n:
+        pad = mx.zeros((*prefix, n_pad - n), dtype=mx.uint8)
+        signs_u8 = mx.concatenate([signs_u8, pad], axis=-1)
+
+    n_bytes = n_pad // 8
+    # Reshape to groups of 8 bits and pack LSB-first into one byte each
+    grouped = signs_u8.reshape(*prefix, n_bytes, 8).astype(mx.uint32)
+    shifts = mx.array([0, 1, 2, 3, 4, 5, 6, 7], dtype=mx.uint32)
+    packed = mx.sum(mx.left_shift(grouped, shifts), axis=-1).astype(mx.uint8)
+    return packed   # shape [..., ceil(n/8)]
 
 
-def unpack_sign_bits(bits: mx.array) -> mx.array:
+def unpack_sign_bits(packed: mx.array, n: int) -> mx.array:
+    """Unpack [..., ceil(n/8)] uint8 packed bits → float32 {-1, +1} [..., n].
+
+    Inverse of :func:`pack_sign_bits`.  ``n`` must equal the original
+    number of sign bits before packing.
     """
-    Map uint8 {0,1} -> float {-1,+1}
-    """
-    return bits.astype(mx.float32) * 2.0 - 1.0
+    *prefix, n_bytes = packed.shape
+    shifts = mx.array([0, 1, 2, 3, 4, 5, 6, 7], dtype=mx.uint32)
+    # Broadcast: [..., n_bytes, 1] >> [8] → [..., n_bytes, 8]
+    expanded = mx.right_shift(
+        packed.reshape(*prefix, n_bytes, 1).astype(mx.uint32),
+        shifts,
+    )
+    bits = mx.bitwise_and(expanded, mx.array(1, dtype=mx.uint32))
+    # Flatten and trim padding
+    flat = bits.reshape(*prefix, n_bytes * 8)[..., :n]
+    return flat.astype(mx.float32) * 2.0 - 1.0
 
 
 class QJLProjector:
@@ -102,17 +128,17 @@ class QJLProjector:
         meta: QJLMeta | dict[str, Any],
     ) -> mx.array:
         """
-        Crude proxy reconstruction for debug/fallback paths.
+        Proxy reconstruction for debug/fallback paths.
 
-        This is not the final paper-grade residual recovery procedure.
-        It only gives the runtime something shaped correctly while
-        the direct dot-estimator path is integrated.
+        The primary attention path uses dot_estimate() for inner-product
+        estimation without full reconstruction.  This decode() is provided
+        for diagnostic use and the TopK-residual fallback path.
         """
         if isinstance(meta, dict):
             meta = QJLMeta.from_dict(meta)
 
         proj = self._projection(meta.input_dim)
-        signed = unpack_sign_bits(bits)
+        signed = unpack_sign_bits(bits, meta.proj_dim)
 
         proxy = signed @ proj.T
         proxy_norm = mx.linalg.norm(proxy, axis=-1, keepdims=True)
@@ -136,7 +162,7 @@ class QJLProjector:
         q:
             [..., q_len, d]
         bits:
-            [..., k_len, proj_dim]
+            [..., k_len, ceil(proj_dim/8)]  (1-bit packed, LSB-first uint8)
         norms:
             [..., k_len, 1]
 
@@ -149,28 +175,18 @@ class QJLProjector:
         q = _ensure_float(q)
         proj = self._projection(meta.input_dim)
 
-        q_proj = q @ proj                      # [..., q_len, proj_dim]
-        signed = unpack_sign_bits(bits)        # [..., k_len, proj_dim]
-
-
-        if q_proj.shape[-3] != signed.shape[-3]:
-            n_rep = q_proj.shape[-3] // signed.shape[-3]
-            signed = mx.repeat(signed, n_rep, axis=-3)
+        q_proj = q @ proj                                        # [..., q_len, proj_dim]
+        signed = unpack_sign_bits(bits, meta.proj_dim)           # [..., k_len, proj_dim]
 
         if q_proj.shape[-3] != signed.shape[-3]:
             n_rep = q_proj.shape[-3] // signed.shape[-3]
             signed = mx.repeat(signed, n_rep, axis=-3)
-        scores = q_proj @ mx.swapaxes(signed, -1, -2)   # [..., q_len, k_len]
 
-        norm_scale = norms.squeeze(-1)                  # [..., k_len]
-        q_norm = mx.linalg.norm(q, axis=-1)             # [..., q_len]
+        scores = q_proj @ mx.swapaxes(signed, -1, -2)           # [..., q_len, k_len]
+
+        norm_scale = norms.squeeze(-1)                           # [..., k_len]
+        q_norm = mx.linalg.norm(q, axis=-1)                     # [..., q_len]
         q_norm = mx.maximum(q_norm, mx.array(1e-8, dtype=q_norm.dtype))
-
-
-        if q_norm.shape[-2] != norm_scale.shape[-2]:
-            n_rep = q_norm.shape[-2] // norm_scale.shape[-2]
-            norm_scale = mx.repeat(norm_scale, n_rep, axis=-2)
-
 
         if q_norm.shape[-2] != norm_scale.shape[-2]:
             n_rep = q_norm.shape[-2] // norm_scale.shape[-2]

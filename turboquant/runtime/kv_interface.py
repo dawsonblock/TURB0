@@ -142,9 +142,18 @@ class TurboQuantKVCache:
         )
 
     def byte_size(self):
+        def _residual_bytes(b):
+            bits_arr = b.residual.data.get("bits", None)
+            norms_arr = b.residual.data.get("norms", None)
+            return (
+                (bits_arr.nbytes if hasattr(bits_arr, "nbytes") else 0)
+                + (norms_arr.nbytes if hasattr(norms_arr, "nbytes") else 0)
+            )
+
         k_bytes = sum(
             (b.packed_main.nbytes if b.packed_main is not None else 0)
             + (b.scales.nbytes if b.scales is not None else 0)
+            + _residual_bytes(b)
             for b in self._blocks
         )
         if self.storage_mode == "paper_kv":

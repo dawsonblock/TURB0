@@ -108,6 +108,13 @@ def main() -> None:
         "--output-dir", required=True, help="Directory for artifacts"
     )
     parser.add_argument(
+        "--prompt-class", default="default",
+        help="Prompt class label (e.g. short, medium, long) used in artifact naming"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42, help="Random seed for reproducibility"
+    )
+    parser.add_argument(
         "--max-delta-ppl", type=float, default=0.5,
         help="Maximum allowed mean TurboQuant PPL increase (default: 0.5)"
     )
@@ -119,6 +126,10 @@ def main() -> None:
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Seed for reproducibility
+    import mlx.core as mx
+    mx.random.seed(args.seed)
 
     print(f"Loading model: {args.model}")
     from mlx_lm import load as mlx_load  # type: ignore
@@ -157,6 +168,8 @@ def main() -> None:
     summary = {
         "status": status,
         "model": args.model,
+        "prompt_class": args.prompt_class,
+        "seed": args.seed,
         "n_prompts": len(results),
         "mean_delta_ppl": round(mean_delta_ppl, 4),
         "mean_kl": round(mean_kl, 6),
@@ -167,7 +180,7 @@ def main() -> None:
         "per_prompt": results,
     }
 
-    artifact_path = output_dir / "quality_eval_summary.json"
+    artifact_path = output_dir / f"quality_eval_{args.prompt_class}_summary.json"
     artifact_path.write_text(json.dumps(summary, indent=2))
     print(f"\n{'='*60}")
     print(f"  Status        : {status}")

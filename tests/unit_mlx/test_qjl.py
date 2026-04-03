@@ -15,7 +15,8 @@ def test_qjl_encode_shapes():
 
     bits, norms, meta = qjl.encode(x)
 
-    assert bits.shape == (3, 5, 64)
+    # bits are 1-bit packed: ceil(proj_dim / 8) bytes per token
+    assert bits.shape == (3, 5, 8)   # ceil(64/8) = 8 uint8 per token
     assert norms.shape == (3, 5, 1)
     assert meta.input_dim == 96
     assert meta.proj_dim == 64
