@@ -373,6 +373,22 @@ def test_runtime_certification_doc_does_not_claim_tinymodel_on_any_machine():
     )
 
 
+def test_runtime_certification_doc_marks_current_cert_story_honestly():
+    """runtime-certification.md must reflect the current harness and optional event logging truth."""
+    content = _read('docs/runtime-certification.md')
+    lowered = content.lower()
+
+    assert 'no passing full-model certification artifacts have been generated yet' in lowered, (
+        "docs/runtime-certification.md must say there are no passing full-model certification artifacts yet."
+    )
+    assert 'events.jsonl' in content and 'optional' in lowered, (
+        "docs/runtime-certification.md must describe events.jsonl as optional persistence output."
+    )
+    assert 'teacher-forcing' in lowered or 'batch guardrail' in lowered, (
+        "docs/runtime-certification.md must frame the quality stage as a batch guardrail, not a streaming certification claim."
+    )
+
+
 def test_eval_and_benchmark_docs_frame_numbers_as_exploratory():
     """evaluation.md and benchmark_methodology.md must frame numeric guidance as exploratory."""
     eval_content = _read('docs/evaluation.md').lower()

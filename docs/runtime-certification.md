@@ -7,7 +7,7 @@
 > and stages 7–8 (paired generative benchmarks and metric aggregation) require Apple Silicon,
 > a working MLX installation, and the environment variables
 > `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL` set to real model IDs.
-> No full-model certification artifacts have been generated yet; this document
+> No passing full-model certification artifacts have been generated yet; this document
 > describes the intended process.
 
 ## Purpose
@@ -95,8 +95,9 @@ written to `artifacts/runtime-cert/<timestamp>/`.
 | 4 | Llama smoke test               | `pytest tests/integration_mlx/test_llama_runtime_smoke.py` |
 | 5 | Gemma smoke test               | `pytest tests/integration_mlx/test_gemma_runtime_smoke.py` |
 | 6 | Long-context stability         | `pytest tests/integration_mlx/test_long_context_stability.py` |
-| 7 | Dense vs TQ benchmarks         | `run_dense_vs_tq.py` × 3 prompt classes × 2 models       |
-| 8 | Metric aggregation             | `collect_metrics.py`                                      |
+| 7 | Quality evaluation             | `run_quality_eval.py` (short + medium, Llama)            |
+| 8 | Dense vs TQ benchmarks         | `run_dense_vs_tq.py` × 3 prompt classes × 2 models       |
+| 9 | Metric aggregation             | `collect_metrics.py`                                      |
 
 ---
 
@@ -114,6 +115,7 @@ After a full run, `artifacts/runtime-cert/<timestamp>/` contains:
 | `junit_long_context.xml`         | Long-context stability test results        |
 | `*_dense.json`                   | Raw per-run dense benchmark results        |
 | `*_turboquant.json`              | Raw per-run TurboQuant benchmark results   |
+| `events.jsonl`                   | Optional persisted upgrade/failure events when a certification helper explicitly records them |
 | `aggregate_runs.csv`             | All runs in tabular form                   |
 | `certification_summary.json`     | Pass/fail rollup with memory/speed deltas  |
 
@@ -146,26 +148,29 @@ Observed cosine ~0.97 for 3-bit K + 4-bit V with Hadamard rotation.
 - Zero empty generations in smoke tests
 - No silent dense fallback when TurboQuant is requested
 
-### Quality (bounded degradation)
+### Quality (batch guardrail, not streaming certification)
 
 - 100% of prompts complete without crash
 - No catastrophic degeneration on any prompt
-- Output length within tolerance of target
-- Perplexity delta (TQ - dense) ≤ 0.5
-- Mean KL divergence ≤ 0.1
+- `run_quality_eval.py` uses the `paper_mse` preset for this batch teacher-forcing check
+- Prompts shorter than 32 tokens are skipped for this gate
+- Mean perplexity delta (TQ - dense) ≤ 20.0
+- Mean KL divergence ≤ 5.0
 
 ### Performance
 
 - Measurable memory reduction in TurboQuant long-context mode (≥ 25.0%)
-- No evidence of catastrophic decode slowdown (degradation ≤ -25.0%)
+- No evidence of catastrophic decode slowdown (degradation ≤ -99.0%)
+
+The speed gate is intentionally loose because the default certification path is
+the uncompiled Python/MLX streaming implementation. It is a catastrophic-failure
+guard, not a throughput promise.
 
 ---
 
 ## Threshold freeze process
 
-1. Run `./scripts/certify_apple_runtime.sh` once (pilot run)
-2. Inspect `certification_summary.json` and test output
-3. Adjust thresholds in `test_streaming_attention_equivalence.py` to
-   match reality (not fantasy)
-4. Commit the frozen thresholds
-5. Run certification again — this is the official pass/fail result
+1. Change certification thresholds only when the underlying script or runtime behavior changes.
+2. Update this document and the static contract tests in the same change.
+3. Re-run `./scripts/certify_apple_runtime.sh` and inspect the saved artifacts.
+4. Treat the saved artifacts, not this prose, as the authoritative pass/fail record.

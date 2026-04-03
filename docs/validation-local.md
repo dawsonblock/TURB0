@@ -77,6 +77,7 @@ make certify-apple-runtime
 
 - release certification
 - writes timestamped artifacts under `artifacts/runtime-cert/`
+- can include optional `events.jsonl` artifacts when a certification helper explicitly converts runtime upgrade decisions into an `EventLog`
 - fails closed: stages where all tests are `@skip` are counted as UNIMPLEMENTED, not PASSED
 - requires `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` env vars for full real-model certification
 

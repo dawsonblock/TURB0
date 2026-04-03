@@ -123,6 +123,7 @@ def _run_benchmark(
     from turboquant.config import TurboQuantConfig
     from turboquant.eval.compare import AccuracyComparison
     from turboquant.metrics.tracker import MetricsTracker
+    from turboquant.runtime.events import EventLog, record_runtime_upgrade_events
 
     config = TurboQuantConfig.from_legacy_kwargs(
         k_bits=k_bits,
@@ -176,6 +177,11 @@ def _run_benchmark(
     upgraded = sum(1 for ev in events if ev.upgraded)
     logger.info("Upgraded %d / %d layers", upgraded, len(events))
 
+    # Benchmark flows may opt into persisted JSONL events explicitly. The
+    # canonical runtime path does not do this automatically.
+    event_log = EventLog(artifact_dir=None)
+    record_runtime_upgrade_events(event_log, events)
+
     compressed_bytes = sum(
         getattr(c, "byte_size", lambda: 0)()
         for c in dense_cache
@@ -225,7 +231,7 @@ def _run_benchmark(
         "dry_run": False,
     }
 
-    tracker.write()
+    tracker.write(event_log=event_log)
     return result
 
 

@@ -461,3 +461,20 @@ def test_upgrade_module_marks_runtime_events_as_non_persistent() -> None:
     assert 'record_runtime_upgrade_events' in text, (
         "upgrade.py must point persistence-oriented callers at record_runtime_upgrade_events(...)."
     )
+
+
+def test_benchmark_script_uses_explicit_event_adapter() -> None:
+    """scripts/benchmark.py must opt into persistence explicitly via the event adapter."""
+    script_path = REPO_ROOT / "scripts" / "benchmark.py"
+    assert script_path.exists(), "scripts/benchmark.py not found"
+
+    text = script_path.read_text(encoding="utf-8")
+    assert 'record_runtime_upgrade_events' in text, (
+        "scripts/benchmark.py must use record_runtime_upgrade_events(...) instead of implying automatic event persistence."
+    )
+    assert 'EventLog' in text, (
+        "scripts/benchmark.py must construct an EventLog explicitly when it wants persisted events."
+    )
+    assert 'tracker.write(event_log=event_log)' in text, (
+        "scripts/benchmark.py must pass an explicit event_log to tracker.write()."
+    )
