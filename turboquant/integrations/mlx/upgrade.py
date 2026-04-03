@@ -24,7 +24,7 @@ Usage
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as _dc_replace
 
 from turboquant.runtime.events import EventLog
 from turboquant.runtime.support import assert_supported_model_family
@@ -172,22 +172,12 @@ def upgrade_cache_list(
             )
             continue
 
-        # Canonical upgrade path: use the provided config to populate the
-        # cache directly.
-        # Ensure return_mode is set to "view" for production safety.
-        from turboquant.config import TurboQuantConfig
+        # Canonical upgrade path: clone the caller's config, overriding only
+        # return_mode for production safety.  Using dataclasses.replace
+        # preserves all fields including residual_mode, qjl_bits, etc.
+        from turboquant.config import TurboQuantConfig  # noqa: F401 (type reference)
 
-        prod_config = TurboQuantConfig(
-            k_bits=getattr(config, "k_bits", 3),
-            k_group_size=getattr(config, "k_group_size", 64),
-            rotation=getattr(config, "rotation", getattr(config, "rotation_mode", "hadamard")),
-            residual_topk=getattr(config, "residual_topk", 2),
-            v_bits=getattr(config, "v_bits", 4),
-            v_group_size=getattr(config, "v_group_size", 64),
-            v_enabled=getattr(config, "v_enabled", True),
-            block_tokens=getattr(config, "block_tokens", 256),
-            return_mode="view",
-        )
+        prod_config = _dc_replace(config, return_mode="view")
 
         tq = TurboQuantKCache(prod_config)
 

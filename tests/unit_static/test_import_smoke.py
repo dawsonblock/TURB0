@@ -50,12 +50,8 @@ def test_mlx_import_error_message():
         import turboquant
 
         with pytest.raises(ImportError):
-            # This should either fail due to mlx not being available, or similar import path error.
-            # Depending on how the error is raised exactly, we can also check for AttributeError
-            # if we trigger __getattr__.
+            # Accessing an MLX-dependent symbol while mlx is blocked must raise
+            # ImportError, not silently return a stub.
             _ = turboquant.KVCompressor
-    except Exception:
-        # Some exceptions might come from nested imports failing. It's okay as long as it's an ImportError or ModuleNotFoundError
-        pass
     finally:
         _restore_mlx(saved)

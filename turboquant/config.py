@@ -117,7 +117,7 @@ class TurboQuantConfig:
             v_scale_dtype=kwargs.get("v_scale_dtype", "float16"),
             rotation=kwargs.get("rotation", kwargs.get("rotation_mode", "hadamard")),
             rotation_seed=kwargs.get("rotation_seed", 1337),
-            rotation_pad_to_pow2=bool(kwargs.get("rotation_pad_to_por", True)),
+            rotation_pad_to_pow2=bool(kwargs.get("rotation_pad_to_pow2", kwargs.get("rotation_pad_to_por", True))),
             residual_topk=kwargs.get("residual_topk", kwargs.get("residual", 0)),
             resid_scale_bits=kwargs.get("resid_scale_bits", 8),
             scale_dtype=kwargs.get("scale_dtype", "float16"),

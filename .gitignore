@@ -54,6 +54,10 @@ error*.txt
 mlx_error.txt
 cert_log.txt
 
+# Benchmark run artifacts
+runs/
+result.txt
+
 # Scratch files
 Session
 fix_*.py
