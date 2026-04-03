@@ -106,7 +106,7 @@ Production configuration dataclass.  Fields:
 | `residual_mode` | `"qjl"` | residual codec: `"none"` (MSE only), `"qjl"` (1-bit QJL), `"topk"` (sparse top-k, experimental) |
 | `quantizer_mode` | `"scalar"` | main quantiser: `"scalar"` (LloydMax/GroupScalar) or `"polar"` (PolarQuantizer) |
 | `residual_topk` | 0 | top-k residual elements per group (topk mode only) |
-| `block_tokens` | 256 | accepted by `TurboQuantConfig`; not currently used in the attention dispatch path |
+| `block_tokens` | 256 | compatibility-only knob; accepted by `TurboQuantConfig` but not currently used in the attention dispatch path |
 | `eps` | 1e-6 | numerical stability floor |
 | `scale_dtype` | `"float16"` | dtype for scale factors |
 | `v_scale_dtype` | `"float16"` | dtype for V scale factors |

@@ -9,7 +9,6 @@ import turboquant
 _MLX_DEPENDENT = {
     "TurboQuantPipeline",
     "TurboQuantKVCache",
-    "TurboQuantKCache",
     "upgrade_cache_list",
     "calibrate",
     "KVCompressor",
@@ -31,7 +30,6 @@ def test_public_api_surface():
         "TurboQuantConfig",
         "TurboQuantPipeline",
         "TurboQuantKVCache",
-        "TurboQuantKCache",
         "upgrade_cache_list",
         "KVCompressor",
         "calibrate",
@@ -57,3 +55,9 @@ def test_removed_turboquant_runtime():
 
     assert "prototype and has been removed" in str(excinfo.value)
     assert "TurboQuantKCache" in str(excinfo.value)
+
+
+def test_internal_adapter_not_exported_at_package_root():
+    """TurboQuantKCache should no longer be advertised from the package root."""
+    assert "TurboQuantKCache" not in turboquant.__all__
+    assert not hasattr(turboquant, "TurboQuantKCache")

@@ -339,7 +339,7 @@ cfg.validate()   # raises ValueError on invalid field combinations
 | `rotation_pad_to_pow2` | `bool` | `True` | Pad head dim to next power-of-two for exact Hadamard. |
 | `residual_mode` | `str` | `"qjl"` | Residual: `"topk"` · `"qjl"` · `"none"`. |
 | `residual_topk` | `int` | `0` | Top-k residual components per group (0 = disabled). |
-| `block_tokens` | `int` | `256` | Accepted by config; not currently used in the attention dispatch path. |
+| `block_tokens` | `int` | `256` | Compatibility-only knob; accepted by config but not currently used in the attention dispatch path. |
 | `return_mode` | `str` | `"view"` | Cache return: `"view"` (zero-copy) · `"copy"`. |
 
 ### Rotation modes
@@ -386,7 +386,6 @@ import turboquant
 turboquant.TurboQuantConfig        # Config dataclass
 turboquant.TurboQuantPipeline      # Encode/decode pipeline
 turboquant.TurboQuantKVCache       # Full KV cache (keys + values)
-turboquant.TurboQuantKCache        # Internal/eval-only mlx_lm adapter; prefer upgrade_cache_list
 turboquant.KVCompressor            # Alias for TurboQuantKVCache
 turboquant.calibrate               # Offline scale calibration
 turboquant.upgrade_cache_list      # Canonical cache upgrade

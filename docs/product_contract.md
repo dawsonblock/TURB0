@@ -24,11 +24,30 @@ To ensure long-term compatibility, users must only import from:
 
 Root-level `integrations/` are legacy compatibility shims and will be removed in a future release.
 
-## 5. Experimental Features
+Direct `TurboQuantKCache(...)` construction is not part of the supported
+public runtime surface. It remains available only for eval, compatibility, and
+test helpers; production callers should use `upgrade_cache_list(...)`.
+
+## 5. Secondary Surfaces And Event Split
+
+TurboQuant has one canonical runtime path and a small set of documented
+secondary surfaces:
+
+- The canonical runtime path upgrades dense caches through
+	`upgrade_cache_list(...)` and enforces the model-family allowlist.
+- Some eval and compatibility helpers still construct `TurboQuantKCache`
+	directly. These bypass the support gate and are not the supported public
+	entry point.
+- Runtime upgrade decisions and JSONL persistence are intentionally split:
+	`turboquant.integrations.mlx.upgrade.CacheUpgradeEvent` is the lightweight
+	runtime result type, while `turboquant.runtime.events.EventLog` and its event
+	types are the persistence-side certification surface.
+
+## 6. Experimental Features
 - **Metal Kernels:** Custom Metal kernels (invoked via `TQ_USE_METAL=1`) are **experimental**. The default certified path uses the standard MLX Python/C++ boundary.
 - **Exploratory Presets:** Any configuration not reachable via `TurboQuantConfig.from_preset()` is considered exploratory.
 
-## 6. Runtime Certification
+## 7. Runtime Certification
 
 > **STATUS: NOT CERTIFIED.** No certification artifacts have been produced with real model weights.
 > The quality evaluation script (`benchmarks/runtime_cert/run_quality_eval.py`) is implemented.

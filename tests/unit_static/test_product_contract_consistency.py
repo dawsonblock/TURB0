@@ -298,3 +298,27 @@ def test_runtime_api_points_to_upgrade_cache_list():
         "runtime/api.py still points callers at direct TurboQuantKCache construction."
     )
 
+
+def test_product_contract_explains_secondary_surfaces_and_event_split():
+    """product_contract.md must document secondary bypasses and the split event model."""
+    content = _read('docs/product_contract.md')
+
+    assert 'Secondary Surfaces And Event Split' in content, (
+        "product_contract.md must explain the secondary surfaces and event split centrally."
+    )
+    assert 'upgrade_cache_list' in content and 'TurboQuantKCache' in content, (
+        "product_contract.md must distinguish the canonical upgrade path from direct adapter construction."
+    )
+    assert 'EventLog' in content and 'CacheUpgradeEvent' in content, (
+        "product_contract.md must describe the runtime/persistence event split."
+    )
+
+
+def test_block_tokens_marked_compatibility_only_in_docs():
+    """Main docs must describe block_tokens as compatibility-only rather than active runtime control."""
+    for rel_path in ('README.md', 'docs/architecture.md', 'docs/integration.md'):
+        content = _read(rel_path).lower()
+        assert 'compatibility-only knob' in content, (
+            f"{rel_path} must label block_tokens as a compatibility-only knob."
+        )
+

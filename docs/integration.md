@@ -127,7 +127,7 @@ If you have old code using `TurboQuantConfig(main_bits=3, group_size=64, ...)`:
 | `residual` | — | ignored |
 | `v_bits` | `v_bits` | |
 | `v_group_size` | `v_group_size` | |
-| `block_tokens` | `block_tokens` | accepted but not currently used in the attention dispatch path |
+| `block_tokens` | `block_tokens` | compatibility-only knob; accepted but not currently used in the attention dispatch path |
 
 `mlx_lm.models.cache.TurboQuantConfig` is a legacy shim that performs this
 mapping automatically.

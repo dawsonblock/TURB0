@@ -10,7 +10,6 @@ Public API
 TurboQuantConfig          — runtime-immutable configuration
 TurboQuantPipeline        — low-level encode/decode pipeline
 TurboQuantKVCache         — canonical KV cache implementation
-TurboQuantKCache          — internal/eval-only MLX cache adapter; prefer upgrade_cache_list
 KVCompressor              — compatibility alias for TurboQuantKVCache; prefer TurboQuantKVCache for new code
 calibrate                 — calibration pass over representative data
 upgrade_cache_list        — canonical utility to migrate MLX cache lists
@@ -33,7 +32,6 @@ _MLX_DEPENDENT = frozenset(
         "calibrate",
         "TurboQuantPipeline",
         "TurboQuantKVCache",
-        "TurboQuantKCache",
         "upgrade_cache_list",
         "KVCompressor",
     }
@@ -63,9 +61,6 @@ def __getattr__(name: str):
     elif name == "TurboQuantKVCache":
         from turboquant.runtime.kv_interface import TurboQuantKVCache
         return TurboQuantKVCache
-    elif name == "TurboQuantKCache":
-        from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
-        return TurboQuantKCache
     elif name == "upgrade_cache_list":
         from turboquant.integrations.mlx.upgrade import upgrade_cache_list
         return upgrade_cache_list
@@ -75,11 +70,11 @@ def __getattr__(name: str):
         return KVCompressor
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 __all__ = [
     "TurboQuantConfig",
     "TurboQuantPipeline",
     "TurboQuantKVCache",
-    "TurboQuantKCache",  # internal/eval-only adapter; prefer upgrade_cache_list
     "KVCompressor",  # compatibility alias — prefer TurboQuantKVCache for new code
     "calibrate",
     "upgrade_cache_list",
