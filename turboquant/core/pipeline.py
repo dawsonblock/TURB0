@@ -11,12 +11,13 @@ from .residual_codec import ResidualPayload, build_residual_codec
 
 @dataclass(slots=True)
 class EncodedKeyBlock:
-    packed_main: mx.array
-    scales: mx.array
+    packed_main: mx.array | None     # None when quantizer_mode='polar'
+    scales: mx.array | None          # None when quantizer_mode='polar'
     residual: ResidualPayload
     d_head: int
     d_rot: int
     d_quant: int
+    polar: object = None             # PolarQuantPayload | None
 
 
 class TurboQuantPipeline:
@@ -27,8 +28,12 @@ class TurboQuantPipeline:
         # In a real implementation, this would hold fitted quantizer state.
         # For now, it delegates to the functional encode/decode helpers.
         from .quantizer import GroupScalarQuantizer
-        self._k_quant = GroupScalarQuantizer(bits=config.k_bits, group_size=config.k_group_size)
-        self._v_quant = GroupScalarQuantizer(bits=config.v_bits, group_size=config.v_group_size)
+        if config.quantizer_mode == "polar":
+            from .polar_quant import PolarQuantizer
+            self._k_quant = PolarQuantizer()
+        else:
+            self._k_quant = GroupScalarQuantizer(n_bits=config.k_bits, group_size=config.k_group_size)
+        self._v_quant = GroupScalarQuantizer(n_bits=config.v_bits, group_size=config.v_group_size)
 
     def _get_k_quant(self): return self._k_quant
     def _get_v_quant(self): return self._v_quant
@@ -79,6 +84,20 @@ def encode_k_block(
     k_quant_in, d_quant = pad_last_dim(k_rot, config.k_group_size)
 
     packed_main, scales = quantize_main(k_quant_in, config=config)
+
+    # PolarQuant path: scales is None, packed_main is a PolarQuantPayload
+    if scales is None:
+        return EncodedKeyBlock(
+            packed_main=None,
+            scales=None,
+            residual=ResidualPayload(mode="none", data={}),
+            d_head=d_head,
+            d_rot=d_rot,
+            d_quant=d_quant,
+            polar=packed_main,
+        )
+
+    # Scalar quantisation path
     main_hat = dequantize_main(packed_main, scales, config=config)
 
     residual = k_quant_in - main_hat
@@ -102,6 +121,11 @@ def decode_k_block(
     dequantize_main,
 ) -> mx.array:
     config.validate()
+
+    # PolarQuant path: bypass scalar dequantisation and residual correction
+    if block.polar is not None:
+        x_hat = dequantize_main(block.polar, None, config=config)
+        return x_hat[..., : block.d_rot]
 
     main_hat = dequantize_main(block.packed_main, block.scales, config=config)
 

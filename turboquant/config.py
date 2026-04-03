@@ -28,6 +28,7 @@ class TurboQuantConfig:
     qjl_seed: int = 42
     qjl_bits: int = 1
 
+    quantizer_mode: str = "scalar"   # "scalar" | "polar"
     paper_faithful_mode: bool = False
     return_mode: str = "view"
 
@@ -62,6 +63,10 @@ class TurboQuantConfig:
                 )
             if self.qjl_proj_dim <= 0:
                 raise ValueError(f"qjl_proj_dim must be > 0, got {self.qjl_proj_dim}")
+
+        if self.quantizer_mode not in {"scalar", "polar"}:
+            raise ValueError(f"Unsupported quantizer_mode: {self.quantizer_mode!r}"
+                             "; expected 'scalar' or 'polar'")
 
     @classmethod
     def from_preset(cls, name: str) -> TurboQuantConfig:
