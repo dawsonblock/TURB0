@@ -11,11 +11,10 @@ or KL divergence. It only checks that:
 - No NaN logprobs are emitted (overflow / underflow guard).
 - At least one cache layer remains ``TurboQuantKCache`` after generation.
 
-NOTE: This test reuses the Llama model from ``TQ_TEST_LLAMA_MODEL``. It
-will be skipped if that variable is not set. The quality gate belongs to
-``run_quality_eval.py`` (currently unimplemented).
+Uses a tiny synthetic model by default (no download required).  If
+``TQ_TEST_LLAMA_MODEL`` is set the real Llama model is used instead.
 
-Suggested model::
+To run with a real model::
 
     export TQ_TEST_LLAMA_MODEL=mlx-community/Llama-3.2-1B-Instruct-4bit
 """
@@ -23,20 +22,8 @@ import os
 
 import pytest
 
-_MODEL_ID = os.environ.get("TQ_TEST_LLAMA_MODEL", "")
-
 # Platform gate.
 mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
-
-# Model gate.
-pytestmark = pytest.mark.skipif(
-    not _MODEL_ID,
-    reason=(
-        "Long-context stability test requires TQ_TEST_LLAMA_MODEL. "
-        "Set to a small model, e.g. "
-        "export TQ_TEST_LLAMA_MODEL=mlx-community/Llama-3.2-1B-Instruct-4bit"
-    ),
-)
 
 from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache  # noqa: E402
 
@@ -47,30 +34,40 @@ def test_long_context_stability(tmp_path):
     """
     Generate tokens from a >300-token prompt with TurboQuantKCache active.
 
-    Does not validate output quality (that is run_quality_eval.py's job).
-    Passes if:
+    Uses a tiny synthetic model by default; a real model is used when
+    TQ_TEST_LLAMA_MODEL is set.  Passes if:
       - Generation completes without exception.
       - At least one token is generated.
       - No NaN logprobs are produced.
       - At least one cache layer is TurboQuantKCache at the end.
     """
-    from mlx_lm import load
-    from mlx_lm.models import cache as mlx_cache
+    from mlx_lm.models.cache import make_prompt_cache
     from mlx_lm.generate import generate_step
 
-    model, tokenizer = load(_MODEL_ID)
+    _model_id = os.environ.get("TQ_TEST_LLAMA_MODEL", "")
+    if _model_id:
+        from mlx_lm import load as _load
+        model, tokenizer = _load(_model_id)
+        # Build a >300-token prompt the same way the original test did.
+        seed = "The quick brown fox jumps over the lazy dog. "
+        long_text = seed * ((_PROMPT_TOKENS // len(seed.split())) + 2)
+        prompt_ids_list = tokenizer.encode(long_text)[:_PROMPT_TOKENS]
+    else:
+        from tests.helpers.tiny_model import TinyModel, TinyTokenizer
+        model, tokenizer = TinyModel(), TinyTokenizer()
+        mx.eval(model.parameters())
+        # With TinyTokenizer one char = one token; repeat a phrase to get 320 tokens.
+        seed = "The quick brown fox jumps over the lazy dog. "
+        long_text = seed * 8  # 8 × 45 chars = 360 chars → 360 tokens
+        prompt_ids_list = tokenizer.encode(long_text)[:_PROMPT_TOKENS]
 
-    # Build a prompt that is longer than one TQ block (block_tokens=256).
-    seed = "The quick brown fox jumps over the lazy dog. "
-    long_text = (seed * ((_PROMPT_TOKENS // len(seed.split())) + 2))
-    prompt_ids_list = tokenizer.encode(long_text)[:_PROMPT_TOKENS]
     assert len(prompt_ids_list) >= 300, (
         f"Could not build a >{_PROMPT_TOKENS}-token prompt; "
-        f"got {len(prompt_ids_list)} tokens. Adjust the seed text."
+        f"got {len(prompt_ids_list)} tokens."
     )
     prompt_ids = mx.array(prompt_ids_list)
 
-    prompt_cache = mlx_cache.make_prompt_cache(model)
+    prompt_cache = make_prompt_cache(model)
 
     tokens_out = []
     for token, logprobs in generate_step(
@@ -82,11 +79,9 @@ def test_long_context_stability(tmp_path):
         turboquant_k_bits=3,
         turboquant_group_size=32,
     ):
-        tok = int(token.item())
-        # NaN token id is a signal of arithmetic overflow in the TQ path.
+        tok = int(token)
         assert tok >= 0, f"Negative/invalid token id produced: {tok}"
 
-        # Check for NaN in log-probabilities.
         lp_max = float(mx.max(logprobs).item())
         assert lp_max == lp_max, (  # NaN != NaN
             "NaN log-probability detected during long-context generation — "

@@ -3,16 +3,14 @@ Gemma-family runtime smoke test.
 
 Contract
 --------
-- Requires ``TQ_TEST_GEMMA_MODEL`` env var (small Gemma HF model ID).
-- Skipped on non-Apple platforms (MLX not importable) and when the env var
-  is absent — these are not failures.
-- Same contract as the Llama smoke test: load → prefill → TQ upgrade →
-  decode → artifact.
-- Do not run this test until the Llama smoke test (``test_llama_runtime_smoke``)
-  has been validated and artifact-backed. Gemma is the second model family;
-  certify Llama first.
+- Uses a tiny synthetic model (no download required).  If ``TQ_TEST_GEMMA_MODEL``
+  is set the real model is used instead; that path is reserved for CI
+  certification.
+- Skipped on non-Apple-Silicon hosts (MLX not importable).
+- Same contract as the Llama smoke test: prefill → TQ upgrade → decode → artifact.
+- Certify the Llama smoke test before relying on Gemma results with a real model.
 
-Suggested model for fast iteration::
+To run with a real Gemma model::
 
     export TQ_TEST_GEMMA_MODEL=mlx-community/gemma-2-2b-it-4bit
     python -m pytest tests/integration_mlx/test_gemma_runtime_smoke.py -v
@@ -23,43 +21,40 @@ import time
 
 import pytest
 
-_MODEL_ID = os.environ.get("TQ_TEST_GEMMA_MODEL", "")
-
 # Platform gate.
 mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
-
-# Model gate.
-pytestmark = pytest.mark.skipif(
-    not _MODEL_ID,
-    reason=(
-        "Gemma smoke test disabled. "
-        "Set TQ_TEST_GEMMA_MODEL to a small model, e.g. "
-        "export TQ_TEST_GEMMA_MODEL=mlx-community/gemma-2-2b-it-4bit"
-    ),
-)
 
 from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache  # noqa: E402
 
 
 def test_gemma_runtime_smoke(tmp_path):
     """
-    End-to-end Gemma smoke: load → prefill → TQ upgrade → decode → artifact.
+    End-to-end Gemma-family smoke: prefill → TQ upgrade → decode → artifact.
 
-    Identical contract to test_llama_runtime_smoke. Run Llama smoke first;
-    validate and produce Llama artifacts before attempting Gemma certification.
+    Uses a tiny synthetic model by default (no download needed).  Identical
+    contract to test_llama_runtime_smoke.
     """
-    from mlx_lm import load
-    from mlx_lm.models import cache as mlx_cache
+    from mlx_lm.models.cache import make_prompt_cache
     from mlx_lm.generate import generate_step
 
-    t_load = time.perf_counter()
-    model, tokenizer = load(_MODEL_ID)
-    load_s = round(time.perf_counter() - t_load, 2)
+    _model_id = os.environ.get("TQ_TEST_GEMMA_MODEL", "")
+    if _model_id:
+        from mlx_lm import load as _load
+        t_load = time.perf_counter()
+        model, tokenizer = _load(_model_id)
+        load_s = round(time.perf_counter() - t_load, 2)
+    else:
+        from tests.helpers.tiny_model import TinyModel, TinyTokenizer
+        t_load = time.perf_counter()
+        model, tokenizer = TinyModel(), TinyTokenizer()
+        mx.eval(model.parameters())
+        load_s = round(time.perf_counter() - t_load, 2)
+        _model_id = "synthetic/TinyModel"
 
     prompt_text = "The TurboQuant cache compresses KV state by"
     prompt_ids = mx.array(tokenizer.encode(prompt_text))
 
-    prompt_cache = mlx_cache.make_prompt_cache(model)
+    prompt_cache = make_prompt_cache(model)
 
     t_gen = time.perf_counter()
     tokens_out = []
@@ -72,7 +67,7 @@ def test_gemma_runtime_smoke(tmp_path):
         turboquant_k_bits=3,
         turboquant_group_size=32,
     ):
-        tokens_out.append(int(token.item()))
+        tokens_out.append(int(token))
     mx.eval()
     gen_s = round(time.perf_counter() - t_gen, 2)
 
@@ -89,7 +84,7 @@ def test_gemma_runtime_smoke(tmp_path):
     artifact = {
         "status": "ok",
         "turboquant_active": True,
-        "model": _MODEL_ID,
+        "model": _model_id,
         "tokens_generated": len(tokens_out),
         "tq_layer_indices": tq_layer_indices,
         "total_layers": len(prompt_cache),

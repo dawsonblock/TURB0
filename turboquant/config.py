@@ -195,8 +195,10 @@ class TurboQuantConfig:
         # Infer residual_mode when not explicit
         if residual_mode_kw is None:
             residual_mode_kw = "qjl" if residual_topk == 0 else "topk"
-        # Infer algorithm from residual_mode
-        if residual_mode_kw == "qjl":
+        # Infer algorithm from residual_mode.
+        # Both "qjl" and "topk" are residual encoders → turboquant_prod.
+        # "none" means pure MSE (no residual) → turboquant_mse.
+        if residual_mode_kw in ("qjl", "topk"):
             default_algorithm = "turboquant_prod"
         else:
             default_algorithm = "turboquant_mse"

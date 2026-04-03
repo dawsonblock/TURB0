@@ -3,10 +3,10 @@ Llama-family runtime smoke test.
 
 Contract
 --------
-- Requires ``TQ_TEST_LLAMA_MODEL`` env var (small Llama HF model ID).
-- Skipped on non-Apple platforms (MLX not importable) and when the env var
-  is absent — these are not failures.
-- Loads model + tokenizer via ``mlx_lm.load``.
+- Uses a tiny synthetic model (no download required).  If ``TQ_TEST_LLAMA_MODEL``
+  is set the real model is used instead; that path is reserved for CI
+  certification.
+- Skipped on non-Apple-Silicon hosts (MLX not importable).
 - Creates the KV cache externally so it can be inspected post-generation.
 - Calls ``generate_step`` with ``turboquant_k_start=0`` to trigger the cache
   upgrade on the very first prefill step.
@@ -16,7 +16,7 @@ Contract
 - Writes an artifact JSON with ``status="ok"`` and
   ``turboquant_active=True``.
 
-Suggested model for fast iteration (< 1 GB download)::
+To run with a real Llama model::
 
     export TQ_TEST_LLAMA_MODEL=mlx-community/Llama-3.2-1B-Instruct-4bit
     python -m pytest tests/integration_mlx/test_llama_runtime_smoke.py -v
@@ -27,48 +27,45 @@ import time
 
 import pytest
 
-_MODEL_ID = os.environ.get("TQ_TEST_LLAMA_MODEL", "")
-
 # Platform gate — entire module is skipped on non-Apple hosts.
 mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
-
-# Model gate — skip when the caller has not configured a model.
-pytestmark = pytest.mark.skipif(
-    not _MODEL_ID,
-    reason=(
-        "Llama smoke test disabled. "
-        "Set TQ_TEST_LLAMA_MODEL to a small model, e.g. "
-        "export TQ_TEST_LLAMA_MODEL=mlx-community/Llama-3.2-1B-Instruct-4bit"
-    ),
-)
 
 from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache  # noqa: E402
 
 
 def test_llama_runtime_smoke(tmp_path):
     """
-    End-to-end Llama smoke: load → prefill → TQ upgrade → decode → artifact.
+    End-to-end Llama-family smoke: prefill → TQ upgrade → decode → artifact.
 
-    Fails if generation routes through the dense (non-TurboQuant) path,
-    i.e. no cache layers are TurboQuantKCache after generate_step.
+    Uses a tiny synthetic model by default (no download needed).  Fails if
+    generation routes through the dense (non-TurboQuant) path, i.e. no cache
+    layers are TurboQuantKCache after generate_step.
     """
-    from mlx_lm import load
-    from mlx_lm.models import cache as mlx_cache
+    from mlx_lm.models.cache import make_prompt_cache
     from mlx_lm.generate import generate_step
 
-    # 1. Load model and tokenizer.
-    t_load = time.perf_counter()
-    model, tokenizer = load(_MODEL_ID)
-    load_s = round(time.perf_counter() - t_load, 2)
+    _model_id = os.environ.get("TQ_TEST_LLAMA_MODEL", "")
+    if _model_id:
+        from mlx_lm import load as _load
+        t_load = time.perf_counter()
+        model, tokenizer = _load(_model_id)
+        load_s = round(time.perf_counter() - t_load, 2)
+    else:
+        from tests.helpers.tiny_model import TinyModel, TinyTokenizer
+        t_load = time.perf_counter()
+        model, tokenizer = TinyModel(), TinyTokenizer()
+        mx.eval(model.parameters())
+        load_s = round(time.perf_counter() - t_load, 2)
+        _model_id = "synthetic/TinyModel"
 
-    # 2. Encode a short prompt.
+    # Encode a short prompt.
     prompt_text = "The TurboQuant cache compresses KV state by"
     prompt_ids = mx.array(tokenizer.encode(prompt_text))
 
-    # 3. Create KV cache externally so we can inspect it after generation.
-    prompt_cache = mlx_cache.make_prompt_cache(model)
+    # Create KV cache externally so we can inspect it after generation.
+    prompt_cache = make_prompt_cache(model)
 
-    # 4. Run generate_step; turboquant_k_start=0 triggers the upgrade
+    # Run generate_step; turboquant_k_start=0 triggers the upgrade
     # immediately after the first prefill step.
     t_gen = time.perf_counter()
     tokens_out = []
@@ -81,15 +78,14 @@ def test_llama_runtime_smoke(tmp_path):
         turboquant_k_bits=3,
         turboquant_group_size=32,
     ):
-        tokens_out.append(int(token.item()))
+        tokens_out.append(int(token))
     mx.eval()
     gen_s = round(time.perf_counter() - t_gen, 2)
 
-    # 5. Verify at least one token was generated.
+    # Verify at least one token was generated.
     assert len(tokens_out) > 0, "generate_step produced no tokens"
 
-    # 6. Verify TurboQuant cache is active.
-    # If no layer is TurboQuantKCache the runtime silently took the dense path.
+    # Verify TurboQuant cache is active.
     tq_layer_indices = [
         i for i, c in enumerate(prompt_cache) if isinstance(c, TurboQuantKCache)
     ]
@@ -99,11 +95,11 @@ def test_llama_runtime_smoke(tmp_path):
         f"Cache types: {[type(c).__name__ for c in prompt_cache[:4]]}"
     )
 
-    # 7. Write artifact for certification harness.
+    # Write artifact for certification harness.
     artifact = {
         "status": "ok",
         "turboquant_active": True,
-        "model": _MODEL_ID,
+        "model": _model_id,
         "tokens_generated": len(tokens_out),
         "tq_layer_indices": tq_layer_indices,
         "total_layers": len(prompt_cache),
