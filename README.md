@@ -139,7 +139,9 @@ The config selects the encode/decode path at construction; zero runtime branches
 
 **Centralized SDPA dispatch** — `mlx_lm/models/base.py`'s `scaled_dot_product_attention`
 type-guards on `TurboQuantKeysView` and automatically routes to `turboquant_streaming_attention`.
-No per-model changes required for new architectures.
+No per-model **attention wiring** is required — but new model families must be added to
+`SUPPORTED_FAMILIES` in `turboquant/runtime/support.py` before `upgrade_cache_list()` will
+promote their cache. Routing through `base.py` is not the same as being in the supported allowlist.
 
 **Versioned state schema** — all `state()` dicts carry `schema_version: 2`. `validate_state()`
 enforces structural correctness on restore — raises rather than silently loading corrupt state.
@@ -426,7 +428,12 @@ events = upgrade_cache_list(
 `UnsupportedModelError` before any cache entry is modified. Only `"llama"` and `"gemma"`
 are in the certified allowlist.
 
-### `TurboQuantKCache`
+### `TurboQuantKCache` (internal / eval use)
+
+> **Warning:** `TurboQuantKCache` is an internal mlx\_lm protocol adapter. The public API for
+> upgrading a cache at runtime is `upgrade_cache_list()`. Direct construction of `TurboQuantKCache`
+> bypasses the support gate — no `model_family` validation is performed. Using it outside of eval
+> or test harnesses is unsupported.
 
 The mlx\_lm-protocol-compatible per-layer cache adapter:
 
@@ -462,15 +469,15 @@ from turboquant.config import TurboQuantConfig
 cfg = TurboQuantConfig.from_preset("balanced")
 
 # Perplexity delta vs dense  —  quality gate: delta_ppl <= 0.5
-ppl = perplexity_report(model, input_ids, turboquant_config=cfg)
+ppl = perplexity_report(model, input_ids, turboquant_config=cfg, model_family="llama")
 # {"dense_ppl": 12.3, "tq_ppl": 12.6, "delta_ppl": 0.3, "n_tokens": 63}
 
 # Logit KL divergence  —  quality gate: mean_kl <= 0.1
-drift = drift_report(model, input_ids, turboquant_config=cfg)
+drift = drift_report(model, input_ids, turboquant_config=cfg, model_family="llama")
 # {"mean_kl": 0.004, "max_kl": 0.021, "n_tokens": 63}
 
 # Cache memory comparison
-mem = memory_report(model, input_ids, turboquant_config=cfg)
+mem = memory_report(model, input_ids, turboquant_config=cfg, model_family="llama")
 # {"dense_cache_bytes": 2097152, "tq_cache_bytes": 524288, "ratio": 4.0}
 ```
 
@@ -584,13 +591,14 @@ python benchmarks/exploratory/bench_k_encode.py            # K-encode micro-benc
 |---|:---:|---|
 | **Llama** (Llama 2, Llama 3, TinyLlama) | ⬜ Wired, uncertified | Smoke test wired — set `TQ_TEST_LLAMA_MODEL` to activate |
 | **Gemma** (Gemma 2) | ⬜ Wired, uncertified | Smoke test wired — set `TQ_TEST_GEMMA_MODEL` (run Llama first) |
-| Qwen | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
-| Mistral | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
-| Phi | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
-| Any other `base.py` model | ⬜ Auto-routed | Automatic if model uses `scaled_dot_product_attention` from `base.py` |
+| Qwen | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
+| Mistral | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
+| Phi | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
 
-Adding a new architecture to the **wired allowlist** requires no per-model code changes.
-See [docs/integration.md](docs/integration.md).
+Adding a new architecture requires editing `SUPPORTED_FAMILIES` in `turboquant/runtime/support.py`
+**and** wiring the model (see [docs/integration.md](docs/integration.md)). SDPA routing alone does
+not grant allowlist membership — `upgrade_cache_list` will raise `UnsupportedModelError` for any
+family not in the allowlist.
 
 ---
 
@@ -673,7 +681,7 @@ TurboQuantX1/
 | Versioned state schema (`schema_version: 2`) | ✅ `validate_state()` enforced |
 | `TurboQuantKCache` mlx\_lm adapter | ✅ 20 / 20 tests |
 | Streaming attention | ✅ `turboquant.runtime.attention` |
-| Centralized SDPA dispatch (`base.py`) | ✅ All model families auto-routed |
+| Centralized SDPA dispatch (`base.py`) | ✅ Attention routing (llama + gemma certified; gate rejects others) |
 | Gemma streaming attention | ⬜ Wired, uncertified |
 | Llama streaming attention | ⬜ Wired, uncertified |
 | `upgrade_cache_list` | ✅ Canonical, idempotent |
@@ -702,9 +710,10 @@ TurboQuantX1/
 - **Metal kernel is experimental** — the fused decode+dequant Metal kernel requires
   `TQ_USE_METAL=1`. The default path uses `mx.compile()` (~2× speedup over naive MLX).
 
-- **Only Llama and Gemma are in the wired allowlist** — other architectures auto-route via the centralized
-  SDPA dispatch but are uncertified. [Adding to the allowlist](docs/integration.md) is a
-  one-function change.
+- **Only Llama and Gemma are in the allowlist** — `upgrade_cache_list` raises `UnsupportedModelError`
+  for any other model family, including families whose attention flow passes through `base.py`. SDPA
+  dispatch routing ≠ allowlist membership. Adding support requires both editing `SUPPORTED_FAMILIES`
+  in `turboquant/runtime/support.py` and wiring the model (see [docs/integration.md](docs/integration.md)).
 
 - **Apple Silicon only for inference** — MLX does not install on non-Apple platforms. All
   inference, quantization, attention, and calibration code requires Apple Silicon.
@@ -770,8 +779,9 @@ uv pip install -e '.[dev]'          # Non-Apple  (static checks only)
 4. Run `make lint` and `make typecheck`.
 5. Open a pull request with a clear description and any benchmark results.
 
-**Adding a new model family to the certified allowlist** — the centralized SDPA dispatch means
-no per-model code changes are required for basic support. See [docs/integration.md](docs/integration.md).
+**Adding a new model family to the certified allowlist** — requires editing `SUPPORTED_FAMILIES`
+in `turboquant/runtime/support.py` and wiring the model. SDPA dispatch routing alone does not
+grant allowlist membership. See [docs/integration.md](docs/integration.md).
 
 **Changing the state schema** — increment `STATE_SCHEMA_VERSION` in
 `turboquant/runtime/state.py` and update `validate_state()` to handle both old and new versions.

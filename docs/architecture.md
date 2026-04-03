@@ -173,6 +173,10 @@ If `quantize_main` / `dequantize_main` are omitted:
   (direct) through `impl = getattr(cache, "_impl", cache)` dispatch
 
 `maybe_turboquant_attention(q, k, v, mask, scale, fallback, cache)`:
+- **Legacy helper** — predates the centralized `base.py` SDPA type-guard. Used only as a
+  fallback for custom attention paths that do not go through `base.py`'s
+  `scaled_dot_product_attention`. For all `base.py`-routed models the SDPA type-guard handles
+  dispatch automatically.
 - Dispatches: if `isinstance(k, TurboQuantKeysView)` → streaming path;
   else → `fallback(q, k, v, mask, scale)`
 
@@ -307,7 +311,10 @@ See `benchmarks/exploratory/bench_memory_footprint.py` and `artifacts/benchmarks
   integrations may disable it explicitly when V quantisation degrades quality on
   a given model.  There is no family-level override in the core config; callers
   must pass `v_enabled=False` explicitly.
-- **Llama** wiring is complete (see [integration.md](integration.md)).  Other model families require a one-line `maybe_turboquant_attention` dispatch.
+- **Llama and Gemma** wiring is complete (see [integration.md](integration.md)). Other model
+  families are not supported — `upgrade_cache_list` raises `UnsupportedModelError` for families
+  not in `SUPPORTED_FAMILIES`. Adding support requires both editing the allowlist and wiring the
+  model; SDPA dispatch routing is not sufficient on its own.
 
 
 ## 7. Validation boundary

@@ -179,3 +179,56 @@ def test_support_matrix_no_automatic_dispatch_claim():
         "text that implies unsupported families work automatically."
     )
 
+
+def test_readme_no_all_families_autorouted():
+    """README Component Status must not say 'All model families auto-routed'."""
+    content = _read('README.md')
+    assert "All model families auto-routed" not in content, (
+        "README Component Status says 'All model families auto-routed' — "
+        "this overclaims: only llama and gemma are certified; others are rejected by upgrade_cache_list."
+    )
+
+
+def test_readme_model_matrix_no_auto_routed_for_unsupported():
+    """README model matrix must not describe Qwen/Mistral/Phi as 'auto-routed'."""
+    content = _read('README.md')
+    for name in ('qwen', 'mistral', 'phi'):
+        for line in content.splitlines():
+            if name.lower() in line.lower() and '|' in line:
+                assert 'auto-routed' not in line.lower(), (
+                    f"README model matrix describes '{name}' as 'auto-routed'."
+                )
+                assert 'auto-route' not in line.lower(), (
+                    f"README model matrix claims '{name}' auto-routes."
+                )
+
+
+def test_readme_eval_section_has_model_family():
+    """README Evaluation section examples must include model_family."""
+    content = _read('README.md')
+    for fn in ('perplexity_report', 'drift_report', 'memory_report'):
+        for line in content.splitlines():
+            if fn + '(' in line and 'turboquant_config' in line:
+                assert 'model_family' in line, (
+                    f"README Evaluation section: {fn}() call missing model_family argument."
+                )
+
+
+def test_readme_turboquantkcache_marked_internal():
+    """README TurboQuantKCache section must be labeled internal/eval use."""
+    content = _read('README.md')
+    assert 'TurboQuantKCache` (internal' in content or 'eval use' in content, (
+        "README must label TurboQuantKCache section as internal/eval use."
+    )
+
+
+def test_architecture_doc_maybe_turboquant_deprecated():
+    """architecture.md must label maybe_turboquant_attention as legacy and not claim one-line dispatch."""
+    content = _read('docs/architecture.md')
+    assert 'legacy' in content.lower() or 'deprecated' in content.lower(), (
+        "docs/architecture.md documents maybe_turboquant_attention without marking it as legacy/deprecated."
+    )
+    assert 'one-line `maybe_turboquant_attention` dispatch' not in content, (
+        "architecture.md §6 still says other families need a 'one-line maybe_turboquant_attention dispatch'."
+    )
+
