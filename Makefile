@@ -48,13 +48,21 @@ test-unit-mlx:
 	$(PYTHON) -m pytest tests/unit_mlx/ -v --tb=short
 
 test-structural:
-	$(PYTHON) -m pytest tests/integration_mlx/ -v --tb=short -k "not llama and not gemma"
+	$(PYTHON) -m pytest \
+		tests/integration_mlx/test_path_not_dense_fallback.py \
+		tests/integration_mlx/test_cache_upgrade_roundtrip.py \
+		tests/integration_mlx/test_streaming_attention_equivalence.py \
+		-v --tb=short
 
 test-path-proof:
 	$(PYTHON) -m pytest tests/integration_mlx/test_path_not_dense_fallback.py -v --tb=short
 
 certify-structural:
-	$(PYTHON) -m pytest tests/integration_mlx/ -v --tb=short -k "not llama and not gemma" --junitxml=artifacts/junit_structural.xml
+	$(PYTHON) -m pytest \
+		tests/integration_mlx/test_path_not_dense_fallback.py \
+		tests/integration_mlx/test_cache_upgrade_roundtrip.py \
+		tests/integration_mlx/test_streaming_attention_equivalence.py \
+		-v --tb=short --junitxml=artifacts/junit_structural.xml
 
 certify-apple-runtime:
 	./scripts/certify_apple_runtime.sh

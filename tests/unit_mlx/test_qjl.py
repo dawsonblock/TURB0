@@ -1,3 +1,9 @@
+import pytest
+
+from tests.helpers.mlx_env import MLX_SKIP_MARKER
+
+pytestmark = MLX_SKIP_MARKER
+
 import mlx.core as mx
 
 from turboquant.core.qjl import QJLProjector

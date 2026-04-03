@@ -12,10 +12,10 @@ The canonical runtime is the **local MLX runtime** on macOS.
 - Deployment via remote inference servers or non-macOS environments is currently out of scope.
 
 ## 3. Supported Model Families
-Only model families explicitly listed in `turboquant/runtime/support.py` are certified for production use.
-- **Llama-family** (Llama 2, Llama 3, Llama 3.1)
-- **Gemma-family** (Gemma, Gemma 2)
-- Other models (e.g., Qwen, Mistral, Phi, Falcon, Baichuan, Yi) may exist in the `mlx_lm` vendored directory but are considered **exploratory**, **vendored-only**, or **unsupported** unless added to the allowlist. Only `llama` and `gemma` families are officially supported.
+Only model families explicitly listed in `turboquant/runtime/support.py` are in the wired allowlist.
+- **Llama-family** (Llama 2, Llama 3, Llama 3.1) — **wired, uncertified**
+- **Gemma-family** (Gemma, Gemma 2) — **wired, uncertified**
+- Other models (e.g., Qwen, Mistral, Phi, Falcon, Baichuan, Yi) may exist in the `mlx_lm` vendored directory but are considered **exploratory**, **vendored-only**, or **unsupported** unless added to the allowlist. Only `llama` and `gemma` families are in the wired allowlist.
 
 ## 4. Canonical Import Surfaces
 To ensure long-term compatibility, users must only import from:

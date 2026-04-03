@@ -176,8 +176,8 @@ turboquant/
 
 mlx_lm/                        Patched vendored mlx-lm v0.29.1
 ├── models/base.py             SDPA — TurboQuantKeysView auto-dispatch
-├── models/llama.py            Llama wiring (runtime verified)
-├── models/gemma.py            Gemma wiring (runtime verified)
+├── models/llama.py            Llama wiring
+├── models/gemma.py            Gemma wiring
 └── generate.py                maybe_turboquant_k_cache + generate_step
 ```
 
@@ -542,12 +542,17 @@ python benchmarks/exploratory/bench_k_encode.py            # K-encode micro-benc
 
 ### Synthetic micro-benchmarks (Apple Silicon, Python 3.10.12)
 
+> **NOTE:** The figures below are from early development and have not been
+> reproduced against saved certification artifacts. They are illustrative only.
+
 | Benchmark | Result |
 |---|---|
 | K-Encode (`encode_k_block`, shape [1, 32, 128, 128]) | **0.10 ms / step** |
 | Decode step (`append_keys`, 1 new token) | **0.03 ms / step** |
 
 ### Paired generative benchmarks — 64 tokens, 30 total runs
+
+> **NOTE:** Historical figure; not reproduced against saved certification artifacts.
 
 | Mode | Avg latency | Tok/s | Correctness |
 |---|---|---|---|
@@ -570,7 +575,7 @@ python benchmarks/exploratory/bench_k_encode.py            # K-encode micro-benc
 | Phi | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
 | Any other `base.py` model | ⬜ Auto-routed | Automatic if model uses `scaled_dot_product_attention` from `base.py` |
 
-Adding a new architecture to the **certified allowlist** requires no per-model code changes.
+Adding a new architecture to the **wired allowlist** requires no per-model code changes.
 See [docs/integration.md](docs/integration.md).
 
 ---
@@ -655,8 +660,8 @@ TurboQuantX1/
 | `TurboQuantKCache` mlx\_lm adapter | ✅ 20 / 20 tests |
 | Streaming attention | ✅ `turboquant.runtime.attention` |
 | Centralized SDPA dispatch (`base.py`) | ✅ All model families auto-routed |
-| Gemma streaming attention | ✅ Wired + runtime verified |
-| Llama streaming attention | ✅ Wired + runtime verified |
+| Gemma streaming attention | ⬜ Wired, uncertified |
+| Llama streaming attention | ⬜ Wired, uncertified |
 | `upgrade_cache_list` | ✅ Canonical, idempotent |
 | Eval suite (perplexity / KL / memory) | ✅ `turboquant.eval` |
 | Quality gates (Δppl ≤ 0.5, mean\_kl ≤ 0.1) | ✅ `run_quality_eval.py` |
@@ -682,7 +687,7 @@ TurboQuantX1/
 - **Metal kernel is experimental** — the fused decode+dequant Metal kernel requires
   `TQ_USE_METAL=1`. The default path uses `mx.compile()` (~2× speedup over naive MLX).
 
-- **Only Llama and Gemma are certified** — other architectures auto-route via the centralized
+- **Only Llama and Gemma are in the wired allowlist** — other architectures auto-route via the centralized
   SDPA dispatch but are uncertified. [Adding to the allowlist](docs/integration.md) is a
   one-function change.
 

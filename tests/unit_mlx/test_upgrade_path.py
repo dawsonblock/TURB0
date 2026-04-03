@@ -1,4 +1,9 @@
 import pytest
+
+from tests.helpers.mlx_env import MLX_SKIP_MARKER
+
+pytestmark = MLX_SKIP_MARKER
+
 import os
 from turboquant.integrations.mlx.upgrade import upgrade_cache_list, CacheUpgradeEvent
 

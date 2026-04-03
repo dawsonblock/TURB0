@@ -75,7 +75,13 @@ unimplemented.
 
 ---
 
-## Runtime benchmark results
+## Runtime benchmark results (HISTORICAL — not release-certified)
+
+> **NOTE:** The figures below were recorded during early development and have
+> not been reproduced against saved certification artifacts.  They are
+> preserved here for historical reference only and **do not constitute
+> certification evidence**.  Run `make certify-apple-runtime` with real model
+> weights to produce artifact-backed results.
 
 **Hardware:** Apple Silicon · macOS 26.2 · Python 3.10.12  
 **Model:** `Llama / Gemma` (e.g. `Meta-Llama-3-8B-Instruct`)  
@@ -105,14 +111,19 @@ verified but now considered exploratory and removed from primary support list.
 
 ---
 
-## Gating status
+## Gating status (HISTORICAL — state at time of Phase 5 scaffolding)
+
+> **NOTE:** The gates below reflect the state at Phase 5 scaffolding.
+> `make test-structural` now runs an explicit file list (not a name filter).
+> `./scripts/certify_apple_runtime.sh` now fails when required stages are
+> skipped — full cert requires `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL`.
 
 | Gate | Result |
 |---|---|
 | `python scripts/preflight.py` | ✅ passes |
 | `python -m build` (sdist + wheel) | ✅ passes |
 | `ruff check .` | ✅ 0 violations |
-| `make test-structural` | ✅ 4 / 4 |
-| `./scripts/certify_apple_runtime.sh` (structural) | ✅ passes |
-| Paired generative benchmark (30 runs) | ✅ 30 / 30 ok |
-| Dense output == TurboQuant output (correctness) | ✅ verified |
+| `make test-structural` | ✅ 4 / 4 (explicit file list) |
+| `./scripts/certify_apple_runtime.sh` (no model weights) | ✗ FAILS — required stages unimplemented/skipped |
+| Paired generative benchmark (30 runs) | ⬜ Not reproduced — historical only |
+| Dense output == TurboQuant output (correctness) | ⬜ Not reproduced — historical only |

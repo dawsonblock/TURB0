@@ -10,7 +10,7 @@ Usage
 -----
     python3 scripts/write_cert_manifest.py \\
         --artifact-dir artifacts/runtime-cert/20241201_120000 \\
-        --passed 7 --failed 0 --total 7 \\
+        --passed 7 --failed 0 --skipped 0 --unimplemented 0 --total 7 \\
         --turboquant-version 0.2.2
 
 Output
@@ -18,15 +18,22 @@ Output
 Writes ``<artifact-dir>/cert_manifest.json``.  Example structure::
 
     {
-      "schema_version": "1",
+      "schema_version": "2",
       "turboquant_version": "0.2.2",
       "timestamp_utc": "2024-12-01T12:00:00Z",
       "platform": "darwin-arm64",
-      "stages": {"passed": 7, "failed": 0, "total": 7},
+      "stages": {
+        "passed": 7, "failed": 0,
+        "skipped": 0, "unimplemented": 0, "total": 7
+      },
       "result": "PASS",
       "artifact_dir": "artifacts/runtime-cert/20241201_120000",
       "files": ["preflight.json", "junit_cache_roundtrip.xml", ...]
     }
+
+``result`` is ``"PASS"`` only when ``failed == 0`` AND ``skipped == 0``
+AND ``unimplemented == 0``.  Stages where all tests are marked
+``@pytest.mark.skip`` are counted as *unimplemented* and prevent PASS.
 """
 
 from __future__ import annotations
@@ -68,6 +75,18 @@ def main() -> int:
         help="Number of stages that failed.",
     )
     parser.add_argument(
+        "--skipped",
+        type=int,
+        default=0,
+        help="Number of stages skipped due to missing env vars.",
+    )
+    parser.add_argument(
+        "--unimplemented",
+        type=int,
+        default=0,
+        help="Number of stages where pytest ran but all tests were @skip.",
+    )
+    parser.add_argument(
         "--total",
         type=int,
         required=True,
@@ -95,10 +114,14 @@ def main() -> int:
         if p.is_file() and p.name != "cert_manifest.json"
     )
 
-    result = "PASS" if args.failed == 0 else "FAIL"
+    result = (
+        "PASS"
+        if args.failed == 0 and args.skipped == 0 and args.unimplemented == 0
+        else "FAIL"
+    )
 
     manifest = {
-        "schema_version": "1",
+        "schema_version": "2",
         "turboquant_version": args.turboquant_version,
         "timestamp_utc": datetime.now(tz=timezone.utc).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -108,6 +131,8 @@ def main() -> int:
         "stages": {
             "passed": args.passed,
             "failed": args.failed,
+            "skipped": args.skipped,
+            "unimplemented": args.unimplemented,
             "total": args.total,
         },
         "result": result,

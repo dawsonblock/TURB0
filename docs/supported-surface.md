@@ -21,8 +21,8 @@ What this repository currently intends to support:
 
 | Model Architecture | Explicit Integration Tested | Support Status | Notes |
 | :--- | :--- | :--- | :--- |
-| Llama | Yes | **Supported** | Explicit memory/latency benchmarks validated local. |
-| Gemma | Yes | **Supported** | Explicit memory/latency benchmarks validated local. |
+| Llama | Yes | **Wired, uncertified** | Integration path present; runtime certification not yet completed. |
+| Gemma | Yes | **Wired, uncertified** | Integration path present; runtime certification not yet completed. |
 | Qwen | No | Exploratory | Historically runtime verified via centralized base.py dispatch; now unsupported. |
 | Phi | No | Unsupported | Provided via upstream sync only. |
 | &lt;All Others&gt; | No | Unsupported | Uncertified. Vended for structural scaffolding. |

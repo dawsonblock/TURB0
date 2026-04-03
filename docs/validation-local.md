@@ -2,6 +2,18 @@
 
 Public CI in this repository checks packaging and static validation. It does not certify the MLX runtime path, because generic hosted runners are not Apple Silicon and do not provide a usable `mlx` environment.
 
+## The one real proof you can run today
+
+```bash
+make test-path-proof
+```
+
+This runs `tests/integration_mlx/test_path_not_dense_fallback.py` — the only
+structural proof that the TurboQuant path is active and not silently falling back
+to dense computation.  It requires no model weights, produces results in under
+10 seconds on any Apple Silicon Mac, and is the narrowest meaningful check in
+the repo.
+
 ## Two-track testing model
 
 | Track | What it tests | Where it runs |
@@ -16,30 +28,41 @@ Public CI in this repository checks packaging and static validation. It does not
 # Static tests (safe everywhere)
 make test-static
 
-# Apple Silicon structural validation
-make test-mlx
-make test-structural
+# Narrowest Apple Silicon proof (start here — no model weights needed)
 make test-path-proof
 
-# Full runtime certification
+# Full structural validation
+make test-mlx
+make test-structural
+
+# Full runtime certification (requires TQ_TEST_LLAMA_MODEL and TQ_TEST_GEMMA_MODEL)
 make certify-apple-runtime
 ```
+
+## Structural test files
+
+`make test-structural` runs an explicit file list — no model weights required:
+
+| File | What it proves |
+|---|---|
+| `test_path_not_dense_fallback.py` | TQ path is active; dense fallback is not silently taken |
+| `test_cache_upgrade_roundtrip.py` | Cache state round-trips through upgrade without data loss |
+| `test_streaming_attention_equivalence.py` | Streaming attention output matches reference on synthetic tensors |
 
 ## Validation scripts
 
 `./scripts/validate_apple_silicon.sh`
 
 - local developer validation
-- creates a fresh virtualenv
-- installs the package in editable mode with Apple extras
-- runs strict preflight
-- runs the canonical MLX test surface
+- creates a fresh virtualenv, installs the package in editable mode with Apple extras
+- Lanes: preflight → MLX unit tests → path-proof gate → cache + attention tests → optional model smoke tests
 
 `./scripts/certify_apple_runtime.sh`
 
 - release certification
 - writes timestamped artifacts under `artifacts/runtime-cert/`
-- runs strict preflight, structural tests, optional model smoke tests, benchmarks, and metric aggregation
+- fails closed: stages where all tests are `@skip` are counted as UNIMPLEMENTED, not PASSED
+- requires `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` env vars for full certification
 
 ## Legacy integration tests
 

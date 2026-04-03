@@ -8,8 +8,8 @@ Please refer to [supported-surface.md](supported-surface.md) for the canonical a
 
 | Model Architecture | Runtime Verified | Notes |
 |:---|:---:|:---|
-| Llama | ✅ | Explicit wiring in `mlx_lm/models/llama.py` |
-| Gemma | ✅ | Explicit wiring in `mlx_lm/models/gemma.py` |
+| Llama | ⬜ | Wiring present in `mlx_lm/models/llama.py`; certification incomplete |
+| Gemma | ⬜ | Wiring present in `mlx_lm/models/gemma.py`; certification incomplete |
 | Qwen | ⬜ | Exploratory/Vendored-only; uncertified |
 | Mistral | ⬜ | Vendored-only; not certified |
 | Phi | ⬜ | Vendored-only; not certified |
