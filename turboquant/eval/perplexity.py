@@ -67,6 +67,7 @@ def perplexity_report(
     input_ids,
     turboquant_config=None,
     k_start: int = 0,
+    model_family: str = "llama",
 ) -> dict:
     """Measure dense vs TurboQuant perplexity on a tokenised sequence.
 
@@ -82,6 +83,10 @@ def perplexity_report(
     k_start:
         Token index at which to start the TurboQuant cache upgrade (if using
         :func:`turboquant.integrations.mlx.upgrade.upgrade_cache_list`).
+    model_family:
+        TurboQuant model family string (e.g. ``"llama"``, ``"gemma"``).  Must
+        be a member of the supported allowlist; raises
+        :class:`~turboquant.errors.UnsupportedModelError` otherwise.
 
     Returns
     -------
@@ -105,7 +110,7 @@ def perplexity_report(
         from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 
         tq_cache = make_prompt_cache(model)
-        upgrade_cache_list(tq_cache, k_start=k_start, config=turboquant_config)
+        upgrade_cache_list(tq_cache, k_start=k_start, config=turboquant_config, model_family=model_family)
         tq_logits = _collect_logits(model, feed, cache=tq_cache)
         mx.eval(tq_logits)
         tq_ppl = perplexity_from_logits(tq_logits, targets)

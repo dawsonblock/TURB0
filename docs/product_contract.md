@@ -30,8 +30,10 @@ Root-level `integrations/` are legacy compatibility shims and will be removed in
 
 ## 6. Runtime Certification
 
-> **STATUS: NOT CERTIFIED.** No real certification artifacts have been produced yet.
-> The quality evaluation script is unimplemented and integration tests are skipped.
+> **STATUS: NOT CERTIFIED.** No certification artifacts have been produced with real model weights.
+> The quality evaluation script (`benchmarks/runtime_cert/run_quality_eval.py`) is implemented.
+> Integration smoke tests exist but require `TQ_TEST_LLAMA_MODEL` or `TQ_TEST_GEMMA_MODEL` env
+> variables pointing to real model weights to execute the memory-backed path.
 
 "Full TurboQuant" status requires artifact-backed evidence generated via `make certify-apple-runtime`.
 - Generic CI passes do not constitute runtime certification.

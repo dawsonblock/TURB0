@@ -57,6 +57,7 @@ def _eval_one_prompt(
     model,
     input_ids: "mx.array",
     turboquant_config,
+    model_family: str = "llama",
 ) -> dict:
     """Run dense and TurboQuant forward passes; return metrics for one prompt."""
     import mlx.core as mx
@@ -80,7 +81,7 @@ def _eval_one_prompt(
 
     # ── TurboQuant forward ─────────────────────────────────────────────────
     tq_cache = make_prompt_cache(model)
-    upgrade_cache_list(tq_cache, k_start=0, config=turboquant_config)
+    upgrade_cache_list(tq_cache, k_start=0, config=turboquant_config, model_family=model_family)
     tq_logits = model(feed, cache=tq_cache)[0]            # [T-1, V]
     mx.eval(tq_logits)
     tq_log_p = tq_logits - mx.logsumexp(tq_logits, axis=-1, keepdims=True)
@@ -122,6 +123,10 @@ def main() -> None:
         "--max-mean-kl", type=float, default=0.1,
         help="Maximum allowed mean per-token KL divergence (default: 0.1)"
     )
+    parser.add_argument(
+        "--model-family", default="llama",
+        help="TurboQuant model family (e.g. llama, gemma; default: llama)"
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -146,7 +151,7 @@ def main() -> None:
         tokens = tokenizer.encode(text)
         import mlx.core as mx
         input_ids = mx.array(tokens)[None]   # [1, T]
-        metrics = _eval_one_prompt(model, input_ids, tq_config)
+        metrics = _eval_one_prompt(model, input_ids, tq_config, model_family=args.model_family)
         if metrics:
             results.append(metrics)
             print(

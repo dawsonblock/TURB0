@@ -35,6 +35,15 @@ from turboquant.runtime.support import assert_supported_model_family
 class CacheUpgradeEvent:
     """Record of a single cache-layer upgrade decision.
 
+    This is the **primary runtime event type** returned by
+    :func:`upgrade_cache_list`.  It is a lightweight dataclass with no
+    persistence logic.
+
+    For JSONL artifact persistence (e.g. writing ``events.jsonl`` during
+    certification runs), use :class:`turboquant.runtime.events.EventLog`
+    together with its own ``CacheUpgradeEvent``.  The two types serve
+    different purposes and are not interchangeable.
+
     Fields
     ------
     upgraded:

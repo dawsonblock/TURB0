@@ -306,8 +306,19 @@ def _infer_model_family(model: nn.Module) -> Optional[str]:
     Returns ``None`` when the family cannot be determined *or* when the
     detected family is not in the supported allowlist — either way the caller
     must not proceed with the TurboQuant upgrade path.
+
+    Resolution order:
+    1. ``model.model_type`` attribute (standard mlx-lm convention).
+    2. Class module + name string search (fallback for non-standard models).
     """
     from turboquant.runtime.support import SUPPORTED_FAMILIES, _normalize
+    # 1. Check model_type attribute first (fastest path).
+    model_type = getattr(model, "model_type", None)
+    if model_type:
+        norm = _normalize(str(model_type))
+        if norm in SUPPORTED_FAMILIES:
+            return norm
+    # 2. Fall back to class name / module path search.
     cls = type(model)
     haystack = f"{cls.__module__}.{cls.__name__}".lower()
     for family in SUPPORTED_FAMILIES:

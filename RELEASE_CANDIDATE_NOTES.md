@@ -12,9 +12,10 @@ like Qwen, Mistral, and Phi are exploratory and uncertified.
 
 This pass covers Phases 2–5 of the v0.2.2 release cycle, bringing the
 repository from scaffolding to a fully linted state with static tests
-passing. Runtime certification is **not yet complete** — integration tests
-are currently marked `skip` and the quality evaluation script is
-unimplemented.
+passing. Runtime certification is **not yet complete** — integration smoke
+tests require real model weights (`TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL`)
+to exercise the memory-backed path. The quality evaluation script
+(`benchmarks/runtime_cert/run_quality_eval.py`) is implemented.
 
 ---
 
@@ -45,12 +46,13 @@ unimplemented.
   `test_cache_upgrade_roundtrip.py`, `test_streaming_attention_equivalence.py`,
   `test_llama_runtime_smoke.py`, `test_gemma_runtime_smoke.py`,
   `test_long_context_stability.py`, `test_path_proof_tq_active.py`
-- All six files are currently marked `@pytest.mark.skip` — not yet implemented.
-- `make test-structural` runs but all tests skip; no structural coverage exists yet.
+- Smoke tests use a tiny synthetic model by default (no download needed); the
+  real-model path requires `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL`.
+- `make test-structural` runs the explicit file list.
+- `./scripts/certify_apple_runtime.sh` fails when required stages are
+  skipped — full cert requires real model weights.
 
 ### Cleanup — Ruff linting and temp script removal
-
-- `ruff check . --fix --unsafe-fixes` applied across entire codebase
 - 78 violations resolved (unused imports, whitespace, line length)
 - `turboquant/__init__.py` updated: added `check_mlx_version`, `has_mlx`,
   `is_apple_silicon`, `require_mlx` to `__all__`

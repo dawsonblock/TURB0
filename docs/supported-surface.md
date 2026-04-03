@@ -13,7 +13,8 @@ What this repository currently intends to support:
 - MLX runtime installed locally
 - Research and local evaluation workflows
 - TurboQuant core package: `turboquant/*`
-- `mlx_lm` adapter path used to upgrade dense prompt caches into `KVCompressor`
+- `mlx_lm` adapter path used to upgrade dense prompt caches into `TurboQuantKCache`
+  (`KVCompressor` is a compatibility alias for `TurboQuantKCache` and will be removed in a future release)
 - Llama-family integration path
 - Gemma-family integration path
 

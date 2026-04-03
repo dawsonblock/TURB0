@@ -101,7 +101,12 @@ class TinyModel(nn.Module):
     The attention module dispatches to ``turboquant_streaming_attention`` when
     ``update_and_fetch`` returns a :class:`TurboQuantKeysView`, so the full
     TurboQuant path is exercised without a real language model.
+
+    ``model_type`` is set to ``"llama"`` so that :func:`~mlx_lm.generate._infer_model_family`
+    can resolve a supported family without requiring a real model download.
     """
+
+    model_type: str = "llama"
 
     def __init__(self) -> None:
         super().__init__()

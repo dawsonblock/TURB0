@@ -1,6 +1,26 @@
 """
 turboquant.runtime.events — structured upgrade and failure event log.
 
+**Role in the event architecture**
+-----------------------------------
+There are two distinct ``CacheUpgradeEvent`` types in this codebase:
+
+1. :class:`turboquant.integrations.mlx.upgrade.CacheUpgradeEvent` — the
+   **primary runtime event** returned by :func:`upgrade_cache_list`.  It is
+   a lightweight dataclass used purely for in-process result inspection (e.g.
+   "how many layers upgraded?", "what was the offset?").  No persistence.
+
+2. :class:`turboquant.runtime.events.CacheUpgradeEvent` (this module) — the
+   **persistence-layer event** consumed by :class:`EventLog`.  It carries
+   additional fields (``timestamp_utc``, ``token_index``, ``event_type``)
+   needed for JSONL artifact output during certification runs.
+
+These two types are **not interchangeable**.  If you need JSONL output (e.g.
+for ``make certify-apple-runtime``), build an ``EventLog``, call
+``EventLog.record()`` with this module's ``CacheUpgradeEvent``, then pass the
+log to :meth:`~turboquant.metrics.tracker.MetricsTracker.write`.  The primary
+runtime path returns the simpler type from ``upgrade.py``.
+
 Every cache upgrade or compression failure produces a structured event.
 Events are written to ``events.jsonl`` in the run artifact directory so
 that CI and offline analysis can verify the exact transition point and its
