@@ -495,8 +495,13 @@ make test-mlx
 # Structural integration tests — no model weights  (~2 seconds)
 make test-structural
 
-# Path-proof tests — verify TQ path is active, not silent dense fallback
+# Path-proof and offset-tracking structural tests
 make test-path-proof
+
+# Model smoke tests — skip cleanly when env vars are absent
+export TQ_TEST_LLAMA_MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"
+make test-smoke-llama     # end-to-end Llama generation with TurboQuant active
+make test-long-context    # long-context (>256 tokens) — reuses TQ_TEST_LLAMA_MODEL
 ```
 
 ### Test matrix
@@ -504,20 +509,27 @@ make test-path-proof
 | Target | Directory | Needs MLX | Needs weights |
 |---|---|:---:|:---:|
 | `test-static` | `tests/unit_static/` | ✗ | ✗ |
-| `test-mlx` | `tests/unit_mlx/` | ✓ | ✗ |
-| `test-structural` | `tests/integration_mlx/` | ✓ | ✗ |
+| `test-mlx` | `tests/unit_mlx/` + `tests/integration_mlx/` | ✓ | ✗ |
+| `test-structural` | `tests/integration_mlx/` (3 structural files) | ✓ | ✗ |
 | `test-path-proof` | `tests/integration_mlx/test_path_not_dense_fallback.py` | ✓ | ✗ |
+| `test-smoke-llama` | `tests/integration_mlx/test_llama_runtime_smoke.py` | ✓ | ✓ |
+| `test-smoke-gemma` | `tests/integration_mlx/test_gemma_runtime_smoke.py` | ✓ | ✓ |
+| `test-long-context` | `tests/integration_mlx/test_long_context_stability.py` | ✓ | ✓ |
 
 ### Tests requiring model weights
 
 ```bash
-export TQ_TEST_LLAMA_MODEL="TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-export TQ_TEST_GEMMA_MODEL="google/gemma-2b"
+# Llama (start here — smaller model; certify before Gemma)
+export TQ_TEST_LLAMA_MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"
+make test-smoke-llama    # asserts: tokens generated > 0, TQ active, no dense fallback
+make test-long-context   # asserts: no NaN logprobs on prompts > 256 tokens
 
-python -m pytest tests/integration_mlx/ -v --tb=short
+# Gemma (run only after Llama smoke is artifact-backed)
+export TQ_TEST_GEMMA_MODEL="mlx-community/gemma-2-2b-it-4bit"
+make test-smoke-gemma
 ```
 
-Without these variables, model-dependent tests are automatically skipped.
+Without these variables, all three smoke tests skip automatically with a clear message.
 
 ### Runtime certification
 
@@ -568,8 +580,8 @@ python benchmarks/exploratory/bench_k_encode.py            # K-encode micro-benc
 
 | Architecture | Status | Notes |
 |---|:---:|---|
-| **Llama** (Llama 2, Llama 3, TinyLlama) | ⬜ Wired, uncertified | Integration tests pending |
-| **Gemma** (Gemma 2) | ⬜ Wired, uncertified | Integration tests pending |
+| **Llama** (Llama 2, Llama 3, TinyLlama) | ⬜ Wired, uncertified | Smoke test wired — set `TQ_TEST_LLAMA_MODEL` to activate |
+| **Gemma** (Gemma 2) | ⬜ Wired, uncertified | Smoke test wired — set `TQ_TEST_GEMMA_MODEL` (run Llama first) |
 | Qwen | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
 | Mistral | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
 | Phi | ⬜ Exploratory | Auto-routed via SDPA dispatch; uncertified |
@@ -629,7 +641,7 @@ TurboQuantX1/
 │   └── generate.py               maybe_turboquant_k_cache + generate_step
 ├── tests/
 │   ├── unit_static/              Platform-agnostic import + version tests
-│   ├── unit/                     MLX unit tests (Apple Silicon)
+│   ├── unit_mlx/                 MLX unit tests (Apple Silicon)
 │   └── integration_mlx/          Integration tests (Apple Silicon)
 ├── benchmarks/
 │   ├── exploratory/              Micro-benchmarks and latency scripts
@@ -667,7 +679,8 @@ TurboQuantX1/
 | Quality gates (Δppl ≤ 0.5, mean\_kl ≤ 0.1) | ✅ `run_quality_eval.py` |
 | MLX version bounds `[0.30.0, 1.0.0)` | ✅ Enforced at import |
 | NaN / overflow guards | ✅ Encode + attention |
-| Path-proof tests | ✅ 9 tests — no silent dense fallback |
+| Structural proof tests | ✅ 8 tests — offset tracking, cache independence, round-trip, streaming attention |
+| Model smoke tests (Llama / Gemma / long-context) | ⬜ 3 conditional — skip until `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL` set |
 | Static unit tests | ✅ 10 / 10 modules |
 | Fused Metal kernel | ✅ `TQ_USE_METAL=1` (experimental) |
 | `mx.compile` JIT fallback | ✅ ~2× speedup |
@@ -735,7 +748,10 @@ uv pip install -e '.[dev]'          # Non-Apple  (static checks only)
 | `make test-static` | Platform-agnostic static tests |
 | `make test-mlx` | MLX unit tests (Apple Silicon) |
 | `make test-structural` | Integration tests — no model weights |
-| `make test-path-proof` | Verify TQ path is active |
+| `make test-path-proof` | Verify TQ path is active; offset-tracking and cache-independence proofs |
+| `make test-smoke-llama` | Llama runtime smoke — requires `TQ_TEST_LLAMA_MODEL` |
+| `make test-smoke-gemma` | Gemma runtime smoke — requires `TQ_TEST_GEMMA_MODEL` |
+| `make test-long-context` | Long-context stability (>256 tokens) — requires `TQ_TEST_LLAMA_MODEL` |
 | `make certify-structural` | Structural cert (JUnit XML output) |
 | `make certify-apple-runtime` | Full certification with model weights |
 | `make build-dist` | Build wheel + sdist |
@@ -748,7 +764,7 @@ uv pip install -e '.[dev]'          # Non-Apple  (static checks only)
 
 1. Fork and create a feature branch.
 2. Run `make test-static` — passes on any platform.
-3. On Apple Silicon run `make test-mlx` and `make test-structural`.
+3. On Apple Silicon run `make test-mlx` and `make test-structural`. If you have a supported model, also run `make test-smoke-llama`.
 4. Run `make lint` and `make typecheck`.
 5. Open a pull request with a clear description and any benchmark results.
 

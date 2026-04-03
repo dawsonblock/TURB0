@@ -19,7 +19,8 @@ the repo.
 | Track | What it tests | Where it runs |
 |---|---|---|
 | **Static** (`make test-static`) | Import smoke, version consistency, source-checkout preflight, schema-level checks | Any platform |
-| **MLX structural** (`make test-mlx`, `make test-structural`, `make test-path-proof`) | KVCompressor, pipeline, calibration, streaming attention, path proof | Apple Silicon only |
+| **MLX structural** (`make test-mlx`, `make test-structural`, `make test-path-proof`) | KVCompressor, pipeline, calibration, streaming attention; offset tracking; cache independence | Apple Silicon only |
+| **Model smoke** (`make test-smoke-llama`, `make test-smoke-gemma`, `make test-long-context`) | End-to-end generation with TurboQuant active; NaN guards; dense-fallback detection | Apple Silicon + model env vars |
 | **Runtime certification** (`make certify-apple-runtime`) | Artifact-producing release validation, smoke runs, benchmarks, and metric aggregation | Apple Silicon only |
 
 ## Quick start
@@ -35,6 +36,11 @@ make test-path-proof
 make test-mlx
 make test-structural
 
+# Model smoke tests (skip cleanly if env vars absent)
+export TQ_TEST_LLAMA_MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"
+make test-smoke-llama    # Llama end-to-end with TurboQuant active
+make test-long-context   # long-context (>256 tokens) — NaN and fallback checks
+
 # Full runtime certification (requires TQ_TEST_LLAMA_MODEL and TQ_TEST_GEMMA_MODEL)
 make certify-apple-runtime
 ```
@@ -45,7 +51,7 @@ make certify-apple-runtime
 
 | File | What it proves |
 |---|---|
-| `test_path_not_dense_fallback.py` | TQ path is active; dense fallback is not silently taken |
+| `test_path_not_dense_fallback.py` | TQ path is active; dense fallback not silently taken; offset accumulates monotonically across sequential appends; two cache instances are independent |
 | `test_cache_upgrade_roundtrip.py` | Cache state round-trips through upgrade without data loss |
 | `test_streaming_attention_equivalence.py` | Streaming attention output matches reference on synthetic tensors |
 
@@ -70,4 +76,7 @@ make certify-apple-runtime
 
 ## Manual smoke testing
 
-For manual model smoke tests, run dense generation first, then the TurboQuant upgrade path on the same prompt and compare stability, memory use, and throughput.
+Use `make test-smoke-llama` (Llama) or `make test-smoke-gemma` (Gemma) for scripted smoke runs.
+These assert: token output > 0, at least one `TurboQuantKCache` layer is upgraded (dense fallback
+detected if none), and no exception during generation. Use `make test-long-context` to confirm
+NaN-free logprobs on contexts that exceed the default block size (256 tokens).

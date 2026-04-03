@@ -21,8 +21,8 @@ What this repository currently intends to support:
 
 | Model Architecture | Explicit Integration Tested | Support Status | Notes |
 | :--- | :--- | :--- | :--- |
-| Llama | Yes | **Wired, uncertified** | Integration path present; runtime certification not yet completed. |
-| Gemma | Yes | **Wired, uncertified** | Integration path present; runtime certification not yet completed. |
+| Llama | Yes | **Wired, uncertified** | Smoke test wired (`test_llama_runtime_smoke.py`); set `TQ_TEST_LLAMA_MODEL` to activate. Runtime certification not yet completed. |
+| Gemma | Yes | **Wired, uncertified** | Smoke test wired (`test_gemma_runtime_smoke.py`); set `TQ_TEST_GEMMA_MODEL` to activate (run Llama first). Runtime certification not yet completed. |
 | Qwen | No | Exploratory | Historically runtime verified via centralized base.py dispatch; now unsupported. |
 | Phi | No | Unsupported | Provided via upstream sync only. |
 | &lt;All Others&gt; | No | Unsupported | Uncertified. Vended for structural scaffolding. |
@@ -49,7 +49,8 @@ Two validation layers exist:
 2. **Local Apple Silicon checks**
    - MLX install
    - unit and integration tests
-   - model smoke runs
+   - structural proof tests (`make test-structural`, `make test-path-proof`)
+   - model smoke runs (`make test-smoke-llama`, `make test-smoke-gemma`, `make test-long-context`)
    - manual memory and latency comparison
 
 Use `scripts/preflight.py` for the first layer and `scripts/validate_apple_silicon.sh` for the second.
