@@ -130,7 +130,7 @@ def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None):
     scores = mx.concatenate(scores, axis=-1)
     if mask == "causal":
         q_len = queries.shape[-2]
-        k_len = mx.concatenate(cache.v_cache, axis=-2).shape[-2] if cache.v_cache else q_len
+        k_len = int(scores.shape[-1])
         if q_len > 1:
             inds = mx.arange(k_len)[None, None, :]
             q_inds = mx.arange(k_len - q_len, k_len)[None, :, None]
@@ -141,9 +141,14 @@ def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None):
         scores = scores + mask
 
 
-    # Values might be in the dense cache wrapper if not compressed yet.
-    # The cache adapter stores `v_cache` natively in MLX arrays.
-    vals = mx.concatenate(cache.v_cache, axis=-2)
+    # Fetch values: paper mode decodes from v_blocks; legacy uses dense v_cache.
+    if getattr(impl, "storage_mode", "k_only") == "paper_kv" and impl.v_blocks:
+        vals = mx.concatenate(
+            [impl.decode_v_block(i) for i in range(len(impl.v_blocks))],
+            axis=-2,
+        )
+    else:
+        vals = mx.concatenate(cache.v_cache, axis=-2)
 
 
     attn = mx.softmax(scores, axis=-1)

@@ -439,7 +439,15 @@ class LloydMaxScalarQuantizer:
         diffs = x_norm[..., None] - c  # [..., d_pad, n_centroids]
         codes_idx = mx.argmin(diffs * diffs, axis=-1)  # [..., d_pad]
 
-        # Bit-pack unsigned indices
+        # Bit-pack unsigned indices.
+        # pad codes to next multiple of cpw (relevant for n_bits not a power-of-2,
+        # e.g. n_bits=3 → cpw=10; d_pad=32 requires 40 codes to fill 4 words)
+        cpw = _codes_per_word(self.n_bits)
+        d_codes = int(codes_idx.shape[-1])
+        d_pack = ((d_codes + cpw - 1) // cpw) * cpw
+        if d_pack > d_codes:
+            z = mx.zeros((*codes_idx.shape[:-1], d_pack - d_codes), dtype=mx.uint32)
+            codes_idx = mx.concatenate([codes_idx, z], axis=-1)
         packed = pack_codes(codes_idx.astype(mx.uint32), self.n_bits)
 
         return packed, scales

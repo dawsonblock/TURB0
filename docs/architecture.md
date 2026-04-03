@@ -43,23 +43,24 @@ Input token
 
 ```text
 turboquant/
-├── config.py               # TurboQuantConfig dataclass (production schema)
+├── config.py               # TurboQuantConfig dataclass (algorithm, presets, effective_bits)
 ├── core/
-│   ├── pipeline.py         # TurboQuantPipeline — per-layer quantise/dequantise
-│   ├── quantizer.py        # GroupScalarQuantizer — group quant + bit-packing
+│   ├── pipeline.py         # TurboQuantPipeline — per-layer quantise/dequantise; owns rotation
+│   ├── quantizer.py        # LloydMaxScalarQuantizer (paper-faithful) + GroupScalarQuantizer
 │   ├── polar_quant.py      # PolarQuantizer — recursive polar transform (arXiv:2502.02617)
-│   ├── rotation.py         # Hadamard / identity / random orthogonal rotation
-│   └── residual.py         # top-k sparse residual encoder
+│   ├── rotation.py         # FixedRotation — hadamard / identity / random; apply/invert
+│   ├── residual_codec.py   # build_residual_codec() — algorithm-aware dispatch
+│   └── qjl.py              # QJLProjector — 1-bit sketch; estimate_inner_product()
 ├── runtime/
-│   ├── kv_interface.py     # KVCompressor — the canonical compression class
-│   ├── attention.py        # turboquant_streaming_attention (shared adapter)
+│   ├── kv_interface.py     # TurboQuantKVCache — paper_kv / k_only storage modes
+│   ├── attention.py        # turboquant_streaming_attention — V decode via v_blocks
 │   └── state.py            # STATE_SCHEMA_VERSION + validate_state()
 ├── eval/
 │   ├── __init__.py
-│   ├── perplexity.py
+│   ├── perplexity.py       # perplexity_report — dense vs TQ comparison
 │   ├── generation_drift.py
 │   └── memory.py
-└── tests/                  # compat stub (canonical tests live in tests/unit_static/, tests/unit_mlx/, tests/integration_mlx/)
+└── tests/                  # compat stub (canonical tests live in tests/)
 ```text
 ```text
 mlx_lm/
@@ -85,14 +86,30 @@ Production configuration dataclass.  Fields:
 | `v_bits` | 4 | bits per value element |
 | `v_group_size` | 64 | values quantised in groups of this size |
 | `v_enabled` | True | whether to quantise V (K is always quantised) |
+| `algorithm` | `"turboquant_prod"` | **New**: `"turboquant_mse"` (rotate + Lloyd-Max, no residual) or `"turboquant_prod"` (MSE + 1-bit QJL residual) |
 | `rotation` | `"hadamard"` | pre-rotation: `"identity"`, `"hadamard"`, `"random_orthogonal"` |
-| `quantizer_mode` | `"scalar"` | main quantiser: `"scalar"` (GroupScalarQuantizer) or `"polar"` (PolarQuantizer) |
-| `residual_topk` | 2 | top-k residual elements stored per group (0 = disabled) |
+| `residual_mode` | `"qjl"` | residual codec: `"none"` (MSE only), `"qjl"` (1-bit QJL), `"topk"` (sparse top-k, experimental) |
+| `quantizer_mode` | `"scalar"` | main quantiser: `"scalar"` (LloydMax/GroupScalar) or `"polar"` (PolarQuantizer) |
+| `residual_topk` | 0 | top-k residual elements per group (topk mode only) |
 | `block_tokens` | 256 | streaming attention block size |
-| `allocation_step` | 512 | how many tokens to pre-allocate at a time |
 | `eps` | 1e-6 | numerical stability floor |
 | `scale_dtype` | `"float16"` | dtype for scale factors |
 | `v_scale_dtype` | `"float16"` | dtype for V scale factors |
+
+**Convenience helpers** added in §paper alignment:
+
+| method | description |
+|---|---|
+| `is_mse_mode()` | True when `algorithm == "turboquant_mse"` |
+| `is_prod_mode()` | True when `algorithm == "turboquant_prod"` |
+| `effective_bits_per_channel_k(d)` | Effective K bpc using paper §3 formula |
+| `effective_bits_per_channel_v(d)` | Effective V bpc |
+| `effective_bits_per_channel_total(d)` | Average (K + V) bpc |
+| `from_preset(name)` | Named presets: `"paper_mse"`, `"paper_prod"`, `"balanced"`, … |
+
+**Algorithm–residual contract** (enforced by `validate()`):
+- `turboquant_mse` → `residual_mode` must be `"none"`
+- `turboquant_prod` → `residual_mode` must be `"qjl"` or `"topk"` (experimental)
 
 > **Legacy note**: `mlx_lm.models.cache.TurboQuantConfig` uses old field names
 > (`main_bits`, `group_size`, `return_mode`, …).  It is a shim that maps to the
@@ -108,12 +125,17 @@ MLX-LM adapter or wrapped by `TurboQuantKCache` for full protocol compliance.
 TurboQuantKVCache(
     config: TurboQuantConfig,          # positional or keyword
     *,
-    quantize_main=None,                # optional — auto-creates GroupScalarQuantizer
-    dequantize_main=None,              # optional — auto-creates GroupScalarQuantizer
+    quantize_main=None,                # optional — auto-selects based on algorithm
+    dequantize_main=None,              # optional — auto-selects based on algorithm
 )
 ```
-If `quantize_main` or `dequantize_main` are omitted, a `GroupScalarQuantizer`
-is constructed automatically from `config.k_bits` and `config.k_group_size`.
+If `quantize_main` / `dequantize_main` are omitted:
+- **MSE or Prod mode** (`is_mse_mode()` or `is_prod_mode()`) → `LloydMaxScalarQuantizer` (paper-faithful)
+- **Legacy / experimental** → `GroupScalarQuantizer`
+
+**Storage modes** (`storage_mode` attribute):
+- `"paper_kv"` — K and V both encoded; V stored in `v_blocks` via `encode_k_block`; dense `v_cache` is empty. Used for MSE/Prod configs.
+- `"k_only"` — K compressed; V stored dense in `v_cache`. Legacy behaviour.
 
 **Core lifecycle:**
 

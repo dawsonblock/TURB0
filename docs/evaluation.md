@@ -10,7 +10,7 @@
 from turboquant.config import TurboQuantConfig
 from turboquant.eval import perplexity_report, drift_report, memory_report
 
-cfg = TurboQuantConfig(k_bits=3, k_group_size=64, rotation="identity")
+cfg = TurboQuantConfig.from_preset("paper_prod")   # or "paper_mse" for MSE-only
 
 # Perplexity
 ppl = perplexity_report(model, input_ids, turboquant_config=cfg)
@@ -26,7 +26,7 @@ print(drift)
 mem = memory_report(model, input_ids, turboquant_config=cfg)
 print(mem)
 # {'dense_cache_bytes': 2097152, 'tq_cache_bytes': 573440, 'ratio': 3.7, 'n_layers': 18}
-```text
+```
 ---
 
 ## 2. Metrics

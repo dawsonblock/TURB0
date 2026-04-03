@@ -298,6 +298,21 @@ _tq_logger = logging.getLogger("turboquant.generate")
 _tq_upgrade_logged = False  # module-level flag for one-shot confirmation
 
 
+def _infer_model_family(model: nn.Module) -> Optional[str]:
+    """Inspect the model's class name and module path to derive a TurboQuant
+    model-family string (e.g. ``"llama"``, ``"gemma"``).
+
+    Returns ``None`` when the family cannot be determined, which lets the
+    upgrade path fall back to its own defaults.
+    """
+    cls = type(model)
+    haystack = f"{cls.__module__}.{cls.__name__}".lower()
+    for family in ("llama", "gemma", "mistral", "phi", "qwen", "falcon", "mpt"):
+        if family in haystack:
+            return family
+    return None
+
+
 def maybe_turboquant_k_cache(
     prompt_cache,
     turboquant_k_start,
@@ -482,7 +497,11 @@ def generate_step(
         turboquant_v_group_size=turboquant_v_group_size,
         turboquant_v_enabled=turboquant_v_enabled,
         turboquant_block_tokens=turboquant_block_tokens,
-        turboquant_model_family=turboquant_model_family,
+        turboquant_model_family=(
+            turboquant_model_family
+            if turboquant_model_family is not None
+            else _infer_model_family(model)
+        ),
     )
 
     sampler = sampler or (lambda x: mx.argmax(x, axis=-1))

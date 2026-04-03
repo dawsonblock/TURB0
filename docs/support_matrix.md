@@ -4,6 +4,22 @@ TurboQuant is a research-grade KV-cache compression package for Apple-Silicon ML
 
 Please refer to [supported-surface.md](supported-surface.md) for the canonical and complete supported surface details.
 
+## Algorithm Presets
+
+| Preset | Algorithm | K bits | V bits | Residual | Effective K bpc (d=128) |
+|:---|:---|:---:|:---:|:---|:---:|
+| `paper_mse` | `turboquant_mse` | 3 | 4 | none | 3.25 |
+| `paper_prod` | `turboquant_prod` | 3 | 4 | 1-bit QJL | ~3.75 |
+| `high_compression` (legacy) | `turboquant_prod` | 3 | 4 | QJL | ~3.75 |
+| `balanced` (legacy) | `turboquant_prod` | 4 | 4 | QJL | ~4.5 |
+| `max_quality` (legacy) | `turboquant_prod` | 4 | 8 | QJL | ~4.5 |
+
+**Paper-faithful presets** (`paper_mse`, `paper_prod`) use:
+- Hadamard rotation (`rotation="hadamard"`)
+- Lloyd-Max scalar quantiser with Gaussian centroids
+- `turboquant_mse`: rotate → Lloyd-Max scalar quant (no residual)
+- `turboquant_prod`: MSE stage + 1-bit QJL residual for unbiased inner-product estimation
+
 ## Model Architecture Matrix
 
 | Model Architecture | Runtime Verified | Notes |

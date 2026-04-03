@@ -50,40 +50,36 @@ class TurboQuantKCache(_BaseCache):
         # We don't call super().__init__() because we manage our own storage
         self.config = config
         from turboquant.runtime.kv_interface import TurboQuantKVCache
-        from turboquant.core.quantizer import GroupScalarQuantizer
-        
-        k_quant = GroupScalarQuantizer(n_bits=config.k_bits, group_size=config.k_group_size)
 
-        self._impl = TurboQuantKVCache(
-            config=config,
-            quantize_main=k_quant.quantize,
-            dequantize_main=k_quant.dequantize,
-        )
+        # Let TurboQuantKVCache auto-select the quantizer based on algorithm
+        # (LloydMax for paper modes, GroupScalar for experimental/legacy).
+        self._impl = TurboQuantKVCache(config=config)
         self.offset = 0
+        # v_cache kept for k_only legacy mode; empty in paper mode.
         self.v_cache: list = []
 
     @property
     def nbytes(self):
-        # impl.byte_size() covers compressed-key bytes + impl.v_cache (empty
-        # in this path — values are stored on the adapter, not on the impl).
-        k_bytes = self._impl.byte_size()
-        v_bytes = sum(v.nbytes for v in self.v_cache if hasattr(v, "nbytes"))
-        return k_bytes + v_bytes
+        # impl.byte_size() covers K + V (paper mode uses v_blocks; k_only uses v_cache).
+        return self._impl.byte_size()
 
     def update_and_fetch(self, keys: mx.array, values: mx.array):
-        # Implements the MLX-LM cache protocol: compress keys via TurboQuantKVCache,
-        # store values densely, and return (TurboQuantKeysView, values) so that
-        # the attention dispatch in base.py routes to turboquant_streaming_attention.
+        # Implements the MLX-LM cache-adapter protocol.
         from turboquant.runtime.kv_interface import TurboQuantKeysView
 
-        self._impl.append_keys(keys)
-        start = self.offset
-        self.offset += keys.shape[2]
-        self.v_cache.append(values)
-
-        # Return a view pointing to this adapter (so attention.py can find
-        # ._impl and .v_cache through keys_view.cache).
-        return TurboQuantKeysView(self, start, self.offset), values
+        if self._impl.storage_mode == "paper_kv":
+            # Delegate entirely to impl (handles V encoding into v_blocks).
+            start = self._impl._offset
+            self._impl.update_and_fetch(keys, values)
+            self.offset = self._impl._offset
+            return TurboQuantKeysView(self, start, self.offset), values
+        else:
+            # k_only legacy path: compress K, store dense V on adapter.
+            self._impl.append_keys(keys)
+            start = self.offset
+            self.offset += keys.shape[2]
+            self.v_cache.append(values)
+            return TurboQuantKeysView(self, start, self.offset), values
 
     @property
     def state(self):

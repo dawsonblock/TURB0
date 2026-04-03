@@ -11,11 +11,13 @@ Typical usage
 
     from turboquant.eval.perplexity import perplexity_report
 
+    from turboquant.config import TurboQuantConfig
+
     report = perplexity_report(
         model=my_model,
         tokenizer=my_tokenizer,
         prompt="The quick brown fox",
-        turboquant_config=TurboQuantConfig(k_bits=3, group_size=64),
+        turboquant_config=TurboQuantConfig.from_preset("paper_prod"),
     )
     print(report)
     # {'dense_ppl': 12.3, 'tq_ppl': 12.6, 'delta_ppl': 0.3, 'n_tokens': 8}
@@ -25,14 +27,8 @@ from __future__ import annotations
 
 import math
 
-import mlx.core as mx
-import mlx.nn as nn
 
-
-def perplexity_from_logits(
-    logits: mx.array,
-    targets: mx.array,
-) -> float:
+def perplexity_from_logits(logits, targets) -> float:
     """Compute perplexity from a [T, V] logit array and [T] target-id array.
 
     Parameters
@@ -50,13 +46,14 @@ def perplexity_from_logits(
     if logits.shape[0] == 0:
         return float("nan")
 
+    import mlx.core as mx
     log_probs = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
     T = targets.shape[0]
     nll_sum = -float(mx.sum(log_probs[mx.arange(T), targets]).item())
     return math.exp(nll_sum / T)
 
 
-def _collect_logits(model: nn.Module, input_ids: mx.array, cache) -> mx.array:
+def _collect_logits(model, input_ids, cache):
     """Run the model for one forward pass and return [T, V] logits.
 
     ``input_ids`` is shape ``[1, T]``.  Returns ``[T, vocab_size]``.
@@ -66,8 +63,8 @@ def _collect_logits(model: nn.Module, input_ids: mx.array, cache) -> mx.array:
 
 
 def perplexity_report(
-    model: nn.Module,
-    input_ids: mx.array,
+    model,
+    input_ids,
     turboquant_config=None,
     k_start: int = 0,
 ) -> dict:
@@ -91,6 +88,7 @@ def perplexity_report(
     dict with keys:
         ``dense_ppl``, ``tq_ppl`` (or ``None``), ``delta_ppl``, ``n_tokens``
     """
+    import mlx.core as mx
     from mlx_lm.models.cache import make_prompt_cache
 
     targets = input_ids[0, 1:]  # [T-1]  (next-token targets)
@@ -105,7 +103,6 @@ def perplexity_report(
     tq_ppl: float | None = None
     if turboquant_config is not None:
         from turboquant.integrations.mlx.upgrade import upgrade_cache_list
-        from mlx_lm.models.cache import make_prompt_cache
 
         tq_cache = make_prompt_cache(model)
         upgrade_cache_list(tq_cache, k_start=k_start, config=turboquant_config)
