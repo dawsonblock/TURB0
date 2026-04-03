@@ -1,6 +1,6 @@
 # Supported surface
 
-TurboQuant is a research-grade KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation for selected Llama-family and Gemma-family models. Custom Metal kernels are experimental and not part of the default supported runtime.
+TurboQuant is a research-grade KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation for selected Llama-family and Gemma-family models. The canonical upgrade entry point is `upgrade_cache_list(...)` inside the `mlx_lm` generation flow. Custom Metal kernels are experimental and not part of the default supported runtime.
 
 This repository does **not** claim broad `mlx_lm` model coverage. The codebase vendors a large upstream tree, but the TurboQuant-specific attention path is only wired and discussed for a narrow slice.
 
@@ -13,8 +13,8 @@ What this repository currently intends to support:
 - MLX runtime installed locally
 - Research and local evaluation workflows
 - TurboQuant core package: `turboquant/*`
-- `mlx_lm` adapter path used to upgrade dense prompt caches into `TurboQuantKCache`
-  (`KVCompressor` is a compatibility alias for `TurboQuantKCache` and will be removed in a future release)
+- `mlx_lm` cache-upgrade path via `upgrade_cache_list(...)` for allowlisted families
+- `KVCompressor` as a compatibility alias for `TurboQuantKVCache`
 - Llama-family integration path
 - Gemma-family integration path
 
@@ -24,9 +24,18 @@ What this repository currently intends to support:
 | :--- | :--- | :--- | :--- |
 | Llama | Yes | **Wired, uncertified** | Smoke test wired (`test_llama_runtime_smoke.py`); set `TQ_TEST_LLAMA_MODEL` to activate. Runtime certification not yet completed. |
 | Gemma | Yes | **Wired, uncertified** | Smoke test wired (`test_gemma_runtime_smoke.py`); set `TQ_TEST_GEMMA_MODEL` to activate (run Llama first). Runtime certification not yet completed. |
-| Qwen | No | Exploratory | Historically runtime verified via centralized base.py dispatch; now unsupported. |
+| Qwen | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
+| Mistral | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
 | Phi | No | Unsupported | Provided via upstream sync only. |
-| &lt;All Others&gt; | No | Unsupported | Uncertified. Vended for structural scaffolding. |
+| &lt;All Others&gt; | No | Unsupported | Rejected by `upgrade_cache_list`; vendored for structural scaffolding. |
+
+## Secondary surfaces
+
+These exist in the repo but are not the supported public runtime entry points:
+
+- Direct `TurboQuantKCache(...)` construction for eval and compatibility helpers
+- Legacy `maybe_turboquant_attention(...)` helper paths outside the main `base.py` SDPA type-guard
+- `turboquant.runtime.events.EventLog` JSONL persistence for certification artifacts
 
 ## Not claimed
 

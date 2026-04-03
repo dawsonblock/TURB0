@@ -1,5 +1,9 @@
 # Benchmark Methodology
 
+This document records historical benchmark snapshots and reproduction steps for
+local Apple-Silicon testing. It is not part of the certified product contract,
+and the numbers below are not continuously revalidated on every commit.
+
 ## Execution rules
 
 - Use `mx.eval()` to synchronize compute before timing.
@@ -23,17 +27,17 @@ Located in `benchmarks/exploratory/`. Run individually or via `scripts/run_bench
 > **Note:** Numbers in this document were measured on Apple Silicon M-series hardware in
 > April 2026 using the versions of TurboQuant and MLX current at that date.  They are
 > **not** re-verified on every commit.  Treat them as indicative order-of-magnitude
-> figures, not continuous-integration baselines.  To reproduce, run
+> figures and historical snapshots, not certification thresholds or continuous-integration baselines.  To reproduce, run
 > `scripts/run_benchmarks.sh` on Apple Silicon.
 
-**Measured numbers (Apple Silicon M-series, April 2026):**
+**Historical snapshots (Apple Silicon M-series, April 2026):**
 
 ```text
 K-Encode Benchmark:       0.30 ms / step   (shape [1, 32, 128, 128], 100 iterations)
 Decode Step Benchmark:    0.04 ms / step   (append_keys, 1 new token, 100 iterations)
 ```
 
-**PolarQuant vs GroupScalarQuantizer (3-bit, group=64) — Apple Silicon M-series, April 2026:**
+**PolarQuant vs GroupScalarQuantizer (3-bit, group=64) — historical snapshot (April 2026):**
 
 Config: batch=1, n_heads=8, reps=50, warmup=10.  All shapes [B·H·T, d_head].
 
@@ -56,7 +60,7 @@ Key observations:
 - PolarQuant **decode** is comparable or slightly slower at large T due to interleaved reconstruction.
 - Full JSON results in `artifacts/benchmarks/polar_vs_scalar.json`.
 
-**Dense vs TurboQuant — memory compression and encode latency:**
+**Dense vs TurboQuant — historical memory compression and encode latency snapshot:**
 
 ```text
 config                          tokens  dense_MB    tq_MB   ratio   ms_dense    ms_tq
@@ -74,7 +78,7 @@ k_bits=3  k_group_size=32          512      1.05     0.13     8.0x      0.445   
 k_bits=3  k_group_size=32         1024      2.10     0.26     8.0x      0.460    0.307
 ```
 
-**Memory footprint — per-buffer breakdown (3-bit K, group=64, 1024 tokens):**
+**Memory footprint — historical per-buffer breakdown (3-bit K, group=64, 1024 tokens):**
 
 ```text
 type                      bits  group  tokens   total_MB   bytes/tok   vs_dense
@@ -91,7 +95,7 @@ TurboQuant k=3b g=32         3     32    1024       0.26         256       8.0x
   TOTAL                             1294.3 kB
 ```
 
-**Streaming decode latency vs dense baseline:**
+**Streaming decode latency vs dense baseline — historical snapshot:**
 
 ```text
 seq_len  block_tokens   ms_streaming   ms_baseline   speedup
@@ -125,7 +129,7 @@ python benchmarks/runtime_cert/run_dense_vs_tq.py \
 
 Prompt classes: `short` (5 prompts), `medium` (5 prompts), `long` (5 prompts).
 
-**Measured numbers (Apple Silicon, Llama/Gemma models, 64 tokens):**
+**Paired generation snapshot (Apple Silicon, Llama/Gemma models, 64 tokens):**
 
 ```text
 [dense]       avg 0.52 s  |  147–163 tok/s

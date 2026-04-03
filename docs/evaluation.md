@@ -2,6 +2,10 @@
 
 > How to measure the quality impact of TurboQuant KV compression.
 
+> All thresholds and numeric examples in this document are exploratory tuning
+> heuristics from small-scale Apple-Silicon runs. They are not certification
+> gates and do not substitute for artifact-backed runtime validation.
+
 ---
 
 ## 1. Quick start
@@ -40,7 +44,10 @@ compared to a dense-cache baseline.
 PPL = exp( mean NLL )
 delta_ppl = tq_ppl - dense_ppl
 ```text
-A `delta_ppl` below **0.5** is illustratively acceptable in informal testing. Values above **2.0** suggest the bit-width is too aggressive. These thresholds are not certification baselines — runtime certification requires Apple Silicon hardware with real model weights.
+A `delta_ppl` below **0.5** is an exploratory tuning heuristic from informal
+testing. Values above **2.0** suggest the bit-width is too aggressive. These
+numbers are not certification baselines — runtime certification requires Apple
+Silicon hardware with real model weights.
 
 **API**:
 ```python
@@ -56,7 +63,9 @@ targets — it compares the model's beliefs unconditionally.
 ```text
 KL(P_dense || P_tq) = sum_v P_dense(v) * (log P_dense(v) - log P_tq(v))
 ```text
-A `mean_kl` below **0.01** nats indicates negligible distribution shift in informal testing.
+A `mean_kl` below **0.01** nats is an exploratory heuristic for negligible
+distribution shift in informal testing. It is not a release or certification
+gate.
 
 **API**:
 ```python
@@ -71,9 +80,9 @@ forward pass.
 ```text
 ratio = dense_cache_bytes / tq_cache_bytes
 ```text
-A ratio of **3.7×** or higher is illustratively achievable with 3-bit K + 4-bit V at
-`group_size=64` for sequences longer than 512 tokens. This figure is from synthetic
-benchmarks on Apple Silicon; it is not a certified production claim.
+A ratio of **3.7×** or higher is an illustrative snapshot for 3-bit K + 4-bit V
+at `group_size=64` for sequences longer than 512 tokens. This figure is from
+synthetic benchmarks on Apple Silicon; it is not a certified production claim.
 
 **API**:
 ```python
@@ -102,19 +111,22 @@ python benchmarks/<script>.py
 ## 4. Recommended evaluation workflow
 
 1. **Sanity-check memory** with `bench_memory_footprint.py` — verify ratio
-   matches theory for your head_dim and bit-width.
+   roughly matches theory for your head_dim and bit-width.
 2. **Check generation drift** with `drift_report` on a short held-out
-   sequence.  `mean_kl < 0.01` is a good pass criterion.
+   sequence.  `mean_kl < 0.01` is a useful informal heuristic.
 3. **Measure perplexity delta** on your target corpus.  `delta_ppl < 0.5`
-   is generally acceptable.
+   is an exploratory tuning target, not a certification threshold.
 4. **Profile latency** with `bench_decode_streaming.py` to verify the
-   streaming attention path is not slower than the dense baseline.
+   streaming attention path is acceptable for your local workload.
 
 ---
 
 ## 5. Interpreting results
 
-| metric | typical good range | action if outside range |
+These ranges are informal tuning heuristics from small-scale runs, not
+certified thresholds.
+
+| metric | informal range | action if outside range |
 |---|---|---|
 | `delta_ppl` | < 0.5 | increase `k_bits` or `group_size` |
 | `mean_kl` | < 0.01 | increase `k_bits` or disable `residual_topk=0` → `residual_topk=2` |

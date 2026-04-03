@@ -232,3 +232,69 @@ def test_architecture_doc_maybe_turboquant_deprecated():
         "architecture.md §6 still says other families need a 'one-line maybe_turboquant_attention dispatch'."
     )
 
+
+def test_supported_surface_marks_canonical_and_secondary_paths():
+    """supported-surface.md must describe the canonical upgrade path and secondary bypasses."""
+    content = _read('docs/supported-surface.md')
+
+    assert 'upgrade_cache_list' in content, (
+        "supported-surface.md must name upgrade_cache_list as the canonical upgrade entry point."
+    )
+    assert 'Secondary surfaces' in content, (
+        "supported-surface.md must call out secondary/internal surfaces explicitly."
+    )
+    assert 'compatibility alias for `TurboQuantKVCache`' in content, (
+        "supported-surface.md must describe KVCompressor as an alias for TurboQuantKVCache."
+    )
+    assert 'compatibility alias for `TurboQuantKCache`' not in content, (
+        "supported-surface.md incorrectly describes KVCompressor as an alias for TurboQuantKCache."
+    )
+
+
+def test_architecture_doc_describes_canonical_path_and_event_split():
+    """architecture.md must document the canonical runtime path and the split event model."""
+    content = _read('docs/architecture.md')
+
+    for needle in (
+        'generate_step',
+        'upgrade_cache_list',
+        'scaled_dot_product_attention',
+        'turboquant_streaming_attention',
+        'Event architecture',
+        'EventLog',
+    ):
+        assert needle in content, (
+            f"docs/architecture.md must mention '{needle}' in the canonical runtime or event story."
+        )
+
+
+def test_eval_and_benchmark_docs_frame_numbers_as_exploratory():
+    """evaluation.md and benchmark_methodology.md must frame numeric guidance as exploratory."""
+    eval_content = _read('docs/evaluation.md').lower()
+    bench_content = _read('docs/benchmark_methodology.md').lower()
+
+    assert 'exploratory tuning' in eval_content and 'heuristics' in eval_content, (
+        "docs/evaluation.md must frame thresholds as exploratory heuristics."
+    )
+    assert 'not certification' in eval_content and 'gates' in eval_content, (
+        "docs/evaluation.md must say its thresholds are not certification gates."
+    )
+    assert 'historical benchmark snapshots' in bench_content, (
+        "docs/benchmark_methodology.md must identify benchmark numbers as historical snapshots."
+    )
+    assert 'not part of the certified product contract' in bench_content, (
+        "docs/benchmark_methodology.md must say it is not part of the certified product contract."
+    )
+
+
+def test_runtime_api_points_to_upgrade_cache_list():
+    """runtime/api.py must point removed callers to the canonical upgrade path, not direct adapter construction."""
+    content = _read('turboquant/runtime/api.py')
+
+    assert 'upgrade_cache_list' in content, (
+        "runtime/api.py must point callers to upgrade_cache_list as the canonical MLX integration."
+    )
+    assert 'cache_adapter import TurboQuantKCache' not in content, (
+        "runtime/api.py still points callers at direct TurboQuantKCache construction."
+    )
+

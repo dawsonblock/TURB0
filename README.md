@@ -166,7 +166,7 @@ turboquant/
 │   ├── support.py             Model family allowlist + assert_supported_model_family()
 │   └── state.py               STATE_SCHEMA_VERSION + validate_state()
 ├── integrations/mlx/
-│   ├── cache_adapter.py       TurboQuantKCache  (mlx_lm protocol adapter)
+│   ├── cache_adapter.py       TurboQuantKCache  (internal mlx_lm protocol adapter)
 │   └── upgrade.py             upgrade_cache_list()  —  canonical upgrade API
 ├── calibration/
 │   └── fit_quantizer.py       calibrate()  —  offline scale fitting
@@ -386,7 +386,7 @@ import turboquant
 turboquant.TurboQuantConfig        # Config dataclass
 turboquant.TurboQuantPipeline      # Encode/decode pipeline
 turboquant.TurboQuantKVCache       # Full KV cache (keys + values)
-turboquant.TurboQuantKCache        # Keys-only mlx_lm adapter
+turboquant.TurboQuantKCache        # Internal/eval-only mlx_lm adapter; prefer upgrade_cache_list
 turboquant.KVCompressor            # Alias for TurboQuantKVCache
 turboquant.calibrate               # Offline scale calibration
 turboquant.upgrade_cache_list      # Canonical cache upgrade
@@ -635,7 +635,7 @@ TurboQuantX1/
 │   │   ├── support.py            Model family allowlist
 │   │   └── state.py              STATE_SCHEMA_VERSION + validate_state()
 │   ├── integrations/mlx/
-│   │   ├── cache_adapter.py      TurboQuantKCache (mlx_lm protocol adapter)
+│   │   ├── cache_adapter.py      TurboQuantKCache (internal mlx_lm protocol adapter)
 │   │   └── upgrade.py            upgrade_cache_list() — canonical upgrade API
 │   ├── calibration/
 │   │   └── fit_quantizer.py      calibrate() — offline scale fitting
@@ -679,7 +679,7 @@ TurboQuantX1/
 | Top-k sparse residual | ✅ Per-group, configurable k |
 | Pure-MLX bit-packing | ✅ Vectorized, no NumPy sync |
 | Versioned state schema (`schema_version: 2`) | ✅ `validate_state()` enforced |
-| `TurboQuantKCache` mlx\_lm adapter | ✅ 20 / 20 tests |
+| `TurboQuantKCache` internal mlx\_lm adapter | ✅ 20 / 20 tests |
 | Streaming attention | ✅ `turboquant.runtime.attention` |
 | Centralized SDPA dispatch (`base.py`) | ✅ Attention routing (llama + gemma certified; gate rejects others) |
 | Gemma streaming attention | ⬜ Wired, uncertified |

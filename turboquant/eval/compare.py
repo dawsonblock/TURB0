@@ -37,7 +37,7 @@ Usage
 
 Thresholds
 ----------
-Default thresholds (from docs/evaluation.md):
+Default thresholds (heuristics from docs/evaluation.md, not certification gates):
   * ``mean_kl``          ≤ 0.1 → ``kl_bound_ok``
   * ``token_match_rate`` ≥ 0.95 → ``match_bound_ok``
 
@@ -123,7 +123,7 @@ class ComparisonReport:
 
     @property
     def passed(self) -> bool:
-        """Both bounds satisfied — system is within certified accuracy limits."""
+        """Both configured comparison bounds are satisfied for this report."""
         return self.kl_bound_ok and self.match_bound_ok
 
 

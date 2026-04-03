@@ -43,8 +43,11 @@ from turboquant.config import TurboQuantConfig
 
 class TurboQuantKCache(_BaseCache):
     """
-    MLX-LM compatible adapter for TurboQuant compression.
-    Delegates to TurboQuantKVCache for storage.
+    Internal/eval-only MLX-LM adapter for TurboQuant compression.
+
+    Production callers should prefer ``upgrade_cache_list(...)``, which
+    enforces the model-family support gate before constructing this adapter.
+    Direct construction is kept for eval and compatibility helpers.
     """
     def __init__(self, config: TurboQuantConfig):
         # We don't call super().__init__() because we manage our own storage

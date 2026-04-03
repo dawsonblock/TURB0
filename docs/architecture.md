@@ -13,6 +13,19 @@ decompressing on-the-fly during attention.  The goal is to cut memory
 bandwidth at decode time on Apple Silicon (MLX backend) while preserving
 model quality.
 
+The supported runtime story in the current repo is intentionally narrow.  The
+canonical path is:
+
+`mlx_lm.generate.generate_step` → `_infer_model_family(...)` →
+`maybe_turboquant_k_cache(...)` → `upgrade_cache_list(...)` →
+`TurboQuantKCache.update_and_fetch(...)` → `TurboQuantKeysView` →
+`mlx_lm.models.base.scaled_dot_product_attention(...)` →
+`turboquant_streaming_attention(...)`
+
+Lower-level helpers that construct `TurboQuantKCache` directly still exist for
+evaluation and compatibility, but they are secondary surfaces and not the
+supported public entry point.
+
 ```text
 Input token
      │
@@ -54,6 +67,8 @@ turboquant/
 ├── runtime/
 │   ├── kv_interface.py     # TurboQuantKVCache — paper_kv / k_only storage modes
 │   ├── attention.py        # turboquant_streaming_attention — V decode via v_blocks
+│   ├── support.py          # model-family allowlist gate for canonical upgrade path
+│   ├── events.py           # JSONL persistence-side upgrade / failure events
 │   └── state.py            # STATE_SCHEMA_VERSION + validate_state()
 ├── eval/
 │   ├── __init__.py
@@ -117,8 +132,9 @@ Production configuration dataclass.  Fields:
 
 ### 3.2 TurboQuantKVCache (`turboquant/runtime/kv_interface.py`)
 
-The core compressed K-block store. Can be used directly as a self-contained
-MLX-LM adapter or wrapped by `TurboQuantKCache` for full protocol compliance.
+The core compressed K/V store and the canonical runtime storage engine.
+`TurboQuantKCache` is a thin internal `mlx_lm` adapter around this type when
+`_BaseCache` compatibility is needed.
 
 **Constructor:**
 ```python
@@ -157,6 +173,14 @@ If `quantize_main` / `dequantize_main` are omitted:
 | `v_cache` | list of dense value tensors appended via `update_and_fetch` |
 | `num_blocks` | number of stored key blocks |
 | `memory_breakdown()` | dict: `k_packed_main`, `k_scales`, `v_dense`, `total` bytes |
+
+**Runtime surfaces**
+
+| surface | status | notes |
+|---|---|---|
+| `upgrade_cache_list(...)` | Canonical runtime path | Enforces the `model_family` allowlist before mutating caches |
+| Direct `TurboQuantKCache(...)` construction | Internal / eval only | Used by comparison helpers and compatibility shims; bypasses Gate 2 |
+| `KVCache.to_turboquant()` and `_collect_logits_compressed()` | Secondary helpers | Intentional bypasses for eval / compatibility, not the supported public path |
 
 ### 3.3 Streaming attention (`turboquant/runtime/attention.py`)
 
@@ -245,6 +269,20 @@ State dicts carry `schema_version: 2`.  `validate_state(state, config)` checks:
 - Token dimension of `k_packed` ≥ `offset`
 - Group count consistent with config
 
+### 3.8 Event architecture
+
+TurboQuant currently has a documented split event model rather than a unified
+runtime event bus:
+
+- `turboquant.integrations.mlx.upgrade.CacheUpgradeEvent` is the lightweight
+  runtime result returned by `upgrade_cache_list(...)`.
+- `turboquant.runtime.events.CacheUpgradeEvent`, `UpgradeFailureEvent`, and
+  `EventLog` are persistence-layer types used to write `events.jsonl` during
+  certification and offline analysis.
+- The canonical decode path does not automatically persist runtime upgrade
+  events. JSONL logging is a secondary certification surface, not part of the
+  default decode loop.
+
 ---
 
 ## 4. Data flow: one decode step
@@ -311,10 +349,16 @@ See `benchmarks/exploratory/bench_memory_footprint.py` and `artifacts/benchmarks
   integrations may disable it explicitly when V quantisation degrades quality on
   a given model.  There is no family-level override in the core config; callers
   must pass `v_enabled=False` explicitly.
+- **Direct adapter construction remains available** — `TurboQuantKCache(...)`
+  and compatibility helpers exist for eval and interop, but they bypass the
+  canonical `upgrade_cache_list(...)` support gate.
 - **Llama and Gemma** wiring is complete (see [integration.md](integration.md)). Other model
   families are not supported — `upgrade_cache_list` raises `UnsupportedModelError` for families
   not in `SUPPORTED_FAMILIES`. Adding support requires both editing the allowlist and wiring the
   model; SDPA dispatch routing is not sufficient on its own.
+- **Event layers are bifurcated** — runtime upgrade decisions and JSONL
+  persistence use different event types. The split is documented; it is not yet
+  a unified live event pipeline.
 
 
 ## 7. Validation boundary
