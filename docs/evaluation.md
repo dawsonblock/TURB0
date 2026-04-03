@@ -1,10 +1,10 @@
 # TurboQuant Evaluation Guide
 
-> How to measure the quality impact of TurboQuant KV compression.
+> How to inspect the quality impact of TurboQuant KV compression in a prototype build.
 
 > All thresholds and numeric examples in this document are exploratory tuning
-> heuristics from small-scale Apple-Silicon runs. They are not certification
-> gates and do not substitute for artifact-backed runtime validation.
+> heuristics from small-scale Apple-Silicon runs. They are not release gates,
+> not certification gates, and not evidence of production readiness.
 
 ---
 
@@ -108,7 +108,7 @@ python benchmarks/<script>.py
 ```text
 ---
 
-## 4. Recommended evaluation workflow
+## 4. Recommended local evaluation workflow
 
 1. **Sanity-check memory** with `bench_memory_footprint.py` — verify ratio
    roughly matches theory for your head_dim and bit-width.
@@ -121,7 +121,7 @@ python benchmarks/<script>.py
 
 ---
 
-## 5. Interpreting results
+## 5. Interpreting exploratory results
 
 These ranges are informal tuning heuristics from small-scale runs, not
 certified thresholds.

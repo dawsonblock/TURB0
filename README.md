@@ -2,7 +2,7 @@
 
 # ⚡ TurboQuantX1
 
-**Research-grade KV-cache compression for Apple Silicon MLX LLMs**
+**Experimental KV-cache compression for Apple Silicon MLX LLMs**
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://python.org)
 [![MLX](https://img.shields.io/badge/MLX-0.30.0%2B-orange)](https://github.com/ml-explore/mlx)
@@ -44,9 +44,11 @@
 
 ## What is TurboQuantX1?
 
-TurboQuantX1 is a research-grade KV-cache compression library for transformer models running on
-Apple Silicon via [mlx-lm](https://github.com/ml-explore/mlx-lm). It targets **memory reduction
-first**, compressing the attention KV cache by **3.5×–4.4× versus dense fp16** using:
+TurboQuantX1 is an experimental KV-cache compression library for transformer models running on
+Apple Silicon via [mlx-lm](https://github.com/ml-explore/mlx-lm). It is not a general-purpose
+LLM runtime, not production-ready, and not broadly validated across the vendored `mlx_lm` tree.
+Its narrow goal is **memory reduction first** on an allowlisted path, with local Apple-Silicon
+validation for **Llama-family** and **Gemma-family** models.
 
 | Technique | What it does |
 |---|---|
@@ -57,16 +59,18 @@ first**, compressing the attention KV cache by **3.5×–4.4× versus dense fp16
 
 All compression runs within the MLX compute graph — no NumPy synchronization in the hot path.
 
-> **Status:** Serious prototype targeting production quality on Apple Silicon. Supported runtime:
-> local Apple Silicon validation for **Llama-family** and **Gemma-family** models. Custom Metal
-> kernels are experimental (`TQ_USE_METAL=1`). Other architectures (Qwen, Mistral, Phi) are
-> exploratory and uncertified. Full surface definition: [docs/supported-surface.md](docs/supported-surface.md).
+> **Status:** Prototype. Not production-ready. Runtime certification is incomplete. The only
+> supported runtime path is local Apple-Silicon validation for **Llama-family** and
+> **Gemma-family** models through `upgrade_cache_list(...)`. Custom Metal kernels are
+> experimental (`TQ_USE_METAL=1`). Other architectures (Qwen, Mistral, Phi, and the rest of the
+> vendored tree) are not supported by the canonical upgrade path. Full surface definition:
+> [docs/supported-surface.md](docs/supported-surface.md).
 
 ---
 
 ## Memory Compression
 
-Local illustrative measurements — not release-certified unless matched by saved artifacts in
+Local illustrative measurements — not release evidence unless matched by saved artifacts in
 `artifacts/runtime-cert/<timestamp>/`.
 
 | Configuration | Tokens | Total MB | Bytes / Token | vs Dense |

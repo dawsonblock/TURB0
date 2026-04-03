@@ -1,12 +1,12 @@
 # Supported surface
 
-TurboQuant is a research-grade KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation for selected Llama-family and Gemma-family models. The canonical upgrade entry point is `upgrade_cache_list(...)` inside the `mlx_lm` generation flow. Custom Metal kernels are experimental and not part of the default supported runtime.
+TurboQuant is an experimental KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation for selected Llama-family and Gemma-family models. The canonical upgrade entry point is `upgrade_cache_list(...)` inside the `mlx_lm` generation flow. Custom Metal kernels are experimental and not part of the default supported runtime.
 
-This repository does **not** claim broad `mlx_lm` model coverage. The codebase vendors a large upstream tree, but the TurboQuant-specific attention path is only wired and discussed for a narrow slice.
+This repository does **not** claim broad `mlx_lm` model coverage. The codebase vendors a large upstream tree, but vendoring upstream code is not support. The TurboQuant-specific attention path is only wired and discussed for a narrow slice.
 
 ## Supported slice
 
-What this repository currently intends to support:
+What this repository can honestly claim to support:
 
 - Apple Silicon Macs
 - Python 3.9+
@@ -47,6 +47,7 @@ What is **not** claimed by the current repository state:
 - Fused Metal kernels for encoding or decoding (Metal kernel integration remains experimental and is not the default supported path)
 - Large-scale perplexity validation
 - Generic Linux or Windows runtime support
+- Production readiness
 
 ## Validation boundary
 

@@ -1,6 +1,6 @@
 # TurboQuant Architecture
 
-> **Status**: research-grade  
+> **Status**: prototype, not production-ready  
 > **Last updated**: April 2026
 
 ---
@@ -9,9 +9,9 @@
 
 TurboQuant compresses the KV (key-value) cache of transformer language models
 by quantising both K and V heads to low bit-widths (typically 3–4 bits) and
-decompressing on-the-fly during attention.  The goal is to cut memory
-bandwidth at decode time on Apple Silicon (MLX backend) while preserving
-model quality.
+decompressing on-the-fly during attention. The goal is to cut memory bandwidth
+at decode time on Apple Silicon (MLX backend). This document is an operational
+description of the current prototype, not a claim of broad support or runtime certification.
 
 The supported runtime story in the current repo is intentionally narrow.  The
 canonical path is:
@@ -24,7 +24,8 @@ canonical path is:
 
 Lower-level helpers that construct `TurboQuantKCache` directly still exist for
 evaluation and compatibility, but they are secondary surfaces and not the
-supported public entry point.
+supported public entry point. If this document disagrees with the allowlist or
+the upgrade gate, the code wins.
 
 ```text
 Input token

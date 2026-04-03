@@ -2,6 +2,8 @@
 
 Public CI in this repository checks packaging and static validation. It does not certify the MLX runtime path, because generic hosted runners are not Apple Silicon and do not provide a usable `mlx` environment.
 
+If you do not run the Apple-Silicon path yourself, you do not have runtime evidence. You only have static evidence.
+
 ## The one real proof you can run today
 
 ```bash

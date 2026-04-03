@@ -1,6 +1,6 @@
 # TurboQuant Product Contract
 
-This document defines the official supported surface and stability guarantees for TurboQuant.
+This document defines the narrow supported surface TurboQuant can honestly claim today.
 
 ## 1. Supported Hardware
 TurboQuant is designed exclusively for **Apple Silicon** (M1, M2, M3, M4 families). 
@@ -10,12 +10,14 @@ TurboQuant is designed exclusively for **Apple Silicon** (M1, M2, M3, M4 familie
 ## 2. Supported Runtime
 The canonical runtime is the **local MLX runtime** on macOS.
 - Deployment via remote inference servers or non-macOS environments is currently out of scope.
+- There is no production deployment contract.
+- There is no claim of stable behavior across every model wired into vendored `mlx_lm`.
 
 ## 3. Supported Model Families
 Only model families explicitly listed in `turboquant/runtime/support.py` are in the wired allowlist.
 - **Llama-family** (Llama 2, Llama 3, Llama 3.1) — **wired, uncertified**
 - **Gemma-family** (Gemma, Gemma 2) — **wired, uncertified**
-- Other models (e.g., Qwen, Mistral, Phi, Falcon, Baichuan, Yi) may exist in the `mlx_lm` vendored directory but are considered **exploratory**, **vendored-only**, or **unsupported** unless added to the allowlist. Only `llama` and `gemma` families are in the wired allowlist.
+- Other models (e.g., Qwen, Mistral, Phi, Falcon, Baichuan, Yi) may exist in the `mlx_lm` vendored directory, but that does not make them supported. If they are not in the allowlist, `upgrade_cache_list(...)` rejects them.
 
 ## 4. Canonical Import Surfaces
 To ensure long-term compatibility, users must only import from:
@@ -26,12 +28,13 @@ Root-level `integrations/` are legacy compatibility shims and will be removed in
 
 Direct `TurboQuantKCache(...)` construction is not part of the supported
 public runtime surface. It remains available only for eval, compatibility, and
-test helpers; production callers should use `upgrade_cache_list(...)`.
+test helpers; callers who want the supported path must use `upgrade_cache_list(...)`.
 
 ## 5. Secondary Surfaces And Event Split
 
 TurboQuant has one canonical runtime path and a small set of documented
-secondary surfaces:
+secondary surfaces. Those secondary surfaces exist, but they are not part of
+the main support claim:
 
 - The canonical runtime path upgrades dense caches through
 	`upgrade_cache_list(...)` and enforces the model-family allowlist.
@@ -58,3 +61,4 @@ secondary surfaces:
 - Generic CI passes do not constitute runtime certification.
 - Certification artifacts must include memory, latency, and quality benchmarks.
 - Certification must begin with **Llama-family only** before Gemma is attempted.
+- Until those artifacts exist, the repo should be treated as a bounded prototype, not a certified runtime.

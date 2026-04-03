@@ -2,7 +2,8 @@
 
 This document records historical benchmark snapshots and reproduction steps for
 local Apple-Silicon testing. It is not part of the certified product contract,
-and the numbers below are not continuously revalidated on every commit.
+and the numbers below are not continuously revalidated on every commit. Treat
+them as lab notes, not promises.
 
 ## Execution rules
 
@@ -54,7 +55,7 @@ d_head    T    scalar enc ms  scalar dec ms  scalar MSE  scalar b/d    polar enc
    256 1024    0.912±0.094    0.339±0.085    0.063266      3.250       0.051±0.022   1.044±0.096   0.038119     3.875      0.60x
 ```
 
-Key observations:
+Key observations from that one measurement set:
 - PolarQuant **encode** is 7–18× faster (arctan2 + argmin vs bit-packing).
 - PolarQuant **MSE** is uniformly 40% lower (0.60× ratio) at slightly higher bit-rate.
 - PolarQuant **decode** is comparable or slightly slower at large T due to interleaved reconstruction.
@@ -110,9 +111,10 @@ seq_len  block_tokens   ms_streaming   ms_baseline   speedup
    1024           128          0.667         0.248     0.37x
 ```
 
-> Streaming attention overhead (~2x vs dense) is expected — each decode step
-> dequantises key blocks on-the-fly in pure Python/MLX. Enabling `mx.compile`
-> on inner loop functions or `TQ_USE_METAL=1` recovers most of this gap.
+> Streaming attention overhead (~2x vs dense) is what this historical run saw.
+> It is not a runtime target. Each decode step dequantises key blocks on-the-fly
+> in pure Python/MLX. Enabling `mx.compile` on inner loop functions or
+> `TQ_USE_METAL=1` may improve throughput, but those paths are not the default certified runtime.
 
 ## Paired generative benchmarks
 

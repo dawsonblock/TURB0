@@ -1,8 +1,8 @@
 # TurboQuant Support Matrix
 
-TurboQuant is a research-grade KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation. Custom Metal kernels are experimental and not part of the default supported runtime.
+TurboQuant is an experimental KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation. Custom Metal kernels are experimental and not part of the default supported runtime.
 
-Please refer to [supported-surface.md](supported-surface.md) for the canonical and complete supported surface details.
+Please refer to [supported-surface.md](supported-surface.md) for the canonical and complete supported surface details. This file is a matrix, not a broader support promise.
 
 ## Algorithm Presets
 
@@ -26,9 +26,9 @@ Please refer to [supported-surface.md](supported-surface.md) for the canonical a
 |:---|:---:|:---|
 | Llama | ⬜ | Wiring present in `mlx_lm/models/llama.py`; certification incomplete |
 | Gemma | ⬜ | Wiring present in `mlx_lm/models/gemma.py`; certification incomplete |
-| Qwen | ⬜ | Exploratory/Vendored-only; uncertified |
-| Mistral | ⬜ | Vendored-only; not certified |
-| Phi | ⬜ | Vendored-only; not certified |
+| Qwen | ⬜ | Vendored-only in this repo; not supported by `upgrade_cache_list` |
+| Mistral | ⬜ | Vendored-only in this repo; not supported by `upgrade_cache_list` |
+| Phi | ⬜ | Vendored-only in this repo; not supported by `upgrade_cache_list` |
 | All others | ⬜ | Unsupported; not in the certified allowlist. `upgrade_cache_list` raises `UnsupportedModelError` for these families. |
 
 ## MLX Compatibility
