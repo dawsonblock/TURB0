@@ -78,6 +78,7 @@ def test_long_context_stability(tmp_path):
         turboquant_k_start=0,
         turboquant_k_bits=3,
         turboquant_group_size=32,
+        turboquant_model_family="llama",
     ):
         tok = int(token)
         assert tok >= 0, f"Negative/invalid token id produced: {tok}"

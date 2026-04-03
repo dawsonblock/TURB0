@@ -83,7 +83,7 @@ def test_dense_vs_prod_35bpc(tmp_path):
 
         # TurboQuant forward (cache pre-upgraded before the forward pass)
         tq_cache = make_prompt_cache(model)
-        upgrade_cache_list(tq_cache, k_start=0, config=cfg)
+        upgrade_cache_list(tq_cache, k_start=0, config=cfg, model_family="llama")
         tq_logits = model(feed, cache=tq_cache)[0]
         mx.eval(tq_logits)
         tq_log_p = tq_logits - mx.logsumexp(tq_logits, axis=-1, keepdims=True)

@@ -20,6 +20,12 @@ Located in `benchmarks/exploratory/`. Run individually or via `scripts/run_bench
 | `bench_decode_streaming.py` | Streaming attention decode latency vs dense baseline | `artifacts/benchmarks/decode_streaming.txt` |
 | `bench_polar_vs_scalar.py` | PolarQuantizer vs GroupScalarQuantizer: encode/decode latency and MSE | `artifacts/benchmarks/polar_vs_scalar.json` |
 
+> **Note:** Numbers in this document were measured on Apple Silicon M-series hardware in
+> April 2026 using the versions of TurboQuant and MLX current at that date.  They are
+> **not** re-verified on every commit.  Treat them as indicative order-of-magnitude
+> figures, not continuous-integration baselines.  To reproduce, run
+> `scripts/run_benchmarks.sh` on Apple Silicon.
+
 **Measured numbers (Apple Silicon M-series, April 2026):**
 
 ```text

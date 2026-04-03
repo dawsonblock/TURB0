@@ -74,6 +74,7 @@ def drift_report(
     turboquant_config=None,
     k_start: int = 0,
     temperature: float = 1.0,
+    model_family: str = "llama",
 ) -> dict:
     """Compute per-token KL divergence between dense and TQ model outputs.
 
@@ -119,7 +120,7 @@ def drift_report(
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 
     tq_cache = make_prompt_cache(model)
-    upgrade_cache_list(tq_cache, k_start=k_start, config=turboquant_config)
+    upgrade_cache_list(tq_cache, k_start=k_start, config=turboquant_config, model_family=model_family)
     tq_logits = _collect_logits(model, feed, cache=tq_cache)
     mx.eval(tq_logits)
 

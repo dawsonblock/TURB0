@@ -37,7 +37,7 @@ def test_upgrade_cache_list_idempotence():
     cache_list = [MockCache(offset=seq, keys=k, values=v) for _ in range(2)]
 
     # First call: both layers are above threshold → both must be upgraded.
-    events1 = upgrade_cache_list(cache_list, k_start=0, config=cfg, model_family=None)
+    events1 = upgrade_cache_list(cache_list, k_start=0, config=cfg, model_family="llama")
     assert all(ev.upgraded for ev in events1), (
         "First upgrade_cache_list call must promote all eligible layers"
     )
@@ -46,7 +46,7 @@ def test_upgrade_cache_list_idempotence():
     )
 
     # Second call: every layer is already TurboQuantKCache → none must be re-upgraded.
-    events2 = upgrade_cache_list(cache_list, k_start=0, config=cfg, model_family=None)
+    events2 = upgrade_cache_list(cache_list, k_start=0, config=cfg, model_family="llama")
     assert all(not ev.upgraded for ev in events2), (
         "Second upgrade_cache_list call must be idempotent: no layer should be re-upgraded"
     )

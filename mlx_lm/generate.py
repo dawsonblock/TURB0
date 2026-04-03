@@ -302,14 +302,17 @@ def _infer_model_family(model: nn.Module) -> Optional[str]:
     """Inspect the model's class name and module path to derive a TurboQuant
     model-family string (e.g. ``"llama"``, ``"gemma"``).
 
-    Returns ``None`` when the family cannot be determined, which lets the
-    upgrade path fall back to its own defaults.
+    Only returns a family that is in :data:`turboquant.runtime.support.SUPPORTED_FAMILIES`.
+    Returns ``None`` when the family cannot be determined *or* when the
+    detected family is not in the supported allowlist — either way the caller
+    must not proceed with the TurboQuant upgrade path.
     """
+    from turboquant.runtime.support import SUPPORTED_FAMILIES, _normalize
     cls = type(model)
     haystack = f"{cls.__module__}.{cls.__name__}".lower()
-    for family in ("llama", "gemma", "mistral", "phi", "qwen", "falcon", "mpt"):
+    for family in SUPPORTED_FAMILIES:
         if family in haystack:
-            return family
+            return _normalize(family)
     return None
 
 
@@ -330,10 +333,9 @@ def maybe_turboquant_k_cache(
     """Upgrade KVCache entries to TurboQuantKCache when the offset threshold
     is reached.  Idempotent: already-upgraded entries are skipped.
 
-    .. deprecated::
-        This function is a legacy shim.  New callers should build a
-        :class:`turboquant.config.TurboQuantConfig` and call
-        :func:`turboquant.integrations.mlx.upgrade.upgrade_cache_list` directly.
+    This is the internal integration shim used by ``generate_step``.  It maps
+    legacy kwarg names to :class:`turboquant.config.TurboQuantConfig` fields
+    and delegates to :func:`turboquant.integrations.mlx.upgrade.upgrade_cache_list`.
     """
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
     from turboquant.config import TurboQuantConfig as _TQConfig
@@ -341,20 +343,15 @@ def maybe_turboquant_k_cache(
     if turboquant_k_start is None:
         return
 
-    # Map legacy kwarg names → production TurboQuantConfig.
-    # longer affect the production path. Keep them in the signature for
-    # compatibility, but warn when callers try to steer behavior through them.
-        warnings.warn(
-            "upgrade path; TurboQuant cache upgrades always return view-mode "
-            "state internally.",
-            DeprecationWarning,
-            stacklevel=2,
+    # Fail-open for unknown model families: log once and skip TQ entirely.
+    # upgrade_cache_list fails-closed when model_family is None, so we must
+    # not call it without a validated family string.
+    if turboquant_model_family is None:
+        _tq_logger.debug(
+            "TurboQuant: could not infer a supported model family; "
+            "skipping KV-cache upgrade."
         )
-        warnings.warn(
-            "production upgrade path always uses view-mode state internally.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        return
 
     if turboquant_resid_scale_bits != 8:
         warnings.warn(

@@ -1,11 +1,13 @@
 # Runtime Certification
 
-> **STATUS: NOT CERTIFIED.**
-> No real certification artifacts have been produced. The integration tests
-> that would prove this path are currently marked `skip`. The quality
-> evaluation script (`run_quality_eval.py`) exits with an error rather than
-> producing metrics. This document describes the *intended* certification
-> process, not a state that currently exists.
+> **STATUS: INTEGRATION HARNESS EXISTS — FULL CERT REQUIRES APPLE SILICON WITH REAL MODELS.**
+> The integration test suite (cache roundtrip, streaming attention equivalence, long-context
+> stability) passes under TinyModel on any machine.  Stages 4–5 (Llama/Gemma smoke tests)
+> and stages 7–8 (paired generative benchmarks and metric aggregation) require Apple Silicon,
+> a working MLX installation, and the environment variables
+> `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL` set to real model IDs.
+> No full-model certification artifacts have been generated yet; this document
+> describes the intended process.
 
 ## Purpose
 

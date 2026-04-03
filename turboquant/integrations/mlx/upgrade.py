@@ -15,7 +15,7 @@ Usage
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 
     config = TurboQuantConfig(k_bits=3, k_group_size=64, ...)
-    events = upgrade_cache_list(prompt_cache, k_start=512, config=config)
+    events = upgrade_cache_list(prompt_cache, k_start=512, config=config, model_family="llama")
     for ev in events:
         if ev.upgraded:
             print(f"layer {ev.layer_index}: {ev.old_type} → {ev.new_type} "
@@ -26,11 +26,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace as _dc_replace
 
-from turboquant.runtime.events import EventLog
 from turboquant.runtime.support import assert_supported_model_family
-
-# Module-level event log — flushed to runs/<run_id>/events.jsonl automatically.
-_event_log: EventLog = EventLog()
 
 # -- Event --------------------------------------------------------------------
 
@@ -104,8 +100,8 @@ def upgrade_cache_list(
         Model architecture family (e.g. ``"llama"`` or ``"gemma"``).
         Must be in the supported allowlist or
         :class:`~turboquant.errors.UnsupportedModelError` is raised before
-        any cache is mutated.  Pass ``None`` only from exploratory code
-        paths that intentionally bypass the allowlist check.
+        any cache is mutated.  ``None`` is never valid; callers that cannot
+        determine the family should skip the upgrade entirely.
 
     Returns
     -------
@@ -114,8 +110,17 @@ def upgrade_cache_list(
         see which layers were promoted this call.
     """
     # Gate 2 — model allowlist.  Must be checked before any cache mutation.
-    if model_family is not None:
-        assert_supported_model_family(model_family)
+    # Fail-closed: None is not a valid bypass; callers must supply a family
+    # string from SUPPORTED_FAMILIES.  Use maybe_turboquant_k_cache / the
+    # generate_step shim (which skips the upgrade when inference returns None)
+    # rather than passing None here.
+    if model_family is None:
+        from turboquant.errors import UnsupportedModelError
+        raise UnsupportedModelError(
+            "model_family must be specified; pass 'llama' or 'gemma'. "
+            "Got None — unknown or unsupported model architecture."
+        )
+    assert_supported_model_family(model_family)
 
     # Lazy import to avoid circular deps and to keep this module importable
     # even if turboquant or mlx_lm is not fully initialised.

@@ -29,6 +29,29 @@ Contract coverage
    defaults ``v_enabled=True``; the architecture doc must say "enabled by
    default".  Regression guard against the v_enabled contradiction fixed in
    Phase 4.
+
+6. ``upgrade_cache_list_none_family_raises`` — ``upgrade_cache_list`` must
+   raise ``UnsupportedModelError`` when called with ``model_family=None``.
+   Ensures the support gate is truly fail-closed (not fail-open).
+
+7. ``infer_model_family_returns_supported_or_none`` — ``_infer_model_family``
+   must only return values from ``SUPPORTED_FAMILIES`` or ``None``.  Prevents
+   the inference list from drifting ahead of the allowlist.
+
+8. ``upgrade_cache_list_none_docstring_correct`` — the ``upgrade_cache_list``
+   docstring must NOT claim ``None`` is a valid bypass for exploratory code.
+
+9. ``architecture_doc_no_online_softmax_claim`` — ``docs/architecture.md``
+   must not claim "online softmax" or "2-accumulator" because the actual
+   implementation materialises all scores then calls a single ``mx.softmax``.
+
+10. ``architecture_doc_no_rotate_queries_for_attention`` — the architecture
+    doc must not claim ``rotate_queries_for_attention()`` is called at the
+    top level; rotation happens inside ``score_block()``.
+
+11. ``kvcompressor_is_marked_as_alias`` — ``turboquant/__init__.py`` must
+    explicitly document ``KVCompressor`` as a compatibility alias so callers
+    understand it is not the primary API.
 """
 
 from __future__ import annotations
@@ -188,4 +211,156 @@ def test_v_enabled_default_matches_architecture_doc() -> None:
     assert "enabled by default" in text, (
         "docs/architecture.md must explicitly state that v_enabled is "
         "enabled by default.  Check Phase 4 of the cleanup notes."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 6. upgrade_cache_list(model_family=None) must raise, not silently bypass gate
+# ---------------------------------------------------------------------------
+
+
+def test_upgrade_cache_list_none_family_raises() -> None:
+    """upgrade_cache_list must raise UnsupportedModelError when model_family=None."""
+    repo_str = str(REPO_ROOT)
+    injected = repo_str not in sys.path
+    if injected:
+        sys.path.insert(0, repo_str)
+    try:
+        from turboquant.errors import UnsupportedModelError
+        from turboquant.integrations.mlx.upgrade import upgrade_cache_list
+        from turboquant.config import TurboQuantConfig
+
+        cfg = TurboQuantConfig()
+        with pytest.raises(UnsupportedModelError):
+            upgrade_cache_list([], k_start=0, config=cfg, model_family=None)
+    except ModuleNotFoundError as exc:
+        pytest.skip(f"turboquant package not importable in this env: {exc}")
+    finally:
+        if injected:
+            sys.path.remove(repo_str)
+
+
+# ---------------------------------------------------------------------------
+# 7. _infer_model_family only returns supported families or None
+# ---------------------------------------------------------------------------
+
+
+def test_infer_model_family_returns_supported_or_none() -> None:
+    """_infer_model_family must return a SUPPORTED_FAMILIES member or None.
+
+    Catches drift where the inference list grows ahead of the allowlist,
+    which would create a false sense of coverage for unsupported families.
+    """
+    repo_str = str(REPO_ROOT)
+    injected = repo_str not in sys.path
+    if injected:
+        sys.path.insert(0, repo_str)
+    try:
+        from turboquant.runtime.support import SUPPORTED_FAMILIES
+
+        # Read generate.py and extract the for-loop families list from
+        # _infer_model_family without executing it.
+        gen_py = REPO_ROOT / "mlx_lm" / "generate.py"
+        text = gen_py.read_text(encoding="utf-8")
+        tree = ast.parse(text)
+
+        # Find the _infer_model_family function and look for string constants
+        # used in a for-loop (the family membership list).
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_infer_model_family":
+                for child in ast.walk(node):
+                    if isinstance(child, ast.For):
+                        # Inspect the iterator for string constants.
+                        if isinstance(child.iter, (ast.Tuple, ast.List, ast.Set)):
+                            for elt in child.iter.elts:
+                                if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                                    assert elt.value in SUPPORTED_FAMILIES, (
+                                        f"_infer_model_family iterates over '{elt.value}' "
+                                        f"but that family is not in SUPPORTED_FAMILIES "
+                                        f"({sorted(SUPPORTED_FAMILIES)}).  Either add it "
+                                        "to the allowlist with runtime-cert coverage or "
+                                        "remove it from the inference loop."
+                                    )
+                        break  # only check the first for-loop in the function
+                break
+    except ModuleNotFoundError as exc:
+        pytest.skip(f"turboquant package not importable in this env: {exc}")
+    finally:
+        if injected:
+            sys.path.remove(repo_str)
+
+
+# ---------------------------------------------------------------------------
+# 8. upgrade_cache_list docstring must not claim None is a valid bypass
+# ---------------------------------------------------------------------------
+
+
+def test_upgrade_cache_list_none_docstring_correct() -> None:
+    """upgrade_cache_list docstring must not claim None bypasses the gate."""
+    upgrade_py = REPO_ROOT / "turboquant" / "integrations" / "mlx" / "upgrade.py"
+    assert upgrade_py.exists(), "turboquant/integrations/mlx/upgrade.py not found"
+
+    text = upgrade_py.read_text(encoding="utf-8")
+    assert "intentionally bypass the allowlist" not in text, (
+        "upgrade_cache_list docstring still claims passing model_family=None "
+        "is a valid way to bypass the allowlist from 'exploratory code paths'. "
+        "That is incorrect: None now raises UnsupportedModelError.  "
+        "Update the docstring."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 9. architecture.md must not claim online softmax
+# ---------------------------------------------------------------------------
+
+
+def test_architecture_doc_no_online_softmax_claim() -> None:
+    """architecture.md must not claim online softmax / 2-accumulator algorithm."""
+    arch_doc = REPO_ROOT / "docs" / "architecture.md"
+    assert arch_doc.exists(), "docs/architecture.md not found"
+
+    text = arch_doc.read_text(encoding="utf-8")
+    for forbidden in ("online softmax", "2-accumulator", "log-sum-exp lse"):
+        assert forbidden not in text, (
+            f"docs/architecture.md still contains '{forbidden}', implying an "
+            "online-softmax implementation.  The actual code concatenates all "
+            "block scores then calls mx.softmax once.  Fix the documentation."
+        )
+
+
+# ---------------------------------------------------------------------------
+# 10. architecture.md must not claim rotate_queries_for_attention at top level
+# ---------------------------------------------------------------------------
+
+
+def test_architecture_doc_no_rotate_queries_for_attention() -> None:
+    """architecture.md must not claim rotate_queries_for_attention() is called."""
+    arch_doc = REPO_ROOT / "docs" / "architecture.md"
+    assert arch_doc.exists(), "docs/architecture.md not found"
+
+    text = arch_doc.read_text(encoding="utf-8")
+    assert "rotate_queries_for_attention" not in text, (
+        "docs/architecture.md still references 'rotate_queries_for_attention()'. "
+        "That function does not exist; query rotation happens inside score_block() "
+        "via FixedRotation.apply().  Fix the documentation."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 11. KVCompressor must be documented as compatibility alias in __init__.py
+# ---------------------------------------------------------------------------
+
+
+def test_kvcompressor_is_marked_as_alias() -> None:
+    """turboquant/__init__.py must document KVCompressor as a compatibility alias."""
+    init_py = REPO_ROOT / "turboquant" / "__init__.py"
+    assert init_py.exists(), "turboquant/__init__.py not found"
+
+    text = init_py.read_text(encoding="utf-8")
+    # Both the module docstring line and the __all__ comment must say "alias".
+    assert text.lower().count("alias") >= 2, (
+        "turboquant/__init__.py must mark KVCompressor as a compatibility alias "
+        "in at least two places (module docstring and __all__ comment) so callers "
+        "know to prefer TurboQuantKVCache.  Currently found fewer than 2 occurrences "
+        "of the word 'alias'."
     )

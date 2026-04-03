@@ -31,7 +31,7 @@ Input token
 │       │           └──────────┬─────────┘       │
 │       │                      │ iter_blocks()    │
 │       ▼                      ▼                 │
-│  rotate_q() ──► streaming softmax attention    │
+│  (q rotated in score_block) → block attention  │
 │                      │                         │
 │                      ▼                         │
 │                   Output                       │
@@ -91,7 +91,7 @@ Production configuration dataclass.  Fields:
 | `residual_mode` | `"qjl"` | residual codec: `"none"` (MSE only), `"qjl"` (1-bit QJL), `"topk"` (sparse top-k, experimental) |
 | `quantizer_mode` | `"scalar"` | main quantiser: `"scalar"` (LloydMax/GroupScalar) or `"polar"` (PolarQuantizer) |
 | `residual_topk` | 0 | top-k residual elements per group (topk mode only) |
-| `block_tokens` | 256 | streaming attention block size |
+| `block_tokens` | 256 | accepted by `TurboQuantConfig`; not currently used in the attention dispatch path |
 | `eps` | 1e-6 | numerical stability floor |
 | `scale_dtype` | `"float16"` | dtype for scale factors |
 | `v_scale_dtype` | `"float16"` | dtype for V scale factors |
@@ -162,11 +162,13 @@ If `quantize_main` / `dequantize_main` are omitted:
 
 `turboquant_streaming_attention(queries, keys_view, *, scale)`:
 
-- Rotates queries via `cache.rotate_queries_for_attention(q)` if available
+- Rotates queries _per block_ inside `score_block()` via `FixedRotation.apply()`;
+  query rotation is applied inside each block, not at the top-level call site
 - Iterates over K/V blocks with `iter_blocks()` / `decode_block_full()`
-- Accumulates attention scores with the **online softmax** (2-accumulator)
-  algorithm: tracks running max `m` and log-sum-exp `lse` without materialising
-  the full attention matrix
+- Accumulates per-block score tensors in a Python list, then concatenates them
+  with `mx.concatenate` and applies a single standard `mx.softmax` across the
+  full key dimension.  The full score vector is materialised before softmax.
+  (The implementation does _not_ use a streaming log-sum-exp approach.)
 - Supports both `TurboQuantKCache` (via `._impl`) and `TurboQuantKVCache`
   (direct) through `impl = getattr(cache, "_impl", cache)` dispatch
 
@@ -253,18 +255,21 @@ q [B, H_q, 1, d]    k [B, H_kv, 1, d]    v [B, H_kv, 1, d]
         │                    │
         │            TurboQuantKeysView (lazy proxy)
         │                    │
-        └──── rotate_queries_for_attention(q) ──── R·q
-                             │
-              iter_rotated_kv_blocks(view)
-                   ┌─────────┴──────────┐
-                   │   for each block   │
-                   │   decode_k() → k_blk  (rotated)
-                   │   decode_v() → v_blk
-                   │   scores = q_rot @ k_blk.T / scale
-                   │   online-softmax update
-                   └───────────────────┘
-                             │
-                          output [B, H_q, 1, d]
+        └──── turboquant_streaming_attention(q, keys_view) ─────────────┐
+                             │                                           │
+              score_block() per stored block                             │
+                   ┌─────────┴──────────┐                               │
+                   │   for each block   │                                │
+                   │   FixedRotation.apply(q) → q_rot  (per block)      │
+                   │   decode_k() → k_blk  (rotated)                    │
+                   │   decode_v() → v_blk                               │
+                   │   scores = q_rot @ k_blk.T / scale                 │
+                   └───────────────────┘                                │
+                             │  (list of per-block score tensors)        │
+                         mx.concatenate → full_scores                    │
+                         mx.softmax(full_scores)                         │
+                             │                                           │
+                          output [B, H_q, 1, d] ◄────────────────────────┘
 ```text
 ---
 

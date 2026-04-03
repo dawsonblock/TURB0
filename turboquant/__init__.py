@@ -11,7 +11,7 @@ TurboQuantConfig          — runtime-immutable configuration
 TurboQuantPipeline        — low-level encode/decode pipeline
 TurboQuantKVCache         — canonical KV cache implementation
 TurboQuantKCache          — MLX cache-adapter interface
-KVCompressor              — compatibility alias to TurboQuantKVCache
+KVCompressor              — compatibility alias for TurboQuantKVCache; prefer TurboQuantKVCache for new code
 calibrate                 — calibration pass over representative data
 upgrade_cache_list        — utility to migrate MLX cache lists
 """
@@ -80,7 +80,7 @@ __all__ = [
     "TurboQuantPipeline",
     "TurboQuantKVCache",
     "TurboQuantKCache",
-    "KVCompressor",
+    "KVCompressor",  # compatibility alias — prefer TurboQuantKVCache for new code
     "calibrate",
     "upgrade_cache_list",
     "check_mlx_version",

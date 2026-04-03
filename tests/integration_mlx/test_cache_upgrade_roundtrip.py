@@ -49,7 +49,7 @@ def test_cache_upgrade_roundtrip():
     prompt_cache = [_MinimalKVCache(k0, v0), _MinimalKVCache(k1, v1)]
 
     events = upgrade_cache_list(
-        prompt_cache, k_start=k_start, config=cfg, model_family=None
+        prompt_cache, k_start=k_start, config=cfg, model_family="llama"
     )
 
     # Both layers must have been upgraded
@@ -100,7 +100,7 @@ def test_cache_upgrade_below_threshold_skipped():
     prompt_cache = [_MinimalKVCache(k0, v0)]
 
     events = upgrade_cache_list(
-        prompt_cache, k_start=k_start, config=cfg, model_family=None
+        prompt_cache, k_start=k_start, config=cfg, model_family="llama"
     )
 
     assert len(events) == 1
@@ -129,11 +129,11 @@ def test_cache_upgrade_idempotent():
     prompt_cache = [_MinimalKVCache(k0, v0)]
 
     # First call — should upgrade
-    events1 = upgrade_cache_list(prompt_cache, k_start=4, config=cfg, model_family=None)
+    events1 = upgrade_cache_list(prompt_cache, k_start=4, config=cfg, model_family="llama")
     assert events1[0].upgraded
 
     # Second call — already TurboQuantKCache, must be a no-op
-    events2 = upgrade_cache_list(prompt_cache, k_start=4, config=cfg, model_family=None)
+    events2 = upgrade_cache_list(prompt_cache, k_start=4, config=cfg, model_family="llama")
     assert not events2[0].upgraded, (
         "Second upgrade_cache_list call must not re-upgrade an already-upgraded layer."
     )

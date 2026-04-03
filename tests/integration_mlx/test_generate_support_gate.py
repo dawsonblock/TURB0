@@ -4,6 +4,14 @@ Verifies the auto-detection logic using mock model classes — no real model
 loading required.
 
 Requires MLX (Apple Silicon) for the import chain.
+
+Behavioural contract (post Phase-1 cleanup)
+-------------------------------------------
+``_infer_model_family`` only returns a family string when that family is in
+``SUPPORTED_FAMILIES`` (currently ``{"llama", "gemma"}``).  Any other family
+— including formerly-detected ones such as "mistral", "phi", "qwen" — now
+returns ``None`` so the caller skips the TurboQuant upgrade rather than
+bypassing the support gate.
 """
 
 from __future__ import annotations
@@ -64,8 +72,13 @@ def test_infer_gemma():
 
 
 def test_infer_mistral():
+    """Mistral is not in SUPPORTED_FAMILIES — must return None, not 'mistral'."""
     model = _FakeMistralModel()
-    assert _infer_model_family(model) == "mistral"
+    assert _infer_model_family(model) is None, (
+        "_infer_model_family must return None for unsupported families like 'mistral'. "
+        "The upstream support gate (upgrade_cache_list) now fails-closed on None, "
+        "so returning an unsupported family name would cause UnsupportedModelError."
+    )
 
 
 # ── Unknown family returns None ───────────────────────────────────────────────
