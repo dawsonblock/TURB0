@@ -13,17 +13,17 @@ from turboquant.eval import perplexity_report, drift_report, memory_report
 cfg = TurboQuantConfig.from_preset("paper_prod")   # or "paper_mse" for MSE-only
 
 # Perplexity
-ppl = perplexity_report(model, input_ids, turboquant_config=cfg)
+ppl = perplexity_report(model, input_ids, turboquant_config=cfg, model_family="llama")
 print(ppl)
 # {'dense_ppl': 12.3, 'tq_ppl': 12.6, 'delta_ppl': 0.3, 'n_tokens': 63}
 
 # Logit-distribution drift (KL divergence)
-drift = drift_report(model, input_ids, turboquant_config=cfg)
+drift = drift_report(model, input_ids, turboquant_config=cfg, model_family="llama")
 print(drift)
 # {'mean_kl': 0.004, 'max_kl': 0.021, 'min_kl': 0.0, 'n_tokens': 63}
 
 # Memory
-mem = memory_report(model, input_ids, turboquant_config=cfg)
+mem = memory_report(model, input_ids, turboquant_config=cfg, model_family="llama")
 print(mem)
 # {'dense_cache_bytes': 2097152, 'tq_cache_bytes': 573440, 'ratio': 3.7, 'n_layers': 18}
 ```
@@ -40,8 +40,7 @@ compared to a dense-cache baseline.
 PPL = exp( mean NLL )
 delta_ppl = tq_ppl - dense_ppl
 ```text
-A `delta_ppl` below **0.5** is generally imperceptible in generation quality.
-Values above **2.0** indicate the bit-width is too aggressive for this sequence.
+A `delta_ppl` below **0.5** is illustratively acceptable in informal testing. Values above **2.0** suggest the bit-width is too aggressive. These thresholds are not certification baselines — runtime certification requires Apple Silicon hardware with real model weights.
 
 **API**:
 ```python
@@ -57,7 +56,7 @@ targets — it compares the model's beliefs unconditionally.
 ```text
 KL(P_dense || P_tq) = sum_v P_dense(v) * (log P_dense(v) - log P_tq(v))
 ```text
-A `mean_kl` below **0.01** nats indicates negligible distribution shift.
+A `mean_kl` below **0.01** nats indicates negligible distribution shift in informal testing.
 
 **API**:
 ```python
@@ -72,8 +71,9 @@ forward pass.
 ```text
 ratio = dense_cache_bytes / tq_cache_bytes
 ```text
-A ratio of **3.7×** or higher is achievable with 3-bit K + 4-bit V at
-`group_size=64` for sequences longer than 512 tokens.
+A ratio of **3.7×** or higher is illustratively achievable with 3-bit K + 4-bit V at
+`group_size=64` for sequences longer than 512 tokens. This figure is from synthetic
+benchmarks on Apple Silicon; it is not a certified production claim.
 
 **API**:
 ```python

@@ -29,7 +29,7 @@ Please refer to [supported-surface.md](supported-surface.md) for the canonical a
 | Qwen | ⬜ | Exploratory/Vendored-only; uncertified |
 | Mistral | ⬜ | Vendored-only; not certified |
 | Phi | ⬜ | Vendored-only; not certified |
-| All others | ⬜ | Unsupported; route through `base.py` dispatch automatically; uncertified |
+| All others | ⬜ | Unsupported; not in the certified allowlist. `upgrade_cache_list` raises `UnsupportedModelError` for these families. |
 
 ## MLX Compatibility
 

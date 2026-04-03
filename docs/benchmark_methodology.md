@@ -133,4 +133,5 @@ Prompt classes: `short` (5 prompts), `medium` (5 prompts), `long` (5 prompts).
 ```
 
 > TurboQuant decode speed reflects the uncompiled Python streaming attention path.
-> Enable `TQ_USE_METAL=1` or wrap inner functions with `mx.compile` for production throughput.
+> `TQ_USE_METAL=1` or wrapping inner functions with `mx.compile` are **experimental** paths
+> that may improve throughput; they are not certified and are not the default runtime.

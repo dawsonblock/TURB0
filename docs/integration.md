@@ -20,9 +20,13 @@ def scaled_dot_product_attention(queries, keys, values, cache, scale, mask=None,
     ...
 ```
 
-This means **any** model that calls `scaled_dot_product_attention` from `base.py`
-will automatically support TurboQuant without further modification. Verified on
-Llama and Gemma on Apple Silicon (commit `6afc966`). Qwen is currently unsupported and exploratory.
+This means the **attention dispatch** routes automatically for any model that calls
+`scaled_dot_product_attention` from `base.py` — but this is **not the same as being supported**.
+The cache upgrade gate (`upgrade_cache_list`) separately enforces the model-family allowlist:
+only `"llama"` and `"gemma"` are in the certified allowlist. Routing through `base.py` does not
+bring a model into the supported set. Verified on Llama and Gemma on Apple Silicon
+(commit `6afc966`). All other architectures are unsupported or exploratory regardless of
+whether they call `scaled_dot_product_attention`.
 
 ---
 
@@ -51,7 +55,10 @@ from turboquant.config import TurboQuantConfig
 cache = make_prompt_cache(model)
 # ... run prefill ...
 cfg = TurboQuantConfig(k_bits=3, k_group_size=64, rotation="hadamard")
-events = upgrade_cache_list(cache, k_start=64, config=cfg)
+events = upgrade_cache_list(
+    cache, k_start=64, config=cfg,
+    model_family="llama",  # required — must be "llama" or "gemma" (the certified allowlist)
+)
 # decode loop continues with TurboQuant cache
 ```text
 `upgrade_cache_list` returns a list of `CacheUpgradeEvent` objects (one per
@@ -180,9 +187,14 @@ Gemma.  See `mlx_lm/models/llama.py` → `Attention.__call__`.
 
 ## 6. Adding a new model family
 
-**Preferred (zero changes required):** If the model’s attention calls
-`scaled_dot_product_attention` from `mlx_lm.models.base`, TurboQuant already
-works out of the box via the centralized dispatch in `base.py`.
+**Attention dispatch routing (no wiring required for base.py models):** If the model's
+attention calls `scaled_dot_product_attention` from `mlx_lm.models.base`, the attention
+dispatch routes to `turboquant_streaming_attention` automatically when a `TurboQuantKeysView`
+key is present. However, this does **not** mean the model is supported — the cache upgrade
+gate (`upgrade_cache_list`) will raise `UnsupportedModelError` unless the family is added to
+`SUPPORTED_FAMILIES` in `turboquant/runtime/support.py`. **Routing through `base.py` ≠
+membership in the supported allowlist.** Currently only `"llama"` and `"gemma"` are in the
+allowlist.
 
 **Manual wiring (fallback):** For models with custom attention implementations
 that bypass `base.py`:
