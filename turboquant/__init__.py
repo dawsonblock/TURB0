@@ -1,12 +1,12 @@
 """
-TurboQuant — research-stage KV-cache compression for selected MLX/Apple-Silicon RLM paths.
+TurboQuant — research-stage KV-cache compression for selected MLX/Apple-Silicon LLM paths.
 
 This package exposes the supported public surface for the current TurboQuant prototype.
-Do not treat the package-level API as production-certified unless the corresponding
+Do not treat the package-level API as production-certified unless passing full-model
 runtime-certification artifacts have been generated on Apple Silicon.
 
 Public API
-+--------
+----------
 TurboQuantConfig          — runtime-immutable configuration
 TurboQuantPipeline        — low-level encode/decode pipeline
 TurboQuantKVCache         — canonical KV cache implementation
@@ -15,7 +15,7 @@ calibrate                 — calibration pass over representative data
 upgrade_cache_list        — canonical support-gated runtime path for allowlisted MLX cache upgrades
 
 Internal adapter note
-+--------------------
+---------------------
 `TurboQuantKCache(...)` is an internal/eval-only mlx_lm adapter. It intentionally bypasses the
 support gate and is therefore not exported from the package root.
 """

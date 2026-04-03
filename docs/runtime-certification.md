@@ -33,7 +33,7 @@ all model families, custom Metal kernels, or distributed inference.
 | ----------------- | ---------------------------------------- |
 | Hardware          | Apple Silicon Mac (arm64)                |
 | OS                | macOS (version recorded per run)         |
-| Python            | 3.11 (recommended; 3.9–3.11 supported)  |
+| Python            | 3.11 recommended; 3.9–3.11 supported. The certification script bootstrap prefers `python3.11`, then `python3.10`, then `python3.9`. |
 | MLX               | ≥ 0.30.0 (exact version recorded)       |
 | TurboQuant        | 0.2.2 (commit hash recorded)            |
 | Llama model       | set via `TQ_TEST_LLAMA_MODEL` env var    |
@@ -58,10 +58,14 @@ all model families, custom Metal kernels, or distributed inference.
 
 ```text
 macOS on Apple Silicon (M1/M2/M3/M4)
-Python 3.11 (recommended)
+Python 3.11 (recommended; 3.9–3.11 supported)
 A clean virtual environment
 pip install -e '.[apple,test]'
 ```
+
+If `./scripts/certify_apple_runtime.sh` bootstraps its own environment, it
+prefers `python3.11`, then `python3.10`, then `python3.9`. If you run the
+script inside an existing environment, keep that environment on Python 3.9–3.11.
 
 ## Environment variables
 

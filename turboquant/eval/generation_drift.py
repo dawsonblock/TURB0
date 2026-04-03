@@ -26,15 +26,11 @@ Typical usage
 
 from __future__ import annotations
 
-import mlx.core as mx
-import mlx.nn as nn
-
-
 def logit_kl_divergence(
-    logits_p: mx.array,
-    logits_q: mx.array,
+    logits_p,
+    logits_q,
     temperature: float = 1.0,
-) -> mx.array:
+):
     """Per-position KL( softmax(p) || softmax(q) ) averaged over vocab.
 
     Parameters
@@ -51,6 +47,8 @@ def logit_kl_divergence(
     mx.array
         Shape ``[T]`` — per-position KL divergence.
     """
+    import mlx.core as mx
+
     if temperature != 1.0:
         logits_p = logits_p / temperature
         logits_q = logits_q / temperature
@@ -63,14 +61,14 @@ def logit_kl_divergence(
     return kl
 
 
-def _collect_logits(model: nn.Module, input_ids: mx.array, cache) -> mx.array:
+def _collect_logits(model, input_ids, cache):
     logits = model(input_ids, cache=cache)  # [1, T, V]
     return logits[0]  # [T, V]
 
 
 def drift_report(
-    model: nn.Module,
-    input_ids: mx.array,
+    model,
+    input_ids,
     turboquant_config=None,
     k_start: int = 0,
     temperature: float = 1.0,
@@ -98,6 +96,7 @@ def drift_report(
         ``mean_kl``, ``max_kl``, ``min_kl``, ``n_tokens``
         and ``kl_per_token`` (list of floats).
     """
+    import mlx.core as mx
     from mlx_lm.models.cache import make_prompt_cache
 
     feed = input_ids[:, :-1]  # [1, T-1]

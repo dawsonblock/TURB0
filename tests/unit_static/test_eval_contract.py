@@ -181,6 +181,25 @@ def test_memory_report_model_family_default() -> None:
             sys.path.remove(str(REPO_ROOT))
 
 
+def test_eval_package_importable_without_mlx() -> None:
+    """turboquant.eval must remain importable in static environments without MLX."""
+    injected = _add_repo_to_path()
+    try:
+        import turboquant.eval as tq_eval
+
+        assert hasattr(tq_eval, "perplexity_report")
+        assert hasattr(tq_eval, "memory_report")
+        assert hasattr(tq_eval, "drift_report")
+    except ModuleNotFoundError as exc:
+        pytest.fail(
+            "turboquant.eval should be importable without MLX for static contract tests; "
+            f"got ModuleNotFoundError: {exc}"
+        )
+    finally:
+        if injected:
+            sys.path.remove(str(REPO_ROOT))
+
+
 # ---------------------------------------------------------------------------
 # 6. _infer_model_family checks model_type attribute (AST check)
 # ---------------------------------------------------------------------------

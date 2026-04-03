@@ -1,8 +1,9 @@
-import sys
-import platform
+import importlib.metadata
+import importlib.util
 import json
 import os
-import importlib.util
+import platform
+import sys
 
 def check_apple_silicon():
     return platform.system() == "Darwin" and platform.machine() == "arm64"
@@ -10,9 +11,19 @@ def check_apple_silicon():
 def check_mlx_version():
     try:
         import mlx
-        return getattr(mlx, "__version__", "unknown")
     except ImportError:
         return None
+
+    version = getattr(mlx, "__version__", None)
+    if version:
+        return version
+
+    try:
+        return importlib.metadata.version("mlx")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+    except Exception:
+        return "unknown"
 
 def main():
     # Ensure current directory is in sys.path so we can import turboquant

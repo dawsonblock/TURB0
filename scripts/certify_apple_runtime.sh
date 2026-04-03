@@ -40,6 +40,70 @@ STAGES_UNIMPLEMENTED=0  # stages where pytest ran but produced zero passing test
 STAGES_TOTAL=0
 
 # ---------------------------------------------------------------------------
+# Internal helper: Python runtime selection for certification bootstrap.
+# Prefer supported interpreters in descending order, but keep using an active
+# environment when it is already on Python 3.9–3.11.
+# ---------------------------------------------------------------------------
+_supports_runtime_cert_python() {
+    local python_bin="$1"
+    "$python_bin" - <<'PYEOF'
+import sys
+
+major, minor = sys.version_info[:2]
+raise SystemExit(0 if major == 3 and 9 <= minor <= 11 else 1)
+PYEOF
+}
+
+_python_version() {
+    local python_bin="$1"
+    "$python_bin" - <<'PYEOF'
+import sys
+
+print(".".join(str(part) for part in sys.version_info[:3]))
+PYEOF
+}
+
+_active_env_python() {
+    local candidate=""
+    if [ -z "${VIRTUAL_ENV:-}" ]; then
+        return 1
+    fi
+
+    candidate="$(command -v python || true)"
+    if [ -n "$candidate" ] && _supports_runtime_cert_python "$candidate"; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    return 1
+}
+
+_find_supported_python() {
+    local candidate=""
+    for candidate in python3.11 python3.10 python3.9 python3; do
+        if command -v "$candidate" >/dev/null 2>&1 && _supports_runtime_cert_python "$candidate"; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
+    echo "ERROR: Could not find a supported Python interpreter (3.9-3.11; 3.11 recommended)." >&2
+    return 1
+}
+
+USE_ACTIVE_ENV=0
+if PYTHON_BIN="$(_active_env_python)"; then
+    USE_ACTIVE_ENV=1
+else
+    if [ -n "${VIRTUAL_ENV:-}" ]; then
+        echo "WARNING: active virtual environment is not using Python 3.9-3.11; bootstrapping .venv-cert with a supported interpreter instead." >&2
+    fi
+    PYTHON_BIN="$(_find_supported_python)"
+fi
+
+PYTHON_VERSION="$(_python_version "$PYTHON_BIN")"
+echo "  Python    : $PYTHON_BIN ($PYTHON_VERSION)"
+
+# ---------------------------------------------------------------------------
 # Internal helper: parse a JUnit XML file and decide if the stage passed.
 # Returns:
 #   0  — stage PASSED (tests > 0, failures == 0, errors == 0, skipped == 0)
@@ -53,7 +117,7 @@ _check_junit() {
         echo "  ✗ $stage_name: JUnit XML not produced — marking FAILED"
         return 1
     fi
-    python3 - "$xml" "$stage_name" <<'PYEOF'
+    "$PYTHON_BIN" - "$xml" "$stage_name" <<'PYEOF'
 import sys, xml.etree.ElementTree as ET
 
 xml_path, stage_name = sys.argv[1], sys.argv[2]
@@ -99,7 +163,7 @@ run_pytest_stage() {
     echo ""
     echo "──── Stage: $name ────"
     local exit_code=0
-    python3 -m pytest "$@" --junitxml="$xml_file" -q --tb=short || exit_code=$?
+    "$PYTHON_BIN" -m pytest "$@" --junitxml="$xml_file" -q --tb=short || exit_code=$?
     local check_code=0
     _check_junit "$xml_file" "$name" || check_code=$?
     if [ "$check_code" -eq 2 ]; then
@@ -132,26 +196,33 @@ run_stage() {
 # ---------------------------------------------------------------------------
 # Stage 0: Create / activate venv (optional — skip if already in one)
 # ---------------------------------------------------------------------------
-if [ -z "${VIRTUAL_ENV:-}" ]; then
+if [ "$USE_ACTIVE_ENV" -eq 0 ]; then
     VENV_DIR="$REPO_ROOT/.venv-cert"
+    if [ -d "$VENV_DIR" ] && [ -x "$VENV_DIR/bin/python" ] && ! _supports_runtime_cert_python "$VENV_DIR/bin/python"; then
+        echo "Recreating certification venv at $VENV_DIR (unsupported Python in existing venv) ..."
+        rm -rf "$VENV_DIR"
+    fi
     if [ ! -d "$VENV_DIR" ]; then
         echo "Creating certification venv at $VENV_DIR ..."
-        python3 -m venv "$VENV_DIR"
+        "$PYTHON_BIN" -m venv "$VENV_DIR"
     fi
     # shellcheck disable=SC1091
     source "$VENV_DIR/bin/activate"
-    pip install --upgrade pip
+    PYTHON_BIN="$VENV_DIR/bin/python"
+    PYTHON_VERSION="$(_python_version "$PYTHON_BIN")"
+    echo "  Using venv : $PYTHON_BIN ($PYTHON_VERSION)"
+    "$PYTHON_BIN" -m pip install --upgrade pip
     echo "Installing package with Apple extras ..."
-    pip install --quiet -e '.[apple,test]'
+    "$PYTHON_BIN" -m pip install --quiet -e '.[apple,test]'
 fi
 
 # ---------------------------------------------------------------------------
 # Stage 1: Strict preflight
 # ---------------------------------------------------------------------------
 run_stage "Strict Preflight" \
-    python3 scripts/preflight.py --strict --json
+    "$PYTHON_BIN" scripts/preflight.py --strict --json
 
-python3 scripts/preflight.py --strict --json > "$ARTIFACT_DIR/preflight.json" 2>&1 || true
+"$PYTHON_BIN" scripts/preflight.py --strict --json > "$ARTIFACT_DIR/preflight.json" 2>&1 || true
 
 # ---------------------------------------------------------------------------
 # Stage 2: Cache upgrade roundtrip
@@ -214,7 +285,7 @@ if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
         # numerical explosions).  Use benchmarks/exploratory/run_final_eval.py
         # for authoritative streaming-mode quality numbers.
         run_stage "Quality Eval $CLASS (Llama)" \
-            python3 benchmarks/runtime_cert/run_quality_eval.py \
+            "$PYTHON_BIN" benchmarks/runtime_cert/run_quality_eval.py \
             --model "$TQ_TEST_LLAMA_MODEL" \
             --prompt-file "benchmarks/runtime_cert/prompts/$CLASS.jsonl" \
             --prompt-class "$CLASS" \
@@ -246,7 +317,7 @@ run_pytest_stage "Long-Context Stability" "junit_long_context.xml" \
 if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
     for CLASS in short medium long; do
         run_stage "Benchmark $CLASS (Llama)" \
-            python3 benchmarks/runtime_cert/run_dense_vs_tq.py \
+            "$PYTHON_BIN" benchmarks/runtime_cert/run_dense_vs_tq.py \
             --model "$TQ_TEST_LLAMA_MODEL" \
             --prompt-file "benchmarks/runtime_cert/prompts/$CLASS.jsonl" \
             --prompt-class "$CLASS" \
@@ -260,7 +331,7 @@ fi
 if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
     for CLASS in short medium long; do
         run_stage "Benchmark $CLASS (Gemma)" \
-            python3 benchmarks/runtime_cert/run_dense_vs_tq.py \
+            "$PYTHON_BIN" benchmarks/runtime_cert/run_dense_vs_tq.py \
             --model "$TQ_TEST_GEMMA_MODEL" \
             --prompt-file "benchmarks/runtime_cert/prompts/$CLASS.jsonl" \
             --prompt-class "$CLASS" \
@@ -276,7 +347,7 @@ fi
 # ---------------------------------------------------------------------------
 if ls "$ARTIFACT_DIR"/*_dense.json "$ARTIFACT_DIR"/*_turboquant.json >/dev/null 2>&1; then
     run_stage "Metric Aggregation" \
-        python3 benchmarks/runtime_cert/collect_metrics.py \
+        "$PYTHON_BIN" benchmarks/runtime_cert/collect_metrics.py \
         --input-dir "$ARTIFACT_DIR" \
         --output-dir "$ARTIFACT_DIR"
 else
@@ -288,15 +359,21 @@ fi
 # ---------------------------------------------------------------------------
 # Write certification manifest
 # ---------------------------------------------------------------------------
-python3 scripts/write_cert_manifest.py \
+MANIFEST_PATH="$ARTIFACT_DIR/cert_manifest.json"
+if ! "$PYTHON_BIN" scripts/write_cert_manifest.py \
     --artifact-dir "$ARTIFACT_DIR" \
     --passed "$STAGES_PASSED" \
     --failed "$FAILURES" \
     --skipped "$STAGES_SKIPPED" \
     --unimplemented "$STAGES_UNIMPLEMENTED" \
     --total "$STAGES_TOTAL" \
-    --turboquant-version "$(python3 -c 'import turboquant; print(turboquant.__version__)' 2>/dev/null || echo 'unknown')" \
-    || echo "  (manifest write skipped — turboquant not importable)"
+    --turboquant-version "$($PYTHON_BIN -c 'import turboquant; print(turboquant.__version__)' 2>/dev/null || echo 'unknown')"; then
+    if [ -f "$MANIFEST_PATH" ]; then
+        echo "  cert_manifest.json recorded a FAIL result for this run."
+    else
+        echo "  WARNING: cert_manifest.json was not written."
+    fi
+fi
 
 # ---------------------------------------------------------------------------
 # Summary

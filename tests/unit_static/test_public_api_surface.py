@@ -61,3 +61,17 @@ def test_internal_adapter_not_exported_at_package_root():
     """TurboQuantKCache should no longer be advertised from the package root."""
     assert "TurboQuantKCache" not in turboquant.__all__
     assert not hasattr(turboquant, "TurboQuantKCache")
+
+
+def test_package_root_docstring_matches_public_contract():
+    """The package-root docstring must reflect the same narrow contract as the docs."""
+    doc = turboquant.__doc__ or ""
+
+    assert "RLM" not in doc, "turboquant.__doc__ still contains the 'RLM' typo."
+    assert "LLM" in doc, "turboquant.__doc__ must describe the supported MLX/Apple-Silicon LLM paths."
+    assert "passing full-model" in doc and "runtime-certification artifacts" in doc, (
+        "turboquant.__doc__ must not imply that any partial artifact set makes the package production-certified."
+    )
+    assert "internal/eval-only" in doc, (
+        "turboquant.__doc__ must label TurboQuantKCache as an internal/eval-only adapter."
+    )

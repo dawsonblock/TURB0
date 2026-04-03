@@ -389,6 +389,34 @@ def test_runtime_certification_doc_marks_current_cert_story_honestly():
     )
 
 
+def test_runtime_certification_bootstrap_prefers_supported_python() -> None:
+    """The certification script and doc must agree on supported bootstrap interpreters."""
+    script = _read('scripts/certify_apple_runtime.sh')
+    doc = _read('docs/runtime-certification.md')
+
+    assert 'for candidate in python3.11 python3.10 python3.9 python3;' in script, (
+        "scripts/certify_apple_runtime.sh must prefer python3.11, then python3.10, then python3.9 before falling back to python3."
+    )
+    assert '3.9-3.11; 3.11 recommended' in script or 'Python 3.9-3.11' in script, (
+        "scripts/certify_apple_runtime.sh must state the supported Python runtime-cert range."
+    )
+    assert 'prefers `python3.11`, then `python3.10`, then `python3.9`' in doc, (
+        "docs/runtime-certification.md must describe the certification bootstrap interpreter preference order."
+    )
+
+
+def test_runtime_certification_manifest_message_is_not_misleading() -> None:
+    """The cert script must distinguish a recorded FAIL manifest from a skipped write."""
+    script = _read('scripts/certify_apple_runtime.sh')
+
+    assert 'manifest write skipped — turboquant not importable' not in script, (
+        "scripts/certify_apple_runtime.sh must not print the stale 'manifest write skipped' message for ordinary FAIL results."
+    )
+    assert 'cert_manifest.json recorded a FAIL result for this run.' in script, (
+        "scripts/certify_apple_runtime.sh must report when the manifest exists and records a FAIL result."
+    )
+
+
 def test_eval_and_benchmark_docs_frame_numbers_as_exploratory():
     """evaluation.md and benchmark_methodology.md must frame numeric guidance as exploratory."""
     eval_content = _read('docs/evaluation.md').lower()
