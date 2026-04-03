@@ -390,6 +390,21 @@ class KVCache(_BaseCache):
         v_enabled: bool = True,
         block_tokens: int = 256,
     ) -> "TurboQuantKCache":
+        """Convert this dense KVCache to a TurboQuantKCache in-place.
+
+        .. warning::
+            This is an **internal conversion utility**.  It constructs
+            ``TurboQuantKCache`` directly and **bypasses the model-family
+            support gate** — no check is made against the certified
+            ``SUPPORTED_FAMILIES`` allowlist.  Callers are responsible for
+            ensuring the model architecture is supported before calling this
+            method.  For production inference, prefer
+            :func:`~turboquant.integrations.mlx.upgrade.upgrade_cache_list`
+            which enforces the gate and is idempotent across decode steps.
+
+            ``block_tokens`` is accepted by ``TurboQuantConfig`` but is not
+            currently used in the attention dispatch path.
+        """
         from turboquant.config import TurboQuantConfig
         from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
 

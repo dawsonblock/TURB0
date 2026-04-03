@@ -263,7 +263,7 @@ cache = make_prompt_cache(model)
 # --- run prefill here ---
 
 cfg = TurboQuantConfig(k_bits=3, k_group_size=64, rotation="hadamard")
-events = upgrade_cache_list(cache, k_start=64, config=cfg)
+events = upgrade_cache_list(cache, k_start=64, config=cfg, model_family="llama")
 
 for evt in events:
     print(f"Layer {evt.layer_index}: {evt.old_type} -> {evt.new_type} "
@@ -403,9 +403,10 @@ turboquant.check_mlx_version()     # raises if MLX outside [0.30.0, 1.0.0)
 from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 
 events = upgrade_cache_list(
-    cache_list,    # list[KVCache] from make_prompt_cache(model)
-    k_start=64,    # compress keys from this token offset onward
-    config=cfg,    # TurboQuantConfig
+    cache_list,          # list[KVCache] from make_prompt_cache(model)
+    k_start=64,          # compress keys from this token offset onward
+    config=cfg,          # TurboQuantConfig
+    model_family="llama",  # required — must be in the certified allowlist
 )
 # Returns list[CacheUpgradeEvent]
 ```
@@ -421,8 +422,9 @@ events = upgrade_cache_list(
 | `offset_at_upgrade` | `int` | Token offset at which upgrade occurred |
 
 `upgrade_cache_list` is **idempotent** — layers already using `TurboQuantKCache` are skipped.
-Only model families in the certified allowlist (`llama`, `gemma`) are upgraded; others are left
-as-is and logged.
+`model_family` is **required**; passing an unsupported family or `None` raises
+`UnsupportedModelError` before any cache entry is modified. Only `"llama"` and `"gemma"`
+are in the certified allowlist.
 
 ### `TurboQuantKCache`
 

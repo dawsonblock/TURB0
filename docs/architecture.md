@@ -23,7 +23,7 @@ Input token
 │  Linear projections  →  Q, K, V               │
 │       │                   │                    │
 │       │           ┌────────────────────┐       │
-│       │           │    KVCompressor    │       │
+│       │           │  TurboQuantKCache  │       │
 │       │           │                    │       │
 │       │           │                   │       │
 │       │           │  encode_k()  encode_v()│       │
@@ -206,7 +206,7 @@ drop-in replacement for `GroupScalarQuantizer`.
 
 **Memory** for d = 128, L = 4: 4·64 + 2·32 + 2·16 + 2·8 = 368 angle bits + 128 radii bits = 496 bits → **3.875 bits/dim, zero scale overhead**.  Scalar 3-bit with group=64 costs 3·128 + 16·2 = 416 bits = **3.25 bits/dim** but carries float16 scale storage.
 
-**Benchmark results (Apple Silicon M-series, April 2026, d=128, T=512–1024):**
+**Benchmark results (Apple Silicon M-series, April 2026, d=128, T=512–1024 — backed by `artifacts/benchmarks/polar_vs_scalar.json`):**
 
 | metric | GroupScalar 3-bit | PolarQuant |
 |---|---|---|
@@ -248,7 +248,7 @@ State dicts carry `schema_version: 2`.  `validate_state(state, config)` checks:
 ```text
 q [B, H_q, 1, d]    k [B, H_kv, 1, d]    v [B, H_kv, 1, d]
         │                    │                    │
-        │            KVCompressor.update_and_fetch(k, v)
+        │            TurboQuantKCache.update_and_fetch(k, v)
         │                    │
         │            encode_k() → k_packed  [B, H, T, n_words] uint32
         │            encode_v() → v_packed  [B, H, T, n_words] uint32

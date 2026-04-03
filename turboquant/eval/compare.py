@@ -264,7 +264,19 @@ class AccuracyComparison:
         return logits_list
 
     def _collect_logits_compressed(self, input_ids, max_tokens: int) -> list:
-        """Run the model with TurboQuantKCache; return logits list."""
+        """Run the model with TurboQuantKCache; return logits list.
+
+        .. warning::
+            This method constructs ``TurboQuantKCache`` objects **directly** —
+            it intentionally bypasses the runtime model-family support gate
+            (i.e. it does not call ``upgrade_cache_list``).  This is by design
+            for eval purposes: the comparison harness needs fresh cache objects
+            built from an explicit config, independent of what model architecture
+            is being evaluated.  Do **not** use this path as a template for
+            production inference — production code must route through
+            :func:`~turboquant.integrations.mlx.upgrade.upgrade_cache_list`
+            with a valid ``model_family``.
+        """
         import mlx.core as mx
 
         from turboquant.config import TurboQuantConfig
