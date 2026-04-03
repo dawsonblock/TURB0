@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PIP ?= uv pip
 
-.PHONY: help install-dev install-apple compile lint typecheck test test-static test-mlx test-structural test-path-proof certify-apple-runtime certify-structural build-dist validate-apple clean
+.PHONY: help install-dev install-apple compile lint typecheck test test-static test-mlx test-structural test-path-proof test-smoke-llama test-smoke-gemma test-long-context certify-apple-runtime certify-structural build-dist validate-apple clean
 
 help:
 	@printf "Targets:\n"
@@ -15,6 +15,9 @@ help:
 	@printf "  test-mlx                 Run MLX integration tests (Apple Silicon only)\n"
 	@printf "  test-structural          Run structural integration tests (no model weights)\n"
 	@printf "  test-path-proof          Verify TQ path is exercised, not dense fallback\n"
+	@printf "  test-smoke-llama         Llama runtime smoke (requires TQ_TEST_LLAMA_MODEL)\n"
+	@printf "  test-smoke-gemma         Gemma runtime smoke (requires TQ_TEST_GEMMA_MODEL)\n"
+	@printf "  test-long-context        Long-context stability proof (requires TQ_TEST_LLAMA_MODEL)\n"
 	@printf "  certify-apple-runtime    Full Apple-Silicon runtime certification\n"
 	@printf "  certify-structural       Structural cert only (no model weights needed)\n"
 	@printf "  build-dist               Build wheel and sdist\n"
@@ -56,6 +59,15 @@ test-structural:
 
 test-path-proof:
 	$(PYTHON) -m pytest tests/integration_mlx/test_path_not_dense_fallback.py -v --tb=short
+
+test-smoke-llama:
+	$(PYTHON) -m pytest tests/integration_mlx/test_llama_runtime_smoke.py -v --tb=short
+
+test-smoke-gemma:
+	$(PYTHON) -m pytest tests/integration_mlx/test_gemma_runtime_smoke.py -v --tb=short
+
+test-long-context:
+	$(PYTHON) -m pytest tests/integration_mlx/test_long_context_stability.py -v --tb=short
 
 certify-structural:
 	$(PYTHON) -m pytest \
