@@ -24,7 +24,8 @@ The following files diverge from upstream `mlx-lm`:
 
 - Added `TurboQuantKCache` adapter class wrapping `KVCompressor`
 - Added `TurboQuantKeysView` type for dispatch in attention
-- Added `to_turboquant()` method on `KVCache` for in-place upgrade
+- Added deprecated/internal `to_turboquant()` compatibility helper on `KVCache`
+- `to_turboquant()` bypasses the TurboQuant model-family support gate; the canonical public path is `upgrade_cache_list(...)`
 - Added `make_tq_config()` helper
 - Added structured logging (`turboquant.cache`)
 
@@ -107,7 +108,7 @@ TurboQuant requires modifications to the **inner attention loop** and **cache
 data structures** of `mlx-lm`. These changes are not (yet) upstreamable because:
 
 - The `TurboQuantKeysView` dispatch is model-specific and adds a new code path
-- The cache upgrade API (`to_turboquant()`) modifies `KVCache` internals
+- The cache upgrade APIs (`upgrade_cache_list(...)` and the deprecated compatibility helper `to_turboquant()`) modify `KVCache` internals
 - Upstream `mlx-lm` does not have a plugin/hook system for cache backends
 
 If upstream `mlx-lm` adds a cache-backend plugin API in the future, TurboQuant

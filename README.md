@@ -143,9 +143,10 @@ The config selects the encode/decode path at construction; zero runtime branches
 
 **Centralized SDPA dispatch** — `mlx_lm/models/base.py`'s `scaled_dot_product_attention`
 type-guards on `TurboQuantKeysView` and automatically routes to `turboquant_streaming_attention`.
-No per-model **attention wiring** is required — but new model families must be added to
-`SUPPORTED_FAMILIES` in `turboquant/runtime/support.py` before `upgrade_cache_list()` will
-promote their cache. Routing through `base.py` is not the same as being in the supported allowlist.
+No extra per-model **attention wiring** is required for families that already route through
+`base.py` — but new model families must still be added to `SUPPORTED_FAMILIES` in
+`turboquant/runtime/support.py` before `upgrade_cache_list()` will promote their cache.
+Routing through `base.py` is not the same as being in the supported allowlist.
 
 **Versioned state schema** — all `state()` dicts carry `schema_version: 2`. `validate_state()`
 enforces structural correctness on restore — raises rather than silently loading corrupt state.
@@ -278,6 +279,10 @@ for evt in events:
 # Decode loop continues with compressed cache
 ```
 
+`upgrade_cache_list(...)` returns lightweight runtime `CacheUpgradeEvent`
+objects. The canonical decode path does not automatically persist those events
+to `events.jsonl`; JSONL logging remains an optional certification surface.
+
 ### Option 3 — preset config
 
 ```python
@@ -323,7 +328,6 @@ cfg = TurboQuantConfig(
     rotation_pad_to_pow2=True,
     residual_mode="topk",
     residual_topk=2,
-    block_tokens=256,
     return_mode="view",
 )
 cfg.validate()   # raises ValueError on invalid field combinations
@@ -471,11 +475,14 @@ from turboquant.config import TurboQuantConfig
 
 cfg = TurboQuantConfig.from_preset("balanced")
 
-# Perplexity delta vs dense  —  quality gate: delta_ppl <= 0.5
+# Perplexity delta vs dense.
+# Local run_quality_eval.py default check: delta_ppl <= 0.5.
 ppl = perplexity_report(model, input_ids, turboquant_config=cfg, model_family="llama")
 # {"dense_ppl": 12.3, "tq_ppl": 12.6, "delta_ppl": 0.3, "n_tokens": 63}
 
-# Logit KL divergence  —  quality gate: mean_kl <= 0.1
+# Logit KL divergence.
+# Local run_quality_eval.py default check: mean_kl <= 0.1.
+# Small exploratory runs often treat mean_kl ~= 0.01 as negligible drift.
 drift = drift_report(model, input_ids, turboquant_config=cfg, model_family="llama")
 # {"mean_kl": 0.004, "max_kl": 0.021, "n_tokens": 63}
 
@@ -484,14 +491,16 @@ mem = memory_report(model, input_ids, turboquant_config=cfg, model_family="llama
 # {"dense_cache_bytes": 2097152, "tq_cache_bytes": 524288, "ratio": 4.0}
 ```
 
-Quality gates enforced by `make certify-apple-runtime`:
+Local default checks used by `run_quality_eval.py`:
 
 | Gate | Threshold | Enforced by |
 |---|---|---|
 | Perplexity delta | Δppl ≤ 0.5 | `run_quality_eval.py` |
 | Mean KL divergence | mean\_kl ≤ 0.1 | `run_quality_eval.py` |
 
-See [docs/evaluation.md](docs/evaluation.md) for threshold interpretation.
+These are local script defaults, not certification guarantees. See
+[docs/evaluation.md](docs/evaluation.md) for stricter exploratory heuristics and
+[docs/validation-local.md](docs/validation-local.md) for artifact-backed Apple-Silicon runs.
 
 ---
 
@@ -510,10 +519,17 @@ make test-structural
 # Path-proof and offset-tracking structural tests
 make test-path-proof
 
-# Model smoke tests — skip cleanly when env vars are absent
+# Model smoke tests — TinyModel default on Apple Silicon
+make test-smoke-llama     # end-to-end Llama smoke with TinyModel by default
+make test-smoke-gemma     # end-to-end Gemma smoke with TinyModel by default
+make test-long-context    # long-context (>256 tokens) with TinyModel by default
+
+# Switch to real models
 export TQ_TEST_LLAMA_MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"
-make test-smoke-llama     # end-to-end Llama generation with TurboQuant active
-make test-long-context    # long-context (>256 tokens) — reuses TQ_TEST_LLAMA_MODEL
+export TQ_TEST_GEMMA_MODEL="mlx-community/gemma-2-2b-it-4bit"
+make test-smoke-llama
+make test-smoke-gemma
+make test-long-context    # reuses TQ_TEST_LLAMA_MODEL
 ```
 
 ### Test matrix
@@ -524,11 +540,14 @@ make test-long-context    # long-context (>256 tokens) — reuses TQ_TEST_LLAMA_
 | `test-mlx` | `tests/unit_mlx/` + `tests/integration_mlx/` | ✓ | ✗ |
 | `test-structural` | `tests/integration_mlx/` (3 structural files) | ✓ | ✗ |
 | `test-path-proof` | `tests/integration_mlx/test_path_not_dense_fallback.py` | ✓ | ✗ |
-| `test-smoke-llama` | `tests/integration_mlx/test_llama_runtime_smoke.py` | ✓ | ✓ |
-| `test-smoke-gemma` | `tests/integration_mlx/test_gemma_runtime_smoke.py` | ✓ | ✓ |
-| `test-long-context` | `tests/integration_mlx/test_long_context_stability.py` | ✓ | ✓ |
+| `test-smoke-llama` | `tests/integration_mlx/test_llama_runtime_smoke.py` | ✓ | optional |
+| `test-smoke-gemma` | `tests/integration_mlx/test_gemma_runtime_smoke.py` | ✓ | optional |
+| `test-long-context` | `tests/integration_mlx/test_long_context_stability.py` | ✓ | optional |
 
-### Tests requiring model weights
+### Switching smoke tests from TinyModel to real weights
+
+By default these smoke tests run on Apple Silicon with `tests.helpers.tiny_model.TinyModel`.
+Set the env vars below when you want the same targets to exercise real model weights.
 
 ```bash
 # Llama (start here — smaller model; certify before Gemma)
@@ -541,7 +560,8 @@ export TQ_TEST_GEMMA_MODEL="mlx-community/gemma-2-2b-it-4bit"
 make test-smoke-gemma
 ```
 
-Without these variables, all three smoke tests skip automatically with a clear message.
+Without these variables, the smoke tests still run against TinyModel on Apple Silicon.
+Only `make certify-apple-runtime` requires both env vars for full real-model certification.
 
 ### Runtime certification
 
@@ -592,8 +612,8 @@ python benchmarks/exploratory/bench_k_encode.py            # K-encode micro-benc
 
 | Architecture | Status | Notes |
 |---|:---:|---|
-| **Llama** (Llama 2, Llama 3, TinyLlama) | ⬜ Wired, uncertified | Smoke test wired — set `TQ_TEST_LLAMA_MODEL` to activate |
-| **Gemma** (Gemma 2) | ⬜ Wired, uncertified | Smoke test wired — set `TQ_TEST_GEMMA_MODEL` (run Llama first) |
+| **Llama** (Llama 2, Llama 3, TinyLlama) | ⬜ Wired, uncertified | Smoke test wired; defaults to TinyModel, set `TQ_TEST_LLAMA_MODEL` for real-model runs |
+| **Gemma** (Gemma 2) | ⬜ Wired, uncertified | Smoke test wired; defaults to TinyModel, set `TQ_TEST_GEMMA_MODEL` for real-model runs (run Llama first) |
 | Qwen | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
 | Mistral | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
 | Phi | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
@@ -693,7 +713,7 @@ TurboQuantX1/
 | MLX version bounds `[0.30.0, 1.0.0)` | ✅ Enforced at import |
 | NaN / overflow guards | ✅ Encode + attention |
 | Structural proof tests | ✅ 8 tests — offset tracking, cache independence, round-trip, streaming attention |
-| Model smoke tests (Llama / Gemma / long-context) | ⬜ 3 conditional — skip until `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL` set |
+| Model smoke tests (Llama / Gemma / long-context) | ✅ TinyModel default on Apple Silicon; real-model mode conditional on env vars |
 | Static unit tests | ✅ 10 / 10 modules |
 | Fused Metal kernel | ✅ `TQ_USE_METAL=1` (experimental) |
 | `mx.compile` JIT fallback | ✅ ~2× speedup |
@@ -763,9 +783,9 @@ uv pip install -e '.[dev]'          # Non-Apple  (static checks only)
 | `make test-mlx` | MLX unit tests (Apple Silicon) |
 | `make test-structural` | Integration tests — no model weights |
 | `make test-path-proof` | Verify TQ path is active; offset-tracking and cache-independence proofs |
-| `make test-smoke-llama` | Llama runtime smoke — requires `TQ_TEST_LLAMA_MODEL` |
-| `make test-smoke-gemma` | Gemma runtime smoke — requires `TQ_TEST_GEMMA_MODEL` |
-| `make test-long-context` | Long-context stability (>256 tokens) — requires `TQ_TEST_LLAMA_MODEL` |
+| `make test-smoke-llama` | Llama runtime smoke — TinyModel default; set `TQ_TEST_LLAMA_MODEL` for real-model mode |
+| `make test-smoke-gemma` | Gemma runtime smoke — TinyModel default; set `TQ_TEST_GEMMA_MODEL` for real-model mode |
+| `make test-long-context` | Long-context stability (>256 tokens) — TinyModel default; set `TQ_TEST_LLAMA_MODEL` for real-model mode |
 | `make certify-structural` | Structural cert (JUnit XML output) |
 | `make certify-apple-runtime` | Full certification with model weights |
 | `make build-dist` | Build wheel + sdist |

@@ -22,6 +22,9 @@ class TurboQuantConfig:
     scale_dtype: str = "float16"
     v_scale_dtype: str = "float16"
     eps: float = 1e-6
+    # Reserved for backward compatibility with older configs and benchmarks.
+    # The current streaming-attention hot path does not read this as a live
+    # runtime control.
     block_tokens: int = 256
 
     qjl_proj_dim: int = 64

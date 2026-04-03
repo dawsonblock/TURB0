@@ -1,6 +1,6 @@
 # Supported surface
 
-TurboQuant is an experimental KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation for selected Llama-family and Gemma-family models. The canonical upgrade entry point is `upgrade_cache_list(...)` inside the `mlx_lm` generation flow. Custom Metal kernels are experimental and not part of the default supported runtime.
+TurboQuant is an experimental KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation for allowlisted Llama-family and Gemma-family models. The canonical upgrade entry point is `upgrade_cache_list(...)` inside the `mlx_lm` generation flow. Custom Metal kernels are experimental and not part of the default supported runtime.
 
 This repository does **not** claim broad `mlx_lm` model coverage. The codebase vendors a large upstream tree, but vendoring upstream code is not support. The TurboQuant-specific attention path is only wired and discussed for a narrow slice.
 
@@ -13,17 +13,17 @@ What this repository can honestly claim to support:
 - MLX runtime installed locally
 - Research and local evaluation workflows
 - TurboQuant core package: `turboquant/*`
-- `mlx_lm` cache-upgrade path via `upgrade_cache_list(...)` for allowlisted families
+- `mlx_lm` cache-upgrade path via `upgrade_cache_list(...)` for allowlisted families only
 - `KVCompressor` as a compatibility alias for `TurboQuantKVCache`
-- Llama-family integration path
-- Gemma-family integration path
+- Llama-family integration path (`llama` allowlist)
+- Gemma-family integration path (`gemma` allowlist)
 
 ## Model Support Matrix
 
 | Model Architecture | Explicit Integration Tested | Support Status | Notes |
 | :--- | :--- | :--- | :--- |
-| Llama | Yes | **Wired, uncertified** | Smoke test wired (`test_llama_runtime_smoke.py`); set `TQ_TEST_LLAMA_MODEL` to activate. Runtime certification not yet completed. |
-| Gemma | Yes | **Wired, uncertified** | Smoke test wired (`test_gemma_runtime_smoke.py`); set `TQ_TEST_GEMMA_MODEL` to activate (run Llama first). Runtime certification not yet completed. |
+| Llama | Yes | **Wired, uncertified** | Smoke test wired; defaults to TinyModel on Apple Silicon, set `TQ_TEST_LLAMA_MODEL` for real-model runs. Runtime certification not yet completed. |
+| Gemma | Yes | **Wired, uncertified** | Smoke test wired; defaults to TinyModel on Apple Silicon, set `TQ_TEST_GEMMA_MODEL` for real-model runs (run Llama first). Runtime certification not yet completed. |
 | Qwen | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
 | Mistral | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
 | Phi | No | Unsupported | Provided via upstream sync only. |
@@ -34,8 +34,11 @@ What this repository can honestly claim to support:
 These exist in the repo but are not the supported public runtime entry points:
 
 - Direct `TurboQuantKCache(...)` construction for eval and compatibility helpers
+- Deprecated `KVCache.to_turboquant()` compatibility helper that bypasses the model-family support gate
 - Legacy `maybe_turboquant_attention(...)` helper paths outside the main `base.py` SDPA type-guard
 - `turboquant.runtime.events.EventLog` JSONL persistence for certification artifacts
+
+`upgrade_cache_list(...)` returns lightweight runtime upgrade events, but the canonical decode path does not automatically persist `events.jsonl`. Persistence remains an explicit certification workflow.
 
 ## Not claimed
 

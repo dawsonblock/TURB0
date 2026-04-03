@@ -52,6 +52,10 @@ Contract coverage
 11. ``kvcompressor_is_marked_as_alias`` — ``turboquant/__init__.py`` must
     explicitly document ``KVCompressor`` as a compatibility alias so callers
     understand it is not the primary API.
+
+12. ``attention_hot_path_does_not_read_block_tokens`` —
+    ``turboquant/runtime/attention.py`` must not start reading ``block_tokens``
+    unless the public contract is deliberately widened.
 """
 
 from __future__ import annotations
@@ -363,4 +367,22 @@ def test_kvcompressor_is_marked_as_alias() -> None:
         "in at least two places (module docstring and __all__ comment) so callers "
         "know to prefer TurboQuantKVCache.  Currently found fewer than 2 occurrences "
         "of the word 'alias'."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 12. attention hot path must not read block_tokens
+# ---------------------------------------------------------------------------
+
+
+def test_attention_hot_path_does_not_read_block_tokens() -> None:
+    """turboquant/runtime/attention.py must not read block_tokens."""
+    attention_py = REPO_ROOT / "turboquant" / "runtime" / "attention.py"
+    assert attention_py.exists(), "turboquant/runtime/attention.py not found"
+
+    text = attention_py.read_text(encoding="utf-8")
+    assert "block_tokens" not in text, (
+        "turboquant/runtime/attention.py now references block_tokens.  If that is "
+        "intentional, widen the documented contract and update the static checks at "
+        "the same time."
     )

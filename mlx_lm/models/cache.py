@@ -1,7 +1,8 @@
 # Copyright © 2023-2024 Apple Inc.
 
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+import warnings
 
 import mlx.core as mx
 import mlx.nn as nn
@@ -10,6 +11,9 @@ from mlx.utils import tree_flatten, tree_map, tree_unflatten
 from .base import create_causal_mask
 
 logger = logging.getLogger("turboquant.models.cache")
+
+if TYPE_CHECKING:
+    from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
 
 
 def make_prompt_cache(
@@ -390,15 +394,15 @@ class KVCache(_BaseCache):
         v_enabled: bool = True,
         block_tokens: int = 256,
     ) -> "TurboQuantKCache":
-        """Convert this dense KVCache to a TurboQuantKCache in-place.
+        """Deprecated compatibility helper for converting a dense KVCache.
 
         .. warning::
-            This is an **internal conversion utility**.  It constructs
-            ``TurboQuantKCache`` directly and **bypasses the model-family
-            support gate** — no check is made against the certified
-            ``SUPPORTED_FAMILIES`` allowlist.  Callers are responsible for
-            ensuring the model architecture is supported before calling this
-            method.  For production inference, prefer
+            This is a **deprecated internal compatibility helper**.  It
+            constructs ``TurboQuantKCache`` directly and **bypasses the
+            model-family support gate** — no check is made against the
+            certified ``SUPPORTED_FAMILIES`` allowlist.  Callers are
+            responsible for ensuring the model architecture is supported before
+            calling this method.  For production inference, prefer
             :func:`~turboquant.integrations.mlx.upgrade.upgrade_cache_list`
             which enforces the gate and is idempotent across decode steps.
 
@@ -407,6 +411,14 @@ class KVCache(_BaseCache):
         """
         from turboquant.config import TurboQuantConfig
         from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
+
+        warnings.warn(
+            "KVCache.to_turboquant() is a deprecated compatibility helper "
+            "that bypasses the TurboQuant model-family support gate; prefer "
+            "upgrade_cache_list(...).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         tq = TurboQuantKCache(
             TurboQuantConfig(

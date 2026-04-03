@@ -4,7 +4,7 @@
 
 ---
 
-## 0. Preferred approach — centralized dispatch (no per-model changes)
+## 0. Preferred approach — centralized dispatch for base.py-routed models
 
 The simplest integration path requires **no changes to individual model files**.
 `mlx_lm/models/base.py`’s `scaled_dot_product_attention` function now contains
@@ -38,8 +38,10 @@ TurboQuant inserts itself into two places:
 2. **Attention** — dispatch to the streaming attention path when the key tensor
    is a `TurboQuantKeysView`
 
-Both hooks are model-agnostic.  The cache upgrade is done once (after prefill);
-the attention dispatch is a one-liner inside each model's attention `__call__`.
+The cache upgrade is done once after prefill. For models that already call
+`mlx_lm.models.base.scaled_dot_product_attention`, the attention dispatch needs
+no extra model-file wiring. Models with custom attention paths still need a
+manual fallback check.
 
 ---
 
@@ -63,6 +65,10 @@ events = upgrade_cache_list(
 ```text
 `upgrade_cache_list` returns a list of `CacheUpgradeEvent` objects (one per
 layer) with `upgraded`, `layer_index`, `old_type`, `new_type`, `offset_at_upgrade`.
+
+Those runtime events are not persisted automatically by the canonical decode
+path. If you want `events.jsonl` artifacts, use the optional persistence layer
+(`EventLog` plus `MetricsTracker.write(event_log=...)`) explicitly.
 
 ### Legacy (deprecated)
 
@@ -202,8 +208,8 @@ that bypass `base.py`:
 1. Add `from turboquant.runtime.attention import turboquant_streaming_attention` and `from turboquant.runtime.kv_interface import TurboQuantKeysView`
 2. In `Attention.__call__`, replace the dense `scaled_dot_product_attention`
    call with a manual check for `isinstance(k, TurboQuantKeysView)` and call `turboquant_streaming_attention`.
-3. No changes to the cache object are needed — `TurboQuantKCache` is fully
-   encapsulated.
+3. No changes to the cache object are needed — `TurboQuantKCache` remains an
+    internal adapter once the cache is upgraded.
 
 ---
 

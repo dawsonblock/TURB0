@@ -45,6 +45,9 @@ the main support claim:
 	`turboquant.integrations.mlx.upgrade.CacheUpgradeEvent` is the lightweight
 	runtime result type, while `turboquant.runtime.events.EventLog` and its event
 	types are the persistence-side certification surface.
+- The canonical decode path does not auto-persist runtime upgrade events.
+	Writing `events.jsonl` remains an explicit certification workflow through
+	`MetricsTracker.write(event_log=...)`.
 
 ## 6. Experimental Features
 - **Metal Kernels:** Custom Metal kernels (invoked via `TQ_USE_METAL=1`) are **experimental**. The default certified path uses the standard MLX Python/C++ boundary.
@@ -54,8 +57,9 @@ the main support claim:
 
 > **STATUS: NOT CERTIFIED.** No certification artifacts have been produced with real model weights.
 > The quality evaluation script (`benchmarks/runtime_cert/run_quality_eval.py`) is implemented.
-> Integration smoke tests exist but require `TQ_TEST_LLAMA_MODEL` or `TQ_TEST_GEMMA_MODEL` env
-> variables pointing to real model weights to execute the memory-backed path.
+> Integration smoke tests default to TinyModel on Apple Silicon. Real-model smoke runs and full
+> certification require `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL` env variables pointing to
+> cached or downloadable model weights.
 
 "Full TurboQuant" status requires artifact-backed evidence generated via `make certify-apple-runtime`.
 - Generic CI passes do not constitute runtime certification.

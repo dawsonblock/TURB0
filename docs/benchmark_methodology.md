@@ -116,6 +116,11 @@ seq_len  block_tokens   ms_streaming   ms_baseline   speedup
 > in pure Python/MLX. Enabling `mx.compile` on inner loop functions or
 > `TQ_USE_METAL=1` may improve throughput, but those paths are not the default certified runtime.
 
+The `block_tokens` column in the historical streaming table is a benchmark
+input preserved from older experiments. In the current runtime architecture,
+`block_tokens` is retained as a compatibility-only config field and is not a
+live hot-path control.
+
 ## Paired generative benchmarks
 
 Located in `benchmarks/runtime_cert/`. Runs paired dense + TurboQuant generation and writes structured JSON artifacts.

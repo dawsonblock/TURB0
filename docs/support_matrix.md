@@ -1,8 +1,8 @@
 # TurboQuant Support Matrix
 
-TurboQuant is an experimental KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation. Custom Metal kernels are experimental and not part of the default supported runtime.
+TurboQuant is an experimental KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation through the allowlisted `upgrade_cache_list(...)` path. Custom Metal kernels are experimental and not part of the default supported runtime.
 
-Please refer to [supported-surface.md](supported-surface.md) for the canonical and complete supported surface details. This file is a matrix, not a broader support promise.
+Please refer to [supported-surface.md](supported-surface.md) for the canonical and complete supported surface details. This file is a status matrix, not a broader support promise.
 
 ## Algorithm Presets
 
@@ -22,14 +22,16 @@ Please refer to [supported-surface.md](supported-surface.md) for the canonical a
 
 ## Model Architecture Matrix
 
+Only allowlisted families are eligible for the canonical runtime path today. Wiring in the vendored tree is not the same as support.
+
 | Model Architecture | Runtime Verified | Notes |
 |:---|:---:|:---|
-| Llama | ⬜ | Wiring present in `mlx_lm/models/llama.py`; certification incomplete |
-| Gemma | ⬜ | Wiring present in `mlx_lm/models/gemma.py`; certification incomplete |
-| Qwen | ⬜ | Vendored-only in this repo; not supported by `upgrade_cache_list` |
-| Mistral | ⬜ | Vendored-only in this repo; not supported by `upgrade_cache_list` |
-| Phi | ⬜ | Vendored-only in this repo; not supported by `upgrade_cache_list` |
-| All others | ⬜ | Unsupported; not in the certified allowlist. `upgrade_cache_list` raises `UnsupportedModelError` for these families. |
+| Llama | ⬜ | Allowlisted and wired; current status is **wired, uncertified** until Apple-Silicon runtime artifacts exist |
+| Gemma | ⬜ | Allowlisted and wired; current status is **wired, uncertified** until Apple-Silicon runtime artifacts exist |
+| Qwen | ⬜ | Vendored-only in this repo; unsupported by `upgrade_cache_list(...)` |
+| Mistral | ⬜ | Vendored-only in this repo; unsupported by `upgrade_cache_list(...)` |
+| Phi | ⬜ | Vendored-only in this repo; unsupported by `upgrade_cache_list(...)` |
+| All others | ⬜ | Unsupported; not in the allowlist. `upgrade_cache_list(...)` raises `UnsupportedModelError` for these families. |
 
 ## MLX Compatibility
 

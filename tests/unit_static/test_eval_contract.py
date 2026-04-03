@@ -282,6 +282,13 @@ def test_to_turboquant_documents_gate_bypass() -> None:
         "Without this warning callers may not realise they are skipping the "
         "fail-closed gate enforced by upgrade_cache_list."
     )
+    assert "deprecated" in docstring.lower(), (
+        "KVCache.to_turboquant must say it is deprecated so contributors do not "
+        "treat it as a peer runtime surface."
+    )
+    assert "compatibility" in docstring.lower(), (
+        "KVCache.to_turboquant must identify itself as a compatibility helper."
+    )
 
 
 # ---------------------------------------------------------------------------

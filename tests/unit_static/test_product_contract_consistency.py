@@ -178,6 +178,9 @@ def test_support_matrix_no_automatic_dispatch_claim():
         "support_matrix.md still has the stale 'route through base.py dispatch automatically' "
         "text that implies unsupported families work automatically."
     )
+    assert 'Only allowlisted families are eligible for the canonical runtime path today.' in content, (
+        "support_matrix.md must state that only allowlisted families are eligible for the canonical runtime path."
+    )
 
 
 def test_readme_no_all_families_autorouted():
@@ -249,6 +252,12 @@ def test_supported_surface_marks_canonical_and_secondary_paths():
     assert 'compatibility alias for `TurboQuantKCache`' not in content, (
         "supported-surface.md incorrectly describes KVCompressor as an alias for TurboQuantKCache."
     )
+    assert 'KVCache.to_turboquant()' in content, (
+        "supported-surface.md must call out KVCache.to_turboquant() as a secondary surface."
+    )
+    assert 'does not automatically persist `events.jsonl`' in content, (
+        "supported-surface.md must explain that the canonical decode path does not automatically persist events.jsonl."
+    )
 
 
 def test_architecture_doc_describes_canonical_path_and_event_split():
@@ -266,6 +275,81 @@ def test_architecture_doc_describes_canonical_path_and_event_split():
         assert needle in content, (
             f"docs/architecture.md must mention '{needle}' in the canonical runtime or event story."
         )
+
+
+def test_readme_quality_defaults_not_presented_as_certification():
+    """README must frame quality thresholds as local script defaults, not certification gates."""
+    content = _read('README.md')
+    lowered = content.lower()
+
+    assert 'Quality gates enforced by `make certify-apple-runtime`' not in content, (
+        "README still presents evaluation thresholds as enforced certification gates."
+    )
+    assert 'Local default checks used by `run_quality_eval.py`' in content, (
+        "README must describe the quality thresholds as local run_quality_eval.py defaults."
+    )
+    assert 'not certification guarantees' in lowered or 'not certification gates' in lowered, (
+        "README must explicitly say those thresholds are not certification guarantees."
+    )
+
+
+def test_readme_marks_event_persistence_optional():
+    """README must say runtime upgrade events are not auto-persisted."""
+    content = _read('README.md')
+
+    assert 'does not automatically persist' in content and 'events.jsonl' in content, (
+        "README must explain that the canonical decode path does not auto-persist events.jsonl."
+    )
+
+
+def test_readme_smoke_targets_distinguish_tinymodel_from_real_models():
+    """README must say smoke targets default to TinyModel and real-model mode uses env vars."""
+    content = _read('README.md')
+
+    assert 'TinyModel default on Apple Silicon' in content, (
+        "README must say the smoke targets default to TinyModel on Apple Silicon."
+    )
+    assert 'Without these variables, all three smoke tests skip automatically' not in content, (
+        "README still claims the smoke tests skip automatically when env vars are absent."
+    )
+
+
+def test_vendored_doc_marks_to_turboquant_as_secondary_helper():
+    """VENDORED_MLX_LM.md must classify to_turboquant() as deprecated/internal."""
+    content = _read('VENDORED_MLX_LM.md')
+    lowered = content.lower()
+
+    assert 'to_turboquant()' in content, "VENDORED_MLX_LM.md must mention to_turboquant()."
+    assert 'deprecated/internal' in lowered or 'deprecated' in lowered, (
+        "VENDORED_MLX_LM.md must mark to_turboquant() as deprecated/internal."
+    )
+    assert 'bypasses the turboquant model-family support gate' in lowered, (
+        "VENDORED_MLX_LM.md must say to_turboquant() bypasses the support gate."
+    )
+    assert 'canonical public path is `upgrade_cache_list(...)`' in content, (
+        "VENDORED_MLX_LM.md must point readers at upgrade_cache_list(...) instead."
+    )
+
+
+def test_validation_local_distinguishes_synthetic_smoke_from_real_certification():
+    """validation-local.md must distinguish TinyModel smoke from real-model certification."""
+    content = _read('docs/validation-local.md')
+
+    assert 'TinyModel' in content, (
+        "docs/validation-local.md must mention TinyModel as the default smoke-test path."
+    )
+    assert 'full real-model certification' in content or 'full runtime certification' in content, (
+        "docs/validation-local.md must distinguish TinyModel smoke from full real-model certification."
+    )
+
+
+def test_runtime_certification_doc_does_not_claim_tinymodel_on_any_machine():
+    """runtime-certification.md must not imply TinyModel certification runs on non-Apple machines."""
+    content = _read('docs/runtime-certification.md')
+
+    assert 'passes under TinyModel on any machine' not in content, (
+        "docs/runtime-certification.md still overclaims TinyModel coverage on any machine."
+    )
 
 
 def test_eval_and_benchmark_docs_frame_numbers_as_exploratory():

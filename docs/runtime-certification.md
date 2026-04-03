@@ -2,7 +2,8 @@
 
 > **STATUS: INTEGRATION HARNESS EXISTS — FULL CERT REQUIRES APPLE SILICON WITH REAL MODELS.**
 > The integration test suite (cache roundtrip, streaming attention equivalence, long-context
-> stability) passes under TinyModel on any machine.  Stages 4–5 (Llama/Gemma smoke tests)
+> stability) passes under TinyModel on Apple Silicon without real model downloads. Direct smoke
+> tests default to TinyModel, but stages 4–5 in the certification script (Llama/Gemma smoke tests)
 > and stages 7–8 (paired generative benchmarks and metric aggregation) require Apple Silicon,
 > a working MLX installation, and the environment variables
 > `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL` set to real model IDs.

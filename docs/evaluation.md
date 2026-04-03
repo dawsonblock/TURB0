@@ -49,10 +49,14 @@ testing. Values above **2.0** suggest the bit-width is too aggressive. These
 numbers are not certification baselines — runtime certification requires Apple
 Silicon hardware with real model weights.
 
+`benchmarks/runtime_cert/run_quality_eval.py` currently uses **0.5** as its
+local default `--max-delta-ppl` threshold. That script default is a convenience
+check for one workflow, not a certification guarantee.
+
 **API**:
 ```python
 perplexity_from_logits(logits, targets) -> float
-perplexity_report(model, input_ids, turboquant_config, k_start) -> dict
+perplexity_report(model, input_ids, turboquant_config, k_start, model_family) -> dict
 ```text
 ### 2.2 Generation drift (`turboquant.eval.generation_drift`)
 
@@ -67,10 +71,14 @@ A `mean_kl` below **0.01** nats is an exploratory heuristic for negligible
 distribution shift in informal testing. It is not a release or certification
 gate.
 
+`benchmarks/runtime_cert/run_quality_eval.py` currently uses **0.1** as its
+local default `--max-mean-kl` threshold. That default is intentionally looser
+than the small-run `0.01` heuristic above.
+
 **API**:
 ```python
 logit_kl_divergence(logits_p, logits_q, temperature) -> mx.array  # [T]
-drift_report(model, input_ids, turboquant_config, k_start, temperature) -> dict
+drift_report(model, input_ids, turboquant_config, k_start, temperature, model_family) -> dict
 ```text
 ### 2.3 Memory (`turboquant.eval.memory`)
 
@@ -87,7 +95,7 @@ synthetic benchmarks on Apple Silicon; it is not a certified production claim.
 **API**:
 ```python
 peak_memory_bytes(cache_list) -> int
-memory_report(model, input_ids, turboquant_config, k_start) -> dict
+memory_report(model, input_ids, turboquant_config, k_start, model_family) -> dict
 ```text
 ---
 

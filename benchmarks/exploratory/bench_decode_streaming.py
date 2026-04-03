@@ -4,6 +4,10 @@ Streaming attention decode throughput benchmark.
 Measures tokens-per-second for the turboquant_streaming_attention path
 versus a naive full-materialise baseline, across sequence lengths.
 
+`block_tokens` is varied here only as a historical benchmark input. In the
+current runtime architecture it is a compatibility-only config field, not a
+live hot-path control.
+
 Usage:
     python benchmarks/bench_decode_streaming.py
 
@@ -59,6 +63,7 @@ def _fill_cache(T: int, block_tokens: int):
     cfg = TurboQuantConfig(
         k_bits=3,
         k_group_size=64,
+        # Retained only for backward-compat benchmark coverage.
         block_tokens=block_tokens,
     )
     tq = KVCompressor(cfg)

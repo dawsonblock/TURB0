@@ -22,7 +22,7 @@ the repo.
 |---|---|---|
 | **Static** (`make test-static`) | Import smoke, version consistency, source-checkout preflight, schema-level checks | Any platform |
 | **MLX structural** (`make test-mlx`, `make test-structural`, `make test-path-proof`) | KVCompressor, pipeline, calibration, streaming attention; offset tracking; cache independence | Apple Silicon only |
-| **Model smoke** (`make test-smoke-llama`, `make test-smoke-gemma`, `make test-long-context`) | End-to-end generation with TurboQuant active; NaN guards; dense-fallback detection | Apple Silicon + model env vars |
+| **Model smoke** (`make test-smoke-llama`, `make test-smoke-gemma`, `make test-long-context`) | End-to-end generation with TurboQuant active; NaN guards; dense-fallback detection | Apple Silicon; defaults to TinyModel, switches to real models when env vars are set |
 | **Runtime certification** (`make certify-apple-runtime`) | Artifact-producing release validation, smoke runs, benchmarks, and metric aggregation | Apple Silicon only |
 
 ## Quick start
@@ -38,10 +38,17 @@ make test-path-proof
 make test-mlx
 make test-structural
 
-# Model smoke tests (skip cleanly if env vars absent)
+# Model smoke tests (TinyModel by default on Apple Silicon)
+make test-smoke-llama    # TinyModel default; set env var below to switch to a real Llama model
+make test-smoke-gemma    # TinyModel default; set env var below to switch to a real Gemma model
+make test-long-context   # TinyModel default long-context stability proof
+
+# Real-model smoke tests
 export TQ_TEST_LLAMA_MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"
+export TQ_TEST_GEMMA_MODEL="mlx-community/gemma-2-2b-it-4bit"
 make test-smoke-llama    # Llama end-to-end with TurboQuant active
-make test-long-context   # long-context (>256 tokens) — NaN and fallback checks
+make test-smoke-gemma    # Gemma end-to-end with TurboQuant active
+make test-long-context   # long-context (>256 tokens) — NaN and fallback checks against the real Llama model
 
 # Full runtime certification (requires TQ_TEST_LLAMA_MODEL and TQ_TEST_GEMMA_MODEL)
 make certify-apple-runtime
@@ -63,14 +70,15 @@ make certify-apple-runtime
 
 - local developer validation
 - creates a fresh virtualenv, installs the package in editable mode with Apple extras
-- Lanes: preflight → MLX unit tests → path-proof gate → cache + attention tests → optional model smoke tests
+- Lanes: preflight → MLX unit tests → path-proof gate → cache + attention tests → optional real-model smoke tests
+- direct `make test-smoke-*` targets still run TinyModel by default on Apple Silicon
 
 `./scripts/certify_apple_runtime.sh`
 
 - release certification
 - writes timestamped artifacts under `artifacts/runtime-cert/`
 - fails closed: stages where all tests are `@skip` are counted as UNIMPLEMENTED, not PASSED
-- requires `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` env vars for full certification
+- requires `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` env vars for full real-model certification
 
 ## Legacy integration tests
 
@@ -79,6 +87,8 @@ make certify-apple-runtime
 ## Manual smoke testing
 
 Use `make test-smoke-llama` (Llama) or `make test-smoke-gemma` (Gemma) for scripted smoke runs.
-These assert: token output > 0, at least one `TurboQuantKCache` layer is upgraded (dense fallback
+On Apple Silicon these targets default to `TinyModel` when the model env vars are unset. Set
+`TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL` to switch the same tests to real model weights.
+These runs assert: token output > 0, at least one `TurboQuantKCache` layer is upgraded (dense fallback
 detected if none), and no exception during generation. Use `make test-long-context` to confirm
 NaN-free logprobs on contexts that exceed the default block size (256 tokens).
