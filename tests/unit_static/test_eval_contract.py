@@ -478,3 +478,32 @@ def test_benchmark_script_uses_explicit_event_adapter() -> None:
     assert 'tracker.write(event_log=event_log)' in text, (
         "scripts/benchmark.py must pass an explicit event_log to tracker.write()."
     )
+
+
+def test_quality_eval_script_uses_explicit_event_adapter() -> None:
+    """run_quality_eval.py must persist runtime events explicitly."""
+    script_path = (
+        REPO_ROOT / "benchmarks" / "runtime_cert" / "run_quality_eval.py"
+    )
+    assert script_path.exists(), (
+        "benchmarks/runtime_cert/run_quality_eval.py not found"
+    )
+
+    text = script_path.read_text(encoding="utf-8")
+    assert 'EventLog' in text, (
+        "run_quality_eval.py must construct an EventLog explicitly when "
+        "certification wants persisted events."
+    )
+    assert 'record_runtime_upgrade_events' in text, (
+        "run_quality_eval.py must use "
+        "record_runtime_upgrade_events(...) instead of implying automatic "
+        "event persistence."
+    )
+    assert 'event_log.flush()' in text, (
+        "run_quality_eval.py must flush the explicit EventLog so "
+        "events.jsonl is written when upgrades were recorded."
+    )
+    assert 'event_log.summary()' in text, (
+        "run_quality_eval.py must surface the explicit event summary in its "
+        "JSON artifact."
+    )

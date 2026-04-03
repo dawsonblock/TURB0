@@ -58,11 +58,17 @@ def _eval_one_prompt(
     input_ids: "mx.array",
     turboquant_config,
     model_family: str = "llama",
+    event_log=None,
 ) -> dict:
-    """Run dense and TurboQuant forward passes; return metrics for one prompt."""
+    """Run dense and TurboQuant forward passes; return metrics for one prompt.
+
+    Certification helpers may pass an explicit ``EventLog`` when they want to
+    persist runtime upgrade decisions as ``events.jsonl`` artifacts.
+    """
     import mlx.core as mx
     from mlx_lm.models.cache import make_prompt_cache
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
+    from turboquant.runtime.events import record_runtime_upgrade_events
 
     targets = input_ids[0, 1:]   # [T-1]
     feed = input_ids[:, :-1]      # [1, T-1]
@@ -81,7 +87,14 @@ def _eval_one_prompt(
 
     # ── TurboQuant forward ─────────────────────────────────────────────────
     tq_cache = make_prompt_cache(model)
-    upgrade_cache_list(tq_cache, k_start=0, config=turboquant_config, model_family=model_family)
+    runtime_events = upgrade_cache_list(
+        tq_cache,
+        k_start=0,
+        config=turboquant_config,
+        model_family=model_family,
+    )
+    if event_log is not None:
+        record_runtime_upgrade_events(event_log, runtime_events)
     tq_logits = model(feed, cache=tq_cache)[0]            # [T-1, V]
     mx.eval(tq_logits)
     tq_log_p = tq_logits - mx.logsumexp(tq_logits, axis=-1, keepdims=True)
@@ -153,6 +166,8 @@ def main() -> None:
     model, tokenizer = mlx_load(args.model)
 
     from turboquant.config import TurboQuantConfig
+    from turboquant.runtime.events import EventLog
+
     tq_config = TurboQuantConfig.from_preset(args.preset)
     print(f"TurboQuant preset : {args.preset}  "
           f"(k_bits={tq_config.k_bits}, algorithm={tq_config.algorithm}, "
@@ -162,6 +177,7 @@ def main() -> None:
     prompts = _load_prompts(Path(args.prompt_file))
     print(f"Evaluating {len(prompts)} prompt(s) …")
 
+    event_log = EventLog(artifact_dir=output_dir)
     results = []
     skipped = 0
     for i, text in enumerate(prompts):
@@ -176,7 +192,13 @@ def main() -> None:
             skipped += 1
             continue
         input_ids = mx.array(tokens)[None]   # [1, T]
-        metrics = _eval_one_prompt(model, input_ids, tq_config, model_family=args.model_family)
+        metrics = _eval_one_prompt(
+            model,
+            input_ids,
+            tq_config,
+            model_family=args.model_family,
+            event_log=event_log,
+        )
         if metrics:
             results.append(metrics)
             print(
@@ -193,6 +215,7 @@ def main() -> None:
                 "quality gate trivially passes (no compression artefacts to measure)."
             )
             # Write a vacuous pass summary and exit 0.
+            event_artifact = event_log.flush()
             summary = {
                 "status": "PASS",
                 "model": args.model,
@@ -207,11 +230,14 @@ def main() -> None:
                     "max_mean_kl": args.max_mean_kl,
                 },
                 "per_prompt": [],
+                "events": event_log.summary(),
                 "note": "All prompts shorter than min_prompt_tokens; TQ not activated.",
             }
             artifact_path = output_dir / f"quality_eval_{args.prompt_class}_summary.json"
             artifact_path.write_text(json.dumps(summary, indent=2))
             print(f"  Artifact : {artifact_path}")
+            if event_artifact is not None:
+                print(f"  Events   : {event_artifact}")
             sys.exit(0)
         print("ERROR: no valid prompts produced results.", file=sys.stderr)
         sys.exit(2)
@@ -222,6 +248,7 @@ def main() -> None:
     passed = (mean_delta_ppl <= args.max_delta_ppl) and (mean_kl <= args.max_mean_kl)
     status = "PASS" if passed else "FAIL"
 
+    event_artifact = event_log.flush()
     summary = {
         "status": status,
         "model": args.model,
@@ -236,6 +263,7 @@ def main() -> None:
             "max_delta_ppl": args.max_delta_ppl,
             "max_mean_kl": args.max_mean_kl,
         },
+        "events": event_log.summary(),
         "per_prompt": results,
     }
 
@@ -246,6 +274,8 @@ def main() -> None:
     print(f"  Mean Δppl     : {mean_delta_ppl:+.4f}  (threshold ≤ {args.max_delta_ppl})")
     print(f"  Mean KL       : {mean_kl:.6f}  (threshold ≤ {args.max_mean_kl})")
     print(f"  Artifact      : {artifact_path}")
+    if event_artifact is not None:
+        print(f"  Events        : {event_artifact}")
     print(f"{'='*60}")
 
     sys.exit(0 if passed else 1)
