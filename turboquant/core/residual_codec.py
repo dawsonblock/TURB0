@@ -207,8 +207,6 @@ def build_residual_codec(config: TurboQuantConfig) -> ResidualCodec:
         return NoResidualCodec()
 
     if config.is_prod_mode():
-        if config.residual_mode == "topk":
-            return TopKResidualCodec()
         return QJLResidualCodec(
             proj_dim=config.qjl_proj_dim,
             seed=config.qjl_seed,
