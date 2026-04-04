@@ -326,7 +326,7 @@ class TurboQuantConfig:
             rotation_pad_to_pow2=bool(
                 kwargs.get(
                     "rotation_pad_to_pow2",
-                    kwargs.get("rotation_pad_to_por", True),
+                    kwargs.get("rotation_pad_to_pow2", True),
                 )
             ),
             residual_mode=residual_mode_kw,
