@@ -43,6 +43,9 @@ If the self-hosted runner pool is offline, the tag must remain blocked in GitHub
 Do not substitute prior local artifacts, prior workflow artifacts, or a manual judgment call
 for the same-workflow Apple certification job.
 
+Release-candidate tags may exercise the release workflow gates, but they must not execute the
+`publish` job. Only the final stable tag should attempt PyPI publish and GitHub release creation.
+
 That combined-family gate is now demonstrated by the retained local artifact
 `artifacts/runtime-cert/20260404_015658/`.
 

@@ -48,6 +48,10 @@ def test_release_workflow_requires_apple_cert_and_vendored_audit() -> None:
         "release.yml publish job must depend on static checks, "
         "vendored audit, and Apple certification."
     )
+    assert "if: ${{ !contains(github.ref_name, '-rc') }}" in content, (
+        "release.yml publish job must skip RC tags so release-candidate tags "
+        "exercise gates without publishing."
+    )
     assert "environment: pypi" in content, (
         "release.yml publish job must declare the pypi environment so "
         "trusted publishing emits the expected environment claim."

@@ -154,6 +154,7 @@ jobs:
 
   publish:
     needs: [verify-static, verify-vendored-surface, certify-apple-runtime]
+    if: ${{ !contains(github.ref_name, '-rc') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
