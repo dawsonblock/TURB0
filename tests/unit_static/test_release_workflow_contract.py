@@ -70,12 +70,9 @@ def test_release_workflow_requires_apple_cert_and_vendored_audit() -> None:
         "release.yml must require both allowlisted families in the "
         "release manifest scope."
     )
-    assert (
-        "AGENT_TOOLSDIRECTORY:" in content
-        and "RUNNER_TOOL_CACHE:" in content
-    ), (
-        "release.yml self-hosted Apple jobs must set a writable toolcache "
-        "for actions/setup-python."
+    assert "Select Apple runner Python" in content, (
+        "release.yml self-hosted Apple jobs must bootstrap a system Python "
+        "instead of relying on setup-python."
     )
 
 
@@ -110,12 +107,9 @@ def test_apple_runtime_workflow_validates_manifest() -> None:
         "apple-runtime-cert.yml must fail closed unless the manifest "
         "is a PASS on darwin-arm64."
     )
-    assert (
-        "AGENT_TOOLSDIRECTORY:" in content
-        and "RUNNER_TOOL_CACHE:" in content
-    ), (
-        "apple-runtime-cert.yml self-hosted jobs must set a writable "
-        "toolcache for actions/setup-python."
+    assert "Select Apple runner Python" in content, (
+        "apple-runtime-cert.yml self-hosted jobs must bootstrap a system "
+        "Python instead of relying on setup-python."
     )
 
 

@@ -50,16 +50,22 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 60
     env:
-      AGENT_TOOLSDIRECTORY: ${{ github.workspace }}/.hostedtoolcache
-      RUNNER_TOOL_CACHE: ${{ github.workspace }}/.hostedtoolcache
       TQ_TEST_LLAMA_MODEL: ${{ secrets.TQ_TEST_LLAMA_MODEL }}
       TQ_TEST_GEMMA_MODEL: ${{ secrets.TQ_TEST_GEMMA_MODEL }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Select Apple runner Python
+        run: |
+          python_bin="$(command -v python3.11 || command -v python3.10 || command -v python3.9)"
+          if [ -z "$python_bin" ]; then
+            echo "Self-hosted Apple runner requires python3.11, python3.10, or python3.9 on PATH."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/bin"
+          ln -sf "$python_bin" "$RUNNER_TEMP/bin/python"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          python --version
 
       - name: Install Apple runtime deps
         run: |
@@ -82,7 +88,7 @@ jobs:
         id: cert
         continue-on-error: true
         run: |
-          export VIRTUAL_ENV="${RUNNER_TOOL_CACHE}/dummy"
+          export VIRTUAL_ENV="$RUNNER_TEMP/dummy-venv"
           bash scripts/certify_apple_runtime.sh
 
       - name: Locate certification artifact directory
