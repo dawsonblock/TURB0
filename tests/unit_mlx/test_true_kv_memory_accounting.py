@@ -23,7 +23,7 @@ from turboquant.config import TurboQuantConfig
 from turboquant.runtime.kv_interface import TurboQuantKVCache
 
 
-_REQUIRED_BREAKDOWN_KEYS = {"k_main", "k_scales", "k_residual", "v_main", "v_scales", "total"}
+_REQUIRED_BREAKDOWN_KEYS = {"k_main", "k_scales", "k_polar", "k_residual", "v_main", "v_scales", "total"}
 
 
 def _make_impl(cfg: TurboQuantConfig) -> TurboQuantKVCache:
@@ -99,6 +99,16 @@ def test_prod_mode_breakdown_has_required_keys():
     _append(impl)
     bd = impl.memory_breakdown()
     assert _REQUIRED_BREAKDOWN_KEYS <= set(bd.keys())
+
+
+def test_polar_mode_byte_size_positive_and_breakdown_tracks_polar_bytes():
+    cfg = TurboQuantConfig.polarquant_exp(rotation="random_orthogonal")
+    impl = _make_impl(cfg)
+    _append(impl)
+    bd = impl.memory_breakdown()
+    assert impl.byte_size() > 0
+    assert bd["k_polar"] > 0
+    assert bd["total"] == impl.byte_size()
 
 
 # ── clear() resets accounting ─────────────────────────────────────────────────

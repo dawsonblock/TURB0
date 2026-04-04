@@ -23,6 +23,8 @@ References
 
 from __future__ import annotations
 
+import base64
+import io
 import math
 from dataclasses import dataclass
 
@@ -296,6 +298,47 @@ class PolarQuantPayload:
     d_orig:   int           # original d before padding
     d_pad:    int           # padded d (divisible by 2^n_levels)
     n_levels: int
+
+    def byte_size(self) -> int:
+        total = sum(
+            int(code.nbytes)
+            for code in self.angle_codes
+            if hasattr(code, "nbytes")
+        )
+        if hasattr(self.final_radii, "nbytes"):
+            total += int(self.final_radii.nbytes)
+        return total
+
+    def to_dict(self) -> dict[str, object]:
+        def _arr_to_b64(arr) -> str:
+            buf = io.BytesIO()
+            np.save(buf, np.array(arr))
+            return base64.b64encode(buf.getvalue()).decode("ascii")
+
+        return {
+            "angle_codes": [_arr_to_b64(code) for code in self.angle_codes],
+            "final_radii": _arr_to_b64(self.final_radii),
+            "d_orig": self.d_orig,
+            "d_pad": self.d_pad,
+            "n_levels": self.n_levels,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> "PolarQuantPayload":
+        def _b64_to_arr(b64: str):
+            raw = base64.b64decode(b64.encode("ascii"))
+            arr = np.load(io.BytesIO(raw))
+            return mx.array(arr)
+
+        angle_codes = [_b64_to_arr(code) for code in data.get("angle_codes", [])]
+        final_radii = _b64_to_arr(data["final_radii"])
+        return cls(
+            angle_codes=angle_codes,
+            final_radii=final_radii,
+            d_orig=int(data.get("d_orig", 0)),
+            d_pad=int(data.get("d_pad", 0)),
+            n_levels=int(data.get("n_levels", len(angle_codes))),
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

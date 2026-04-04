@@ -186,6 +186,20 @@ payload = pq.encode(x)   # → PolarQuantPayload (angle codes + final radii)
 x_hat  = pq.decode(payload)
 ```
 
+For allowlisted families, the same experimental config can now travel through
+the canonical cache-upgrade path:
+
+```python
+from turboquant.config import TurboQuantConfig
+from turboquant.integrations.mlx.upgrade import upgrade_cache_list
+
+cfg = TurboQuantConfig.polarquant_exp(rotation="random_orthogonal")
+events = upgrade_cache_list(cache, k_start=64, config=cfg, model_family="llama")
+```
+
+That path preserves polar blocks through cache state round-trip, but it remains
+an experimental runtime mode rather than part of the supported product contract.
+
 **When to prefer PolarQuant:**
 - Encode-latency sensitive workloads (7–18× faster encode than scalar).
 - Lower reconstruction error is required at the same bit-budget (~40% lower MSE at 3.875 bits/dim vs 3-bit scalar).

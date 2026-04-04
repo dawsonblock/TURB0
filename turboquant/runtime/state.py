@@ -78,6 +78,9 @@ _BLOCK_KEYS_V3 = frozenset(
         "orig_dim",
     }
 )
+_POLAR_BLOCK_KEYS = frozenset(
+    {"angle_codes", "final_radii", "d_orig", "d_pad", "n_levels"}
+)
 
 
 def _shape_token_len(arr) -> int | None:
@@ -238,6 +241,65 @@ def _validate_block_payload(blocks: Any, *, offset: int) -> None:
                     f"Block {index} field {key!r} must be a non-negative int, "
                     f"got {value!r}."
                 )
+
+        algorithm = TurboQuantConfig.normalize_algorithm(
+            block.get("algorithm", "")
+        )
+        polar_payload = block.get("polar_payload")
+        if algorithm == "polarquant_exp":
+            if polar_payload is None:
+                raise TurboQuantStateError(
+                    f"Block {index} for polarquant_exp must include "
+                    "'polar_payload'."
+                )
+            if (
+                block.get("packed_main") is not None
+                or block.get("scales") is not None
+            ):
+                raise TurboQuantStateError(
+                    f"Block {index} for polarquant_exp must not carry "
+                    "scalar packed_main/scales tensors."
+                )
+            if block.get("residual_mode") != "none":
+                raise TurboQuantStateError(
+                    f"Block {index} for polarquant_exp must use "
+                    "residual_mode='none'."
+                )
+            if not isinstance(polar_payload, dict):
+                raise TurboQuantStateError(
+                    f"Block {index} field 'polar_payload' must be a dict."
+                )
+            missing_polar = _POLAR_BLOCK_KEYS - polar_payload.keys()
+            if missing_polar:
+                raise TurboQuantStateError(
+                    f"Block {index} polar_payload is missing keys: "
+                    f"{sorted(missing_polar)}."
+                )
+            angle_codes = polar_payload.get("angle_codes")
+            if not isinstance(angle_codes, list) or not angle_codes or not all(
+                isinstance(code, str) for code in angle_codes
+            ):
+                raise TurboQuantStateError(
+                    f"Block {index} polar_payload 'angle_codes' must be "
+                    "a non-empty list of strings."
+                )
+            if not isinstance(polar_payload.get("final_radii"), str):
+                raise TurboQuantStateError(
+                    f"Block {index} polar_payload 'final_radii' must be "
+                    "a base64 string."
+                )
+            for key in ("d_orig", "d_pad", "n_levels"):
+                value = polar_payload.get(key)
+                if not isinstance(value, int) or value < 0:
+                    raise TurboQuantStateError(
+                        f"Block {index} polar_payload field {key!r} must "
+                        f"be a non-negative int, got {value!r}."
+                    )
+        elif polar_payload is not None:
+            raise TurboQuantStateError(
+                f"Block {index} has polar_payload but algorithm is "
+                f"{algorithm!r}, not polarquant_exp."
+            )
 
 
 def _validate_v4_metadata(state: dict[str, Any]) -> None:
