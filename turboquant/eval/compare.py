@@ -280,7 +280,7 @@ class AccuracyComparison:
         import mlx.core as mx
 
         from turboquant.config import TurboQuantConfig
-        from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
+        from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache
 
         logits_list: list = []
 

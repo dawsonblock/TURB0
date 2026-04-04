@@ -4,6 +4,10 @@ turboquant.runtime.support — central model-family support gate.
 This module is the single source of truth for which model families have
 TurboQuant attention wiring and runtime-certification coverage.
 
+The allowlist itself is loaded from the machine-readable support contract at
+``turboquant/contract.json`` so that runtime gating, generated docs, and
+release artifacts can all share the same family list.
+
 Callers
 -------
 - ``integrations.mlx.upgrade.upgrade_cache_list`` — Gate 2 check
@@ -23,12 +27,29 @@ Do NOT add a family here before completing steps 1–3.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from turboquant.errors import UnsupportedModelError
+
+
+_SUPPORT_CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contract.json"
+
+
+def load_support_contract() -> dict:
+    return json.loads(_SUPPORT_CONTRACT_PATH.read_text(encoding="utf-8"))
+
+
+_SUPPORT_CONTRACT = load_support_contract()
 
 # Families with explicit TurboQuant attention wiring and runtime-cert coverage.
 # Any model_family string not in this set will be rejected at the upgrade
 # boundary before any cache is mutated.
-SUPPORTED_FAMILIES: frozenset[str] = frozenset({"llama", "gemma"})
+SUPPORTED_FAMILIES: frozenset[str] = frozenset(
+    family["name"]
+    for family in _SUPPORT_CONTRACT["families"]
+    if family["status"] == "allowlisted"
+)
 
 
 def _normalize(name: str) -> str:

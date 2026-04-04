@@ -1,567 +1,180 @@
-import ast
-import os
-import re
-import pytest
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+
 from turboquant.runtime.support import SUPPORTED_FAMILIES
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CONTRACT_PATH = REPO_ROOT / "turboquant" / "contract.json"
 
 
 def _read(rel_path: str) -> str:
-    with open(os.path.join(REPO_ROOT, rel_path), encoding="utf-8") as f:
-        return f.read()
+    return (REPO_ROOT / rel_path).read_text(encoding="utf-8")
 
 
-def test_supported_families_truth():
-    """Unsupported model names must not appear alongside positive support language in docs.
-
-    Specifically: the integration guide must not claim that any architecture
-    automatically gains support through base.py dispatch.  Each unsupported
-    family that appears in docs must be accompanied by a clear disqualifier word
-    (unsupported, exploratory, uncertified, not certified, not in, not supported).
-    """
-    doc_paths = [
-        'README.md',
-        'docs/support_matrix.md',
-        'docs/supported-surface.md',
-        'docs/product_contract.md',
-        'docs/integration.md',
-    ]
-
-    # Phrases that would indicate a claim of support for any family
-    positive_support_phrases = [
-        "automatically support",
-        "works out of the box",
-        "automatically works",
-        "fully supported",
-        "supported out of the box",
-    ]
-
-    disqualifier_words = {
-        "unsupported", "exploratory", "uncertified", "not certified",
-        "not in", "not supported", "experimental", "out of scope",
-    }
-
-    for rel_path in doc_paths:
-        abs_path = os.path.join(REPO_ROOT, rel_path)
-        if not os.path.exists(abs_path):
-            continue
-
-        content = _read(rel_path)
-
-        # Check that no blanket positive-support phrase appears unconstrained
-        for phrase in positive_support_phrases:
-            assert phrase.lower() not in content.lower(), (
-                f"{rel_path}: found positive-support phrase '{phrase}' — "
-                f"this blurs the distinction between dispatch routing and the "
-                f"certified allowlist (llama, gemma only)."
-            )
+def _load_contract() -> dict:
+    return json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 
-def test_product_contract_consistency():
-    """Verify that the product contract matches the source of truth in the code."""
-    contract_path = os.path.join(REPO_ROOT, 'docs/product_contract.md')
+def _load_renderer_module():
+    script_path = REPO_ROOT / "scripts" / "render_support_contract.py"
+    spec = importlib.util.spec_from_file_location(
+        "render_support_contract",
+        script_path,
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-    assert os.path.exists(contract_path), 'docs/product_contract.md must exist'
 
-    content = _read('docs/product_contract.md')
-
-    # Supported hardware
-    assert 'Apple Silicon' in content, "product_contract.md must mention Apple Silicon"
-
-    # Supported model families must appear (these come from the allowlist)
-    for family in SUPPORTED_FAMILIES:
-        assert family.lower() in content.lower(), (
-            f"product_contract.md must mention supported family '{family}'"
+def test_generated_contract_docs_match_renderer() -> None:
+    """Generated contract docs must match the renderer output exactly."""
+    renderer = _load_renderer_module()
+    rendered = renderer.render_docs()
+    for path, expected_content in rendered.items():
+        assert path.read_text(encoding="utf-8") == expected_content, (
+            f"{path.relative_to(REPO_ROOT)} is out of date; rerun scripts/render_support_contract.py"
         )
 
-    # Metal must be explicitly experimental
-    assert 'experimental' in content.lower(), (
-        "product_contract.md must describe Metal kernels as experimental"
-    )
 
-    # Certification must be artifact-backed but still non-production
-    assert 'artifact-backed' in content.lower(), (
-        "product_contract.md must describe the supported families as artifact-backed."
-    )
-    assert 'not a production runtime' in content.lower() or 'no production deployment contract' in content.lower(), (
-        "product_contract.md must keep the non-production boundary explicit."
-    )
+def test_allowlisted_families_match_contract_json() -> None:
+    """Runtime allowlist must match the machine-readable support contract."""
+    contract = _load_contract()
+    expected = {
+        family["name"]
+        for family in contract["families"]
+        if family["status"] == "allowlisted"
+    }
+    assert set(SUPPORTED_FAMILIES) == expected == {"llama", "gemma"}
 
 
-def test_release_facing_docs_do_not_claim_embedded_retained_artifacts() -> None:
-    """Release-facing docs must describe generated evidence, not embedded retained dirs."""
-    timestamped_artifact_dir = re.compile(r'artifacts/runtime-cert/\d{8}_\d{6}')
+def test_readme_tracks_primary_contract_story() -> None:
+    """README must reflect the paper-facing runtime contract and its boundaries."""
+    content = _read("README.md")
+    lowered = content.lower()
 
+    assert "Contract summary:" in content
+    assert "upgrade_cache_list(...)" in content
+    assert "TurboQuantKCache(...)" in content
+    assert "KVCache.to_turboquant()" in content
+    assert "does not automatically persist `events.jsonl`" in content
+    assert "TinyModel" in content
+    assert "schema_version == 4" in content
+    assert "paper_prod" in content and "paper_mse" in content
+    assert "legacy top-k compatibility only" in lowered
+    assert "encode_topk_residual" not in content
+    assert "top-k sparse residual" not in lowered
+
+
+def test_release_facing_docs_use_addressable_evidence_language() -> None:
+    """Release-facing docs must describe addressable evidence rather than embedded PASS claims."""
     for rel_path in (
-        'README.md',
-        'docs/support_matrix.md',
-        'docs/supported-surface.md',
-        'docs/product_contract.md',
-        'docs/runtime-certification.md',
-        'docs/release-checklist.md',
+        "README.md",
+        "docs/product_contract.md",
+        "docs/supported-surface.md",
+        "docs/support_matrix.md",
+        "docs/runtime-certification.md",
+        "docs/release-checklist.md",
     ):
         content = _read(rel_path)
         lowered = content.lower()
-
-        assert not timestamped_artifact_dir.search(content), (
-            f"{rel_path} must not imply retained timestamped artifact directories are shipped in source archives."
+        assert "addressable" in lowered or "manifest digest" in lowered, (
+            f"{rel_path} must use addressable-evidence language."
         )
-        assert 'artifacts/runtime-cert/<timestamp>/' in content or 'artifacts/runtime-cert/<timestamp>' in content, (
-            f"{rel_path} must describe generated certification evidence under artifacts/runtime-cert/<timestamp>/."
-        )
-
-        if rel_path != 'docs/release-checklist.md':
-            assert 'artifact-backed' in lowered, (
-                f"{rel_path} must describe the supported families as artifact-backed."
-            )
-
-    for rel_path in (
-        'docs/product_contract.md',
-        'docs/runtime-certification.md',
-        'docs/release-checklist.md',
-    ):
-        lowered = _read(rel_path).lower()
-        assert 'workflow artifact' in lowered or 'release evidence bundle' in lowered, (
-            f"{rel_path} must explain that generated certification evidence may travel as workflow artifacts or release evidence bundles."
-        )
-        assert 'do not embed' in lowered, (
-            f"{rel_path} must say source archives do not embed generated artifact directories."
+        assert "artifact-backed" not in lowered, (
+            f"{rel_path} must not use the stale 'artifact-backed' wording."
         )
 
 
-def test_no_metal_by_default_in_readme():
-    """README must never describe TurboQuant's custom Metal kernels as the default runtime path.
-
-    MLX mentions Metal for its own tensor backend (factual); this test only
-    checks that TurboQuant-specific Metal references (TQ_USE_METAL, custom Metal
-    kernels) are qualified as experimental or optional.
-    """
-    readme_path = os.path.join(REPO_ROOT, 'README.md')
-
-    if not os.path.exists(readme_path):
-        return
-
-    content = _read('README.md')
-
-    # TurboQuant custom Metal kernel indicators — these must not be unqualified
-    tq_metal_indicators = ['TQ_USE_METAL', 'custom Metal kernel', 'Custom Metal']
-    qualifier_words = {'experimental', 'optional', 'not the default', 'prototype'}
-
-    import re
-    paragraphs = re.split(r'\n\n+', content)
-
-    for para in paragraphs:
-        has_tq_metal = any(ind in para for ind in tq_metal_indicators)
-        if not has_tq_metal:
-            continue
-        lowered = para.lower()
-        assert any(w in lowered for w in qualifier_words), (
-            f"README paragraph mentions TurboQuant Metal features without a qualifier "
-            f"(expected one of: {qualifier_words}):\n\n{para[:300]}"
-        )
-
-
-def test_integration_doc_no_automatic_support_claim():
-    """integration.md must not claim any model 'automatically' gains support via base.py dispatch."""
-    content = _read('docs/integration.md')
+def test_runtime_certification_doc_tracks_scope_and_artifacts() -> None:
+    """runtime-certification.md must describe the new evidence contract clearly."""
+    content = _read("docs/runtime-certification.md")
     lowered = content.lower()
-
-    # The original blocker phrase
-    assert "will automatically support turboquant" not in lowered, (
-        "integration.md claims 'will automatically support TurboQuant' — "
-        "this conflates dispatch routing with the allowlist gate. "
-        "Only 'llama' and 'gemma' are in the certified allowlist."
-    )
-
-    assert "works out of the box" not in lowered, (
-        "integration.md uses 'works out of the box' — this implies support "
-        "for any model via base.py dispatch, which is false. "
-        "Routing ≠ membership in the certified allowlist."
-    )
-
-
-def test_integration_doc_upgrade_call_has_model_family():
-    """integration.md's upgrade_cache_list example must include model_family argument."""
-    content = _read('docs/integration.md')
-
-    # Find the upgrade_cache_list call in the code block
-    assert 'model_family' in content, (
-        "integration.md upgrade_cache_list example does not include 'model_family'. "
-        "All canonical examples of upgrade_cache_list must pass model_family explicitly."
-    )
-
-
-def test_evaluation_doc_examples_have_model_family():
-    """evaluation.md quick-start examples must include model_family for all eval calls."""
-    content = _read('docs/evaluation.md')
-
-    for fn_name in ('perplexity_report', 'drift_report', 'memory_report'):
-        # Find the call and make sure model_family is in the same code block
-        # We check that both the function name and model_family appear in the file
-        assert fn_name in content, f"evaluation.md is missing expected function {fn_name}"
-
-    assert 'model_family' in content, (
-        "evaluation.md quick-start examples do not include 'model_family'. "
-        "All eval function examples must pass model_family explicitly."
-    )
-
-
-def test_support_matrix_no_automatic_dispatch_claim():
-    """support_matrix.md must not describe unsupported families as auto-dispatching to TurboQuant."""
-    content = _read('docs/support_matrix.md')
-    lowered = content.lower()
-
-    assert "route through" not in lowered or "not in the" in lowered, (
-        "support_matrix.md says unsupported families 'route through base.py dispatch automatically' "
-        "without stating they are rejected by upgrade_cache_list. This implies support."
-    )
-
-    # The 'All others' row should not say 'automatically' without the gate caveat
-    assert "route through `base.py` dispatch automatically; uncertified" not in content, (
-        "support_matrix.md still has the stale 'route through base.py dispatch automatically' "
-        "text that implies unsupported families work automatically."
-    )
-    assert 'Only allowlisted families are eligible for the canonical runtime path today.' in content, (
-        "support_matrix.md must state that only allowlisted families are eligible for the canonical runtime path."
-    )
-
-
-def test_readme_no_all_families_autorouted():
-    """README Component Status must not say 'All model families auto-routed'."""
-    content = _read('README.md')
-    assert "All model families auto-routed" not in content, (
-        "README Component Status says 'All model families auto-routed' — "
-        "this overclaims: only llama and gemma are certified; others are rejected by upgrade_cache_list."
-    )
-
-
-def test_readme_model_matrix_no_auto_routed_for_unsupported():
-    """README model matrix must not describe Qwen/Mistral/Phi as 'auto-routed'."""
-    content = _read('README.md')
-    for name in ('qwen', 'mistral', 'phi'):
-        for line in content.splitlines():
-            if name.lower() in line.lower() and '|' in line:
-                assert 'auto-routed' not in line.lower(), (
-                    f"README model matrix describes '{name}' as 'auto-routed'."
-                )
-                assert 'auto-route' not in line.lower(), (
-                    f"README model matrix claims '{name}' auto-routes."
-                )
-
-
-def test_readme_eval_section_has_model_family():
-    """README Evaluation section examples must include model_family."""
-    content = _read('README.md')
-    for fn in ('perplexity_report', 'drift_report', 'memory_report'):
-        for line in content.splitlines():
-            if fn + '(' in line and 'turboquant_config' in line:
-                assert 'model_family' in line, (
-                    f"README Evaluation section: {fn}() call missing model_family argument."
-                )
-
-
-def test_readme_turboquantkcache_marked_internal():
-    """README TurboQuantKCache section must be labeled internal/eval use."""
-    content = _read('README.md')
-    assert 'TurboQuantKCache` (internal' in content or 'eval use' in content, (
-        "README must label TurboQuantKCache section as internal/eval use."
-    )
-
-
-def test_architecture_doc_maybe_turboquant_deprecated():
-    """architecture.md must label maybe_turboquant_attention as legacy and not claim one-line dispatch."""
-    content = _read('docs/architecture.md')
-    assert 'legacy' in content.lower() or 'deprecated' in content.lower(), (
-        "docs/architecture.md documents maybe_turboquant_attention without marking it as legacy/deprecated."
-    )
-    assert 'one-line `maybe_turboquant_attention` dispatch' not in content, (
-        "architecture.md §6 still says other families need a 'one-line maybe_turboquant_attention dispatch'."
-    )
-
-
-def test_supported_surface_marks_canonical_and_secondary_paths():
-    """supported-surface.md must describe the canonical upgrade path and secondary bypasses."""
-    content = _read('docs/supported-surface.md')
-
-    assert 'upgrade_cache_list' in content, (
-        "supported-surface.md must name upgrade_cache_list as the canonical upgrade entry point."
-    )
-    assert 'Secondary surfaces' in content, (
-        "supported-surface.md must call out secondary/internal surfaces explicitly."
-    )
-    assert 'compatibility alias for `TurboQuantKVCache`' in content, (
-        "supported-surface.md must describe KVCompressor as an alias for TurboQuantKVCache."
-    )
-    assert 'compatibility alias for `TurboQuantKCache`' not in content, (
-        "supported-surface.md incorrectly describes KVCompressor as an alias for TurboQuantKCache."
-    )
-    assert 'KVCache.to_turboquant()' in content, (
-        "supported-surface.md must call out KVCache.to_turboquant() as a secondary surface."
-    )
-    assert 'does not automatically persist `events.jsonl`' in content, (
-        "supported-surface.md must explain that the canonical decode path does not automatically persist events.jsonl."
-    )
-
-
-def test_architecture_doc_describes_canonical_path_and_event_split():
-    """architecture.md must document the canonical runtime path and the split event model."""
-    content = _read('docs/architecture.md')
-
-    for needle in (
-        'generate_step',
-        'upgrade_cache_list',
-        'scaled_dot_product_attention',
-        'turboquant_streaming_attention',
-        'Event architecture',
-        'EventLog',
-    ):
-        assert needle in content, (
-            f"docs/architecture.md must mention '{needle}' in the canonical runtime or event story."
-        )
-
-
-def test_readme_quality_defaults_not_presented_as_certification():
-    """README must frame quality thresholds as local script defaults, not certification gates."""
-    content = _read('README.md')
-    lowered = content.lower()
-
-    assert 'Quality gates enforced by `make certify-apple-runtime`' not in content, (
-        "README still presents evaluation thresholds as enforced certification gates."
-    )
-    assert 'Local default checks used by `run_quality_eval.py`' in content, (
-        "README must describe the quality thresholds as local run_quality_eval.py defaults."
-    )
-    assert 'not certification guarantees' in lowered or 'not certification gates' in lowered, (
-        "README must explicitly say those thresholds are not certification guarantees."
-    )
-
-
-def test_readme_marks_event_persistence_optional():
-    """README must say runtime upgrade events are not auto-persisted."""
-    content = _read('README.md')
-
-    assert 'does not automatically persist' in content and 'events.jsonl' in content, (
-        "README must explain that the canonical decode path does not auto-persist events.jsonl."
-    )
-
-
-def test_readme_contract_summary_states_narrow_story():
-    """README must carry the repo-level narrow contract summary near the top."""
-    content = _read('README.md')
-
-    assert 'Contract summary:' in content, (
-        "README must contain a short contract summary paragraph near the top."
-    )
-    for needle in (
-        'upgrade_cache_list(...)',
-        'TurboQuantKCache(...)',
-        'KVCache.to_turboquant()',
-        'does not currently affect the attention dispatch path',
-    ):
-        assert needle in content, (
-            f"README contract summary must mention '{needle}'."
-        )
-    assert 'historical' in content.lower() and 'illustrative' in content.lower(), (
-        "README contract summary must frame benchmark numbers as historical or illustrative."
-    )
-
-
-def test_readme_smoke_targets_distinguish_tinymodel_from_real_models():
-    """README must say smoke targets default to TinyModel and real-model mode uses env vars."""
-    content = _read('README.md')
-
-    assert 'TinyModel default on Apple Silicon' in content, (
-        "README must say the smoke targets default to TinyModel on Apple Silicon."
-    )
-    assert 'Without these variables, all three smoke tests skip automatically' not in content, (
-        "README still claims the smoke tests skip automatically when env vars are absent."
-    )
-
-
-def test_vendored_doc_marks_to_turboquant_as_secondary_helper():
-    """VENDORED_MLX_LM.md must classify to_turboquant() as deprecated/internal."""
-    content = _read('VENDORED_MLX_LM.md')
-    lowered = content.lower()
-
-    assert 'to_turboquant()' in content, "VENDORED_MLX_LM.md must mention to_turboquant()."
-    assert 'deprecated/internal' in lowered or 'deprecated' in lowered, (
-        "VENDORED_MLX_LM.md must mark to_turboquant() as deprecated/internal."
-    )
-    assert 'bypasses the turboquant model-family support gate' in lowered, (
-        "VENDORED_MLX_LM.md must say to_turboquant() bypasses the support gate."
-    )
-    assert 'canonical public path is `upgrade_cache_list(...)`' in content, (
-        "VENDORED_MLX_LM.md must point readers at upgrade_cache_list(...) instead."
-    )
-
-
-def test_validation_local_distinguishes_synthetic_smoke_from_real_certification():
-    """validation-local.md must distinguish TinyModel smoke from real-model certification."""
-    content = _read('docs/validation-local.md')
-
-    assert 'TinyModel' in content, (
-        "docs/validation-local.md must mention TinyModel as the default smoke-test path."
-    )
-    assert 'full real-model certification' in content or 'full runtime certification' in content, (
-        "docs/validation-local.md must distinguish TinyModel smoke from full real-model certification."
-    )
-
-
-def test_runtime_certification_doc_does_not_claim_tinymodel_on_any_machine():
-    """runtime-certification.md must not imply TinyModel certification runs on non-Apple machines."""
-    content = _read('docs/runtime-certification.md')
-
-    assert 'passes under TinyModel on any machine' not in content, (
-        "docs/runtime-certification.md still overclaims TinyModel coverage on any machine."
-    )
-
-
-def test_runtime_certification_doc_marks_current_cert_story_honestly():
-    """runtime-certification.md must reflect the current harness and optional event logging truth."""
-    content = _read('docs/runtime-certification.md')
-    lowered = content.lower()
-
-    assert 'artifact-backed pass manifests exist' in lowered or 'pass manifests now exist' in lowered, (
-        "docs/runtime-certification.md must say artifact-backed PASS manifests now exist."
-    )
-    assert 'llama' in lowered and 'gemma' in lowered and 'artifact-backed' in lowered, (
-        "docs/runtime-certification.md must name the artifact-backed Llama and Gemma runs."
-    )
-    assert 'artifacts/runtime-cert/<timestamp>/' in content or 'artifacts/runtime-cert/<timestamp>' in content, (
-        "docs/runtime-certification.md must describe the generated artifact directory shape."
-    )
-    assert 'workflow artifact' in lowered or 'release evidence bundle' in lowered, (
-        "docs/runtime-certification.md must explain how generated certification evidence is carried forward."
-    )
-    assert 'do not embed' in lowered, (
-        "docs/runtime-certification.md must say source archives do not embed generated artifact directories."
-    )
-    assert 'family-scoped' in lowered or 'certification_scope.families' in content, (
-        "docs/runtime-certification.md must explain the family-scoped manifest contract."
-    )
-    assert 'events.jsonl' in content and 'optional' in lowered, (
-        "docs/runtime-certification.md must describe events.jsonl as optional persistence output."
-    )
-    assert 'teacher-forcing' in lowered or 'batch guardrail' in lowered, (
-        "docs/runtime-certification.md must frame the quality stage as a batch guardrail, not a streaming certification claim."
-    )
-
-
-def test_runtime_certification_bootstrap_prefers_supported_python() -> None:
-    """The certification script and doc must agree on supported bootstrap interpreters."""
-    script = _read('scripts/certify_apple_runtime.sh')
-    doc = _read('docs/runtime-certification.md')
-
-    assert 'for candidate in python3.11 python3.10 python3.9 python3;' in script, (
-        "scripts/certify_apple_runtime.sh must prefer python3.11, then python3.10, then python3.9 before falling back to python3."
-    )
-    assert '3.9-3.11; 3.11 recommended' in script or 'Python 3.9-3.11' in script, (
-        "scripts/certify_apple_runtime.sh must state the supported Python runtime-cert range."
-    )
-    assert 'prefers `python3.11`, then `python3.10`, then `python3.9`' in doc, (
-        "docs/runtime-certification.md must describe the certification bootstrap interpreter preference order."
-    )
-
-
-def test_runtime_certification_manifest_message_is_not_misleading() -> None:
-    """The cert script must distinguish a recorded FAIL manifest from a skipped write."""
-    script = _read('scripts/certify_apple_runtime.sh')
-
-    assert 'manifest write skipped — turboquant not importable' not in script, (
-        "scripts/certify_apple_runtime.sh must not print the stale 'manifest write skipped' message for ordinary FAIL results."
-    )
-    assert 'cert_manifest.json recorded a FAIL result for this run.' in script, (
-        "scripts/certify_apple_runtime.sh must report when the manifest exists and records a FAIL result."
-    )
-
-
-def test_eval_and_benchmark_docs_frame_numbers_as_exploratory():
-    """evaluation.md and benchmark_methodology.md must frame numeric guidance as exploratory."""
-    eval_content = _read('docs/evaluation.md').lower()
-    bench_content = _read('docs/benchmark_methodology.md').lower()
-
-    assert ('exploratory' in eval_content or 'illustrative' in eval_content) and 'heuristics' in eval_content, (
-        "docs/evaluation.md must frame thresholds as exploratory or illustrative heuristics."
-    )
-    assert 'not certification' in eval_content and 'gates' in eval_content, (
-        "docs/evaluation.md must say its thresholds are not certification gates."
-    )
-    assert 'historical' in bench_content and 'benchmark snapshots' in bench_content, (
-        "docs/benchmark_methodology.md must identify benchmark numbers as historical benchmark snapshots."
-    )
-    assert 'not part of the certified product contract' in bench_content, (
-        "docs/benchmark_methodology.md must say it is not part of the certified product contract."
-    )
-
-
-def test_runtime_api_points_to_upgrade_cache_list():
-    """runtime/api.py must point removed callers to the canonical upgrade path, not direct adapter construction."""
-    content = _read('turboquant/runtime/api.py')
-
-    assert 'upgrade_cache_list' in content, (
-        "runtime/api.py must point callers to upgrade_cache_list as the canonical MLX integration."
-    )
-    assert 'cache_adapter import TurboQuantKCache' not in content, (
-        "runtime/api.py still points callers at direct TurboQuantKCache construction."
-    )
-
-
-def test_product_contract_explains_secondary_surfaces_and_event_split():
-    """product_contract.md must document secondary bypasses and the split event model."""
-    content = _read('docs/product_contract.md')
-
-    assert 'Secondary Surfaces And Event Split' in content, (
-        "product_contract.md must explain the secondary surfaces and event split centrally."
-    )
-    assert 'upgrade_cache_list' in content and 'TurboQuantKCache' in content, (
-        "product_contract.md must distinguish the canonical upgrade path from direct adapter construction."
-    )
-    assert 'EventLog' in content and 'CacheUpgradeEvent' in content, (
-        "product_contract.md must describe the runtime/persistence event split."
-    )
-    assert 'record_runtime_upgrade_events' in content, (
-        "product_contract.md must point to the explicit runtime-to-persistence adapter."
-    )
-
-
-def test_block_tokens_marked_compatibility_only_in_docs():
-    """Main docs must describe block_tokens as compatibility-only rather than active runtime control."""
-    for rel_path in ('README.md', 'docs/architecture.md', 'docs/integration.md', 'docs/product_contract.md'):
-        content = _read(rel_path).lower()
-        assert 'compatibility-only' in content, f"{rel_path} must label block_tokens as compatibility-only."
-
-    readme = _read('README.md').lower()
-    integration = _read('docs/integration.md').lower()
-    product = _read('docs/product_contract.md').lower()
-    architecture = _read('docs/architecture.md').lower()
-
-    for rel_path, content in (
-        ('README.md', readme),
-        ('docs/integration.md', integration),
-        ('docs/product_contract.md', product),
-    ):
-        assert 'does not currently affect the attention dispatch path' in content, (
-            f"{rel_path} must say block_tokens does not currently affect the attention dispatch path."
-        )
 
     assert (
-        'does not read `block_tokens` as a' in architecture
-        or 'not a live tuning lever' in architecture
-    ), "docs/architecture.md must make clear that block_tokens is not active in the hot path."
-
-
-def test_architecture_doc_lists_private_to_turboquant_as_eval_surface():
-    """architecture.md must list _to_turboquant() as a private eval-only bypass surface."""
-    content = _read('docs/architecture.md')
-
-    assert '_to_turboquant()' in content, (
-        "docs/architecture.md cache surfaces table must include `_to_turboquant()` as a private bypass surface."
+        "artifacts/runtime-cert/<timestamp>/" in content
+        or "artifacts/runtime-cert/<timestamp>" in content
     )
-    assert 'private eval-only' in content.lower() or 'private eval' in content.lower(), (
-        "docs/architecture.md must classify `_to_turboquant()` as private eval-only."
-    )
-    assert 'delegates to `_to_turboquant()`' in content or 'delegates to' in content.lower(), (
-        "docs/architecture.md must show that to_turboquant() delegates to _to_turboquant()."
+    assert "contract.json" in content
+    assert "certification_scope.families" in content
+    assert "events.jsonl" in content and "optional" in lowered
+    assert "teacher-forcing" in lowered or "batch" in lowered
+    assert "python3.11" in content and "python3.10" in content and "python3.9" in content
+    assert "llama" in lowered and "gemma" in lowered
+    assert "stronger" in lowered and "narrower" in lowered
+
+
+def test_evaluation_and_benchmark_docs_are_non_certification_guides() -> None:
+    """Exploratory docs must not present heuristics as certification claims."""
+    eval_content = _read("docs/evaluation.md").lower()
+    bench_content = _read("docs/benchmark_methodology.md").lower()
+
+    assert "not certification gates" in eval_content
+    assert "heuristic" in eval_content
+    assert "not part of the certified product contract" in bench_content
+    for field in (
+        "artifact_uri_or_manifest_digest",
+        "git_commit",
+        "model_ids",
+        "mlx_version",
+        "hardware",
+        "script",
+        "args",
+    ):
+        assert field in bench_content
+
+
+def test_integration_doc_no_blanket_support_claim() -> None:
+    """integration.md must not imply that base.py dispatch alone grants support."""
+    content = _read("docs/integration.md")
+    lowered = content.lower()
+
+    assert "will automatically support turboquant" not in lowered
+    assert "works out of the box" not in lowered
+    assert "model_family" in content
+    assert (
+        "Routing through `base.py` is not the same as being in the supported allowlist."
+        in content
     )
 
+
+def test_supported_surface_generated_doc_has_secondary_surfaces() -> None:
+    """supported-surface.md must clearly distinguish canonical and secondary paths."""
+    content = _read("docs/supported-surface.md")
+
+    assert "upgrade_cache_list" in content
+    assert "Secondary surfaces" in content
+    assert "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache" in content
+    assert "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache" in content
+    assert "KVCache.to_turboquant()" in content
+    assert "contract.json" in content
+
+
+def test_runtime_api_points_to_upgrade_cache_list() -> None:
+    """runtime/api.py must still point callers at the canonical upgrade path."""
+    content = _read("turboquant/runtime/api.py")
+    assert "upgrade_cache_list" in content
+    assert "Do not instantiate TurboQuantKCache directly" in content
+
+
+def test_vendored_doc_marks_to_turboquant_as_secondary_helper() -> None:
+    """VENDORED_MLX_LM.md must classify to_turboquant() as deprecated/internal."""
+    content = _read("VENDORED_MLX_LM.md")
+    lowered = content.lower()
+
+    assert "to_turboquant()" in content
+    assert "deprecated" in lowered
+    assert "bypasses the turboquant model-family support gate" in lowered
+    assert "canonical public path is `upgrade_cache_list(...)`" in content
+
+
+def test_validation_local_distinguishes_smoke_from_real_certification() -> None:
+    """validation-local.md must distinguish TinyModel smoke from real-model certification."""
+    content = _read("docs/validation-local.md")
+    lowered = content.lower()
+
+    assert "TinyModel" in content
+    assert "full real-model certification" in lowered or "full runtime certification" in lowered

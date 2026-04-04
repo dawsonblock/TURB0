@@ -1,143 +1,88 @@
 # TurboQuant Evaluation Guide
 
-> How to inspect the quality impact of TurboQuant KV compression in a prototype build.
+This document describes exploratory quality evaluation for TurboQuant. The thresholds here are local heuristics,
+not certification gates and not production guarantees.
 
-> All thresholds and numeric examples in this document are exploratory or
-> illustrative tuning heuristics from small-scale Apple-Silicon runs. They are
-> not release gates, not certification gates, and not evidence of production
-> readiness.
-
----
-
-## 1. Quick start
+## Quick start
 
 ```python
 from turboquant.config import TurboQuantConfig
-from turboquant.eval import perplexity_report, drift_report, memory_report
+from turboquant.eval import drift_report, memory_report, perplexity_report
 
-cfg = TurboQuantConfig.from_preset("paper_prod")   # or "paper_mse" for MSE-only
+cfg = TurboQuantConfig.from_preset("paper_prod")
 
-# Perplexity
 ppl = perplexity_report(model, input_ids, turboquant_config=cfg, model_family="llama")
-print(ppl)
-# {'dense_ppl': 12.3, 'tq_ppl': 12.6, 'delta_ppl': 0.3, 'n_tokens': 63}
-
-# Logit-distribution drift (KL divergence)
 drift = drift_report(model, input_ids, turboquant_config=cfg, model_family="llama")
-print(drift)
-# {'mean_kl': 0.004, 'max_kl': 0.021, 'min_kl': 0.0, 'n_tokens': 63}
-
-# Memory
 mem = memory_report(model, input_ids, turboquant_config=cfg, model_family="llama")
-print(mem)
-# {'dense_cache_bytes': 2097152, 'tq_cache_bytes': 573440, 'ratio': 3.7, 'n_layers': 18}
 ```
----
 
-## 2. Metrics
+Use `paper_prod` when you want to evaluate the production-style QJL path. Use `paper_mse` when you want the MSE-only
+reference path used by the current batch quality guardrail.
 
-### 2.1 Perplexity (`turboquant.eval.perplexity`)
+## Metrics
 
-**What it measures**: how well the TurboQuant model predicts the next token
-compared to a dense-cache baseline.
+### Perplexity delta
 
-```text
-PPL = exp( mean NLL )
-delta_ppl = tq_ppl - dense_ppl
-```text
-A `delta_ppl` below **0.5** is an illustrative exploratory heuristic from
-informal testing. Higher deviations are common depending on model size and
-dataset. These are not certification baselines — runtime certification
-requires Apple Silicon hardware with saved artifacts from real model weights.
+`delta_ppl = tq_ppl - dense_ppl`
 
-`benchmarks/runtime_cert/run_quality_eval.py` uses **0.5** as reaching one
-checking threshold in its default workflow. That is a tool default, not a
-production guarantee.
+What it tells you:
 
-**API**:
-```python
-perplexity_from_logits(logits, targets) -> float
-perplexity_report(model, input_ids, turboquant_config, k_start, model_family) -> dict
-```text
-### 2.2 Generation drift (`turboquant.eval.generation_drift`)
+- how far TurboQuant moved from the dense-cache baseline on a teacher-forcing evaluation
+- whether a config change caused a large regression
 
-**What it measures**: KL divergence between dense and TQ token distributions
-at each position.  Unlike perplexity, this does not require ground-truth
-targets — it compares the model's beliefs unconditionally.
+Illustrative local heuristic:
 
-```text
-KL(P_dense || P_tq) = sum_v P_dense(v) * (log P_dense(v) - log P_tq(v))
-```text
-A `mean_kl` below **0.01** nats is an illustrative exploratory heuristic for
-stable generation in small-scale tests. It is not a release or certification
-gate.
+- `delta_ppl < 0.5` is often a useful tuning target, but it is not a certification gate
 
-`benchmarks/runtime_cert/run_quality_eval.py` uses **0.1** as its default
-threshold for this specific drift metric.
+### KL divergence
 
-**API**:
-```python
-logit_kl_divergence(logits_p, logits_q, temperature) -> mx.array  # [T]
-drift_report(model, input_ids, turboquant_config, k_start, temperature, model_family) -> dict
-```text
-### 2.3 Memory (`turboquant.eval.memory`)
+KL divergence compares the dense and compressed token distributions directly.
 
-**What it measures**: total bytes consumed by the KV cache arrays after one
-forward pass.
+What it tells you:
 
-```text
-ratio = dense_cache_bytes / tq_cache_bytes
-```text
-A ratio of ~**3.7×** is an illustrative exploratory figure for 3-bit K + 4-bit V
-at `group_size=64`. This is derived from analytic memory footprints and
-confirmed in small synthetic runs on Apple Silicon; it is not a certified
-production claim.
+- whether the compressed path is producing materially different logits
+- whether a change caused obvious distributional drift even when perplexity stays acceptable
 
-**API**:
-```python
-peak_memory_bytes(cache_list) -> int
-memory_report(model, input_ids, turboquant_config, k_start, model_family) -> dict
-```text
----
+Illustrative local heuristic:
 
-## 3. Benchmarks
+- `mean_kl < 0.01` is a useful small-scale tuning target, but it is not a certification gate
 
-The `benchmarks/` directory contains standalone scripts that measure
-performance without a full model:
+### Memory ratio
 
-| script | what it measures |
-|---|---|
-| `bench_memory_footprint.py` | bytes per token across bit-widths and sequence lengths |
-| `bench_dense_vs_turboquant.py` | encode latency + memory vs dense KVCache |
-| `bench_decode_streaming.py` | streaming attention throughput vs full-materialise |
+Memory ratio compares dense-cache bytes to TurboQuant-cache bytes.
 
-Run any benchmark with:
-```bash
-python benchmarks/<script>.py
-```text
----
+What it tells you:
 
-## 4. Recommended local evaluation workflow
+- whether your config is actually reducing memory on the workload you care about
+- whether value quantization is enabled as expected
 
-1. **Sanity-check memory** with `bench_memory_footprint.py` — verify ratio
-   roughly matches theory for your head_dim and bit-width.
-2. **Check generation drift** with `drift_report` on a short held-out
-   sequence.  `mean_kl < 0.01` is a useful informal heuristic.
-3. **Measure perplexity delta** on your target corpus.  `delta_ppl < 0.5`
-   is an exploratory tuning target, not a certification threshold.
-4. **Profile latency** with `bench_decode_streaming.py` to verify the
-   streaming attention path is acceptable for your local workload.
+Treat analytic bit-accounting values and measured cache-byte totals as separate pieces of evidence.
 
----
+## Recommended local workflow
 
-## 5. Interpreting exploratory results
+1. Start with `TurboQuantConfig.from_preset("paper_prod")` for the production-style path.
+2. Measure memory reduction with `memory_report(...)`.
+3. Check drift with `drift_report(...)` on a short held-out sequence.
+4. Check perplexity delta with `perplexity_report(...)`.
+5. If you need a batch-quality reference, compare against `paper_mse`.
 
-These ranges are informal or illustrative tuning heuristics from small-scale
-runs, not certified thresholds.
+## Interpreting exploratory results
 
-| metric | informal range | action if outside range |
+| Metric | Useful local heuristic | Typical response if worse |
 |---|---|---|
-| `delta_ppl` | < 0.5 | increase `k_bits` or `group_size` |
-| `mean_kl` | < 0.01 | increase `k_bits` or disable `residual_topk=0` → `residual_topk=2` |
-| memory ratio | > 3× at T ≥ 512 | expected; if lower, check `v_enabled` |
-| encode overhead | < 2× dense | if higher, check `rotation` ("identity" is fastest) |
+| `delta_ppl` | `< 0.5` | raise `k_bits`, raise `v_bits`, or compare `paper_prod` against `paper_mse` |
+| `mean_kl` | `< 0.01` | raise `k_bits`, increase `qjl_proj_dim`, or switch to `paper_mse` for diagnosis |
+| memory ratio | `> 3x` at longer contexts | verify `v_enabled`, check value bit-widths, and inspect measured cache bytes |
+
+These are exploratory heuristics only. They are not certification gates.
+
+## How this differs from runtime certification
+
+The current runtime certification workflow uses a batch teacher-forcing quality guardrail for the Llama scope.
+That guardrail:
+
+- uses `paper_mse`
+- is intended to catch catastrophic regressions
+- is not a general streaming-quality promise for every supported family
+
+For release-facing evidence, rely on the certification artifacts and manifest rather than this document.

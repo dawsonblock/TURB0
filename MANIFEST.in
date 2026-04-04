@@ -1,5 +1,6 @@
 include README.md
 include LICENSE
+include turboquant/contract.json
 recursive-include mlx_lm py.typed
 recursive-include docs *.md
 

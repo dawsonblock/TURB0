@@ -62,6 +62,7 @@ exclude = ["tests*", "benchmarks*"]
 
 [tool.setuptools.package-data]
 mlx_lm = ["py.typed"]
+turboquant = ["contract.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

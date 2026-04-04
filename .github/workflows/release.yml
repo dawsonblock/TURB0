@@ -125,6 +125,9 @@ jobs:
           import json
           from pathlib import Path
 
+          repo_contract_path = Path("turboquant/contract.json")
+          repo_contract = json.loads(repo_contract_path.read_text(encoding="utf-8"))
+
           manifests = sorted(Path("artifacts/runtime-cert").glob("*/cert_manifest.json"))
           if len(manifests) != 1:
               raise SystemExit(
@@ -132,8 +135,18 @@ jobs:
                   f"found {len(manifests)}"
               )
 
+          contracts = sorted(Path("artifacts/runtime-cert").glob("*/contract.json"))
+          if len(contracts) != 1:
+              raise SystemExit(
+                  "expected exactly one contract.json under artifacts/runtime-cert/, "
+                  f"found {len(contracts)}"
+              )
+
           manifest_path = manifests[0]
           manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          contract_path = contracts[0]
+          contract = json.loads(contract_path.read_text(encoding="utf-8"))
+          artifact_dir = Path(manifest["artifact_dir"])
           if manifest.get("result") != "PASS":
               raise SystemExit(
                   f"certification manifest result must be PASS, got {manifest.get('result')!r}"
@@ -148,8 +161,24 @@ jobs:
                   "release certification manifest must include both 'llama' and 'gemma' in scope, "
                   f"got {sorted(families)!r}"
               )
+          if contract != repo_contract:
+              raise SystemExit(
+                  f"artifact contract {contract_path} does not match repo contract {repo_contract_path}"
+              )
+
+          missing = [
+              name
+              for name in repo_contract["canonical_runtime"]["required_release_artifacts"]
+              if not (artifact_dir / name).exists()
+          ]
+          if missing:
+              raise SystemExit(
+                  "release certification artifact directory is missing required files: "
+                  + ", ".join(missing)
+              )
 
           print(f"Validated certification manifest: {manifest_path}")
+          print(f"Validated contract snapshot: {contract_path}")
           PY
 
   publish:
