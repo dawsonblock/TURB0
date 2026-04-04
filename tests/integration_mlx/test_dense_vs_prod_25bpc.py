@@ -95,7 +95,7 @@ def test_dense_vs_prod_25bpc(tmp_path):
 
     delta_ppls = []
     for text in _SAMPLE_PROMPTS:
-        tok_ids = list(getattr(tokenizer, "encode")(text))[: _MAX_TOKENS + 1]
+        tok_ids = tokenizer.encode(text)[: _MAX_TOKENS + 1]
         if len(tok_ids) < 4:
             continue
         input_ids = mx.array(tok_ids)[None]   # [1, T]
