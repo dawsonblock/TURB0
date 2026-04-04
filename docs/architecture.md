@@ -136,5 +136,5 @@ The support claim remains narrow:
 - `block_tokens` remains public only for compatibility; it is not a live tuning
   lever in the current attention dispatch path.
 - Real runtime validation still requires Apple Silicon hardware plus
-  artifact-backed local runs.
+  retained local evidence directories or published workflow artifacts.
 

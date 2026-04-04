@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "generated_docs": [
+    "docs/product_contract.md",
+    "docs/support_matrix.md",
+    "docs/supported-surface.md"
+  ],
+  "canonical_runtime": {
+    "entrypoint": "upgrade_cache_list",
+    "platform": "darwin-arm64",
+    "hardware": [
+      "Apple Silicon"
+    ],
+    "python": {
+      "min": "3.9",
+      "max": "3.11",
+      "recommended": "3.11"
+    },
+    "mlx": {
+      "min": "0.30.0",
+      "max_exclusive": "1.0.0"
+    },
+    "source_archive_evidence_rule": "Source archives document the certification workflow but do not prove a current PASS unless they are accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.",
+    "benchmark_publication_rule": "Primary docs may publish benchmark numbers only when each published number maps to an addressable evidence bundle or manifest digest plus exact commit, model ids, MLX version, hardware, script, and invocation arguments.",
+    "artifact_provenance_fields": [
+      "artifact_uri_or_manifest_digest",
+      "git_commit",
+      "model_ids",
+      "mlx_version",
+      "hardware",
+      "script",
+      "args"
+    ],
+    "required_release_artifacts": [
+      "contract.json",
+      "cert_manifest.json",
+      "preflight.json",
+      "junit_cache_roundtrip.xml",
+      "junit_attention_equiv.xml",
+      "junit_llama_smoke.xml",
+      "junit_gemma_smoke.xml",
+      "junit_long_context.xml",
+      "aggregate_runs.csv",
+      "certification_summary.json"
+    ]
+  },
+  "families": [
+    {
+      "name": "llama",
+      "display_name": "Llama",
+      "status": "allowlisted",
+      "evidence_depth": "stronger",
+      "workflow_story": "The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Llama.",
+      "coverage": [
+        "real-model smoke",
+        "batch quality guardrail",
+        "long-context stability",
+        "dense-vs-TurboQuant benchmark sweeps"
+      ],
+      "notes": "Source archives alone do not prove a current PASS for Llama; use an addressable evidence bundle or pinned manifest digest."
+    },
+    {
+      "name": "gemma",
+      "display_name": "Gemma",
+      "status": "allowlisted",
+      "evidence_depth": "narrower",
+      "workflow_story": "The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Gemma.",
+      "coverage": [
+        "real-model smoke",
+        "dense-vs-TurboQuant benchmark sweeps"
+      ],
+      "notes": "Gemma coverage is narrower than Llama because the batch quality guardrail remains Llama-scoped; source archives alone do not prove a current PASS."
+    }
+  ],
+  "presets": [
+    {
+      "name": "paper_mse",
+      "display_name": "paper_mse",
+      "algorithm": "paper_mse",
+      "algorithm_aliases": [
+        "turboquant_mse"
+      ],
+      "k_bits": 3,
+      "k_group_size": 64,
+      "v_bits": 4,
+      "v_group_size": 64,
+      "residual_kind": "none",
+      "paper_facing": true,
+      "notes": "Paper-facing MSE stage."
+    },
+    {
+      "name": "paper_prod",
+      "display_name": "paper_prod (preset alias)",
+      "algorithm": "paper_prod_qjl",
+      "algorithm_aliases": [
+        "paper_prod_qjl",
+        "turboquant_prod"
+      ],
+      "k_bits": 3,
+      "k_group_size": 64,
+      "v_bits": 4,
+      "v_group_size": 64,
+      "residual_kind": "qjl",
+      "qjl_dim": 64,
+      "paper_facing": true,
+      "notes": "Paper-facing production-style preset using a 1-bit QJL residual."
+    },
+    {
+      "name": "high_compression",
+      "display_name": "high_compression (legacy alias)",
+      "algorithm": "paper_prod_qjl",
+      "algorithm_aliases": [
+        "paper_prod_qjl",
+        "turboquant_prod"
+      ],
+      "k_bits": 3,
+      "k_group_size": 64,
+      "v_bits": 4,
+      "v_group_size": 64,
+      "residual_kind": "qjl",
+      "qjl_dim": 64,
+      "paper_facing": false,
+      "notes": "Legacy convenience alias for the QJL production-style preset."
+    },
+    {
+      "name": "balanced",
+      "display_name": "balanced (legacy)",
+      "algorithm": "legacy_topk",
+      "k_bits": 4,
+      "k_group_size": 32,
+      "v_bits": 4,
+      "v_group_size": 32,
+      "residual_kind": "topk",
+      "residual_topk": 2,
+      "paper_facing": false,
+      "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract."
+    },
+    {
+      "name": "max_quality",
+      "display_name": "max_quality (legacy)",
+      "algorithm": "legacy_topk",
+      "k_bits": 4,
+      "k_group_size": 16,
+      "v_bits": 8,
+      "v_group_size": 16,
+      "residual_kind": "topk",
+      "residual_topk": 4,
+      "paper_facing": false,
+      "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract."
+    }
+  ],
+  "secondary_surfaces": [
+    {
+      "path": "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache",
+      "status": "internal",
+      "gate": "bypasses the model-family allowlist",
+      "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
+    },
+    {
+      "path": "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache",
+      "status": "compatibility shim",
+      "gate": "bypasses the model-family allowlist",
+      "preferred": "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache"
+    },
+    {
+      "path": "mlx_lm.models.cache.KVCache._to_turboquant()",
+      "status": "private compatibility helper",
+      "gate": "bypasses the model-family allowlist",
+      "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
+    },
+    {
+      "path": "mlx_lm.models.cache.KVCache.to_turboquant()",
+      "status": "deprecated public alias",
+      "gate": "bypasses the model-family allowlist",
+      "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
+    },
+    {
+      "path": "turboquant.eval.compare._collect_logits_compressed()",
+      "status": "internal eval helper",
+      "gate": "constructs TurboQuantKCache directly for comparison harnesses",
+      "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
+    }
+  ],
+  "deviations": [
+    {
+      "title": "Non-power-of-two Hadamard handling",
+      "description": "The implementation uses an exact Hadamard transform only for power-of-two head dimensions and a deterministic orthogonal fallback otherwise."
+    },
+    {
+      "title": "Legacy compatibility knobs",
+      "description": "Legacy aliases, residual_topk, and block_tokens remain for compatibility, but they are not part of the paper-facing preset contract."
+    },
+    {
+      "title": "Vendored tree wider than support boundary",
+      "description": "The vendored mlx_lm tree contains many model files, but only the allowlisted families in this contract are supported by the canonical upgrade path."
+    },
+    {
+      "title": "Experimental branches outside paper-facing presets",
+      "description": "legacy_topk and polarquant_exp remain implementation-specific branches and are not part of the paper-facing preset story."
+    }
+  ]
+}

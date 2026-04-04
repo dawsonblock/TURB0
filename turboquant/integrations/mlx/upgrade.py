@@ -138,7 +138,7 @@ def upgrade_cache_list(
 
     # Lazy import to avoid circular deps and to keep this module importable
     # even if turboquant or mlx_lm is not fully initialised.
-    from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
+    from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache
 
     events: list[CacheUpgradeEvent] = []
 

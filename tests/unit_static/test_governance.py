@@ -17,9 +17,10 @@ Contract coverage
    have been moved to ``tests/integration_mlx/``.
 
 3. ``support_module_has_expected_families`` — ``SUPPORTED_FAMILIES`` in
-   ``turboquant/runtime/support.py`` contains exactly ``{"llama", "gemma"}``.
-   Any addition to this set must be deliberate and come with runtime-cert
-   coverage; if it silently changes, this test will catch it.
+    ``turboquant/runtime/support.py`` must match the allowlisted families in
+    ``turboquant/contract.json``. Any addition to this set must
+    be deliberate and come with runtime-cert coverage; if it silently changes,
+    this test will catch it.
 
 4. ``unsupported_family_raises_unsupported_model_error`` — calling
    ``assert_supported_model_family`` with an unlisted family must raise
@@ -61,6 +62,7 @@ Contract coverage
 from __future__ import annotations
 
 import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -133,31 +135,38 @@ def test_noxfile_excludes_unit_from_mlx_session() -> None:
 
 
 def test_support_module_has_expected_families() -> None:
-    """SUPPORTED_FAMILIES must be exactly {llama, gemma} — no silent additions."""
-    support_py = REPO_ROOT / "turboquant" / "runtime" / "support.py"
-    assert support_py.exists(), (
-        "turboquant/runtime/support.py not found; create it as part of Phase 3."
+    """SUPPORTED_FAMILIES must match the allowlisted families in the contract JSON."""
+    contract_json = REPO_ROOT / "turboquant" / "contract.json"
+    assert contract_json.exists(), "turboquant/contract.json not found"
+
+    contract = json.loads(contract_json.read_text(encoding="utf-8"))
+    expected = {
+        family["name"]
+        for family in contract["families"]
+        if family["status"] == "allowlisted"
+    }
+    assert expected == {"llama", "gemma"}, (
+        "The machine-readable contract should currently allowlist only llama and gemma."
     )
 
-    text = support_py.read_text(encoding="utf-8")
-    # Locate the frozenset literal via regex — avoids importing the module.
-    m = re.search(
-        r'SUPPORTED_FAMILIES\s*:\s*[^=]+=\s*frozenset\(\{([^}]+)\}\)', text
-    )
-    assert m is not None, (
-        "Could not parse SUPPORTED_FAMILIES frozenset literal in support.py"
-    )
-    raw = m.group(1)
-    # Extract quoted strings from the match.
-    families = {s.strip().strip("\"'") for s in raw.split(",") if s.strip()}
-    expected = {"llama", "gemma"}
-    assert families == expected, (
-        f"SUPPORTED_FAMILIES mismatch.\n"
-        f"  Expected : {sorted(expected)}\n"
-        f"  Got      : {sorted(families)}\n"
-        "If you are adding a new family, update this test too — but only "
-        "after completing the runtime-cert checklist in docs/support_matrix.md."
-    )
+    repo_str = str(REPO_ROOT)
+    injected = repo_str not in sys.path
+    if injected:
+        sys.path.insert(0, repo_str)
+    try:
+        from turboquant.runtime.support import SUPPORTED_FAMILIES
+
+        assert set(SUPPORTED_FAMILIES) == expected, (
+            f"SUPPORTED_FAMILIES mismatch.\n"
+            f"  Expected : {sorted(expected)}\n"
+            f"  Got      : {sorted(SUPPORTED_FAMILIES)}\n"
+            "If you are adding a new family, update the contract JSON and runtime-cert coverage together."
+        )
+    except ModuleNotFoundError as exc:
+        pytest.skip(f"turboquant package not importable in this env: {exc}")
+    finally:
+        if injected:
+            sys.path.remove(repo_str)
 
 
 # ---------------------------------------------------------------------------

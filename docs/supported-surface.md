@@ -1,74 +1,61 @@
+<!-- Generated from turboquant/contract.json by scripts/render_support_contract.py. Do not edit by hand. -->
 # Supported surface
 
-TurboQuant is an experimental KV-cache compression package for Apple-Silicon MLX inference. The supported runtime path is local Apple-Silicon validation for allowlisted Llama-family and Gemma-family models. The canonical upgrade entry point is `upgrade_cache_list(...)` inside the `mlx_lm` generation flow. Custom Metal kernels are experimental and not part of the default supported runtime.
-
-This repository does **not** claim broad `mlx_lm` model coverage. The codebase vendors a large upstream tree, but vendoring upstream code is not support. The TurboQuant-specific attention path is only wired and discussed for a narrow slice.
+TurboQuant's supported surface is generated from `turboquant/contract.json`.
+Source archives document the certification workflow but do not prove a current PASS unless they are accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.
 
 ## Supported slice
 
-What this repository can honestly claim to support:
-
-- Apple Silicon Macs
-- Python 3.9+
-- MLX runtime installed locally
-- Research and local evaluation workflows
-- TurboQuant core package: `turboquant/*`
-- `mlx_lm` cache-upgrade path via `upgrade_cache_list(...)` for allowlisted families only
-- `KVCompressor` as a compatibility alias for `TurboQuantKVCache`
-- Llama-family integration path (`llama` allowlist)
-- Gemma-family integration path (`gemma` allowlist)
+- darwin-arm64 on Apple Silicon
+- Python 3.9 through 3.11 (recommended 3.11)
+- MLX >= 0.30.0 and < 1.0.0
+- Canonical runtime entry point: `upgrade_cache_list(...)`
+- Research and local evaluation workflows only
 
 ## Model Support Matrix
 
-| Model Architecture | Explicit Integration Tested | Support Status | Notes |
+| Model family | Support status | Evidence depth | Notes |
 | :--- | :--- | :--- | :--- |
-| Llama | Yes | **Artifact-backed Apple-arm64 PASS** | PASS evidence is generated under `artifacts/runtime-cert/<timestamp>/` and may be uploaded as workflow artifacts or release evidence bundles; current coverage includes real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweeps on the canonical path. |
-| Gemma | Yes | **Artifact-backed Apple-arm64 PASS** | PASS evidence is generated under `artifacts/runtime-cert/<timestamp>/` and may be uploaded as workflow artifacts or release evidence bundles; current coverage includes real-model smoke and dense-vs-TQ benchmark sweeps on the canonical path. The current batch quality guardrail remains Llama-scoped. |
-| Qwen | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
-| Mistral | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
-| Phi | No | Unsupported | Provided via upstream sync only. |
-| &lt;All Others&gt; | No | Unsupported | Rejected by `upgrade_cache_list`; vendored for structural scaffolding. |
+| Llama | Allowlisted | stronger | The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Llama. Source archives alone do not prove a current PASS for Llama; use an addressable evidence bundle or pinned manifest digest. |
+| Gemma | Allowlisted | narrower | The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Gemma. Gemma coverage is narrower than Llama because the batch quality guardrail remains Llama-scoped; source archives alone do not prove a current PASS. |
 
 ## Secondary surfaces
 
-These exist in the repo but are not the supported public runtime entry points:
+These surfaces exist, but they are not peer public runtime entry points:
 
-- Direct `TurboQuantKCache(...)` construction for eval and compatibility helpers
-- Deprecated `KVCache.to_turboquant()` compatibility helper that bypasses the model-family support gate
-- Legacy `maybe_turboquant_attention(...)` helper paths outside the main `base.py` SDPA type-guard
-- `turboquant.runtime.events.EventLog` JSONL persistence for certification artifacts
+| Surface | Status | Why it is secondary | Preferred path |
+| :--- | :--- | :--- | :--- |
+| `turboquant.integrations.mlx._cache_adapter.TurboQuantKCache` | internal | bypasses the model-family allowlist | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
+| `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache` | compatibility shim | bypasses the model-family allowlist | `turboquant.integrations.mlx._cache_adapter.TurboQuantKCache` |
+| `mlx_lm.models.cache.KVCache._to_turboquant()` | private compatibility helper | bypasses the model-family allowlist | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
+| `mlx_lm.models.cache.KVCache.to_turboquant()` | deprecated public alias | bypasses the model-family allowlist | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
+| `turboquant.eval.compare._collect_logits_compressed()` | internal eval helper | constructs TurboQuantKCache directly for comparison harnesses | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
 
-`upgrade_cache_list(...)` returns lightweight runtime upgrade events, but the canonical decode path does not automatically persist `events.jsonl`. Persistence remains an explicit certification workflow.
+## Release evidence contract
 
-If a benchmark or certification flow wants persisted JSONL artifacts, it must
-explicitly convert those runtime upgrade decisions into an `EventLog` and flush
-them through the persistence layer.
+A release claim is only addressable when the workflow publishes or references:
 
-## Not claimed
+- `contract.json`
+- `cert_manifest.json`
+- `preflight.json`
+- `junit_cache_roundtrip.xml`
+- `junit_attention_equiv.xml`
+- `junit_llama_smoke.xml`
+- `junit_gemma_smoke.xml`
+- `junit_long_context.xml`
+- `aggregate_runs.csv`
+- `certification_summary.json`
 
-What is **not** claimed by the current repository state:
+## Benchmark publication rule
 
-- Public CI runtime certification of MLX-backed generation
-- Production SLOs
-- Broad compatibility across every model in the vendored `mlx_lm/models/` tree
-- Fused Metal kernels for encoding or decoding (Metal kernel integration remains experimental and is not the default supported path)
-- Large-scale perplexity validation
-- Generic Linux or Windows runtime support
-- Production readiness
+Primary docs may publish benchmark numbers only when each published number maps to an addressable evidence bundle or manifest digest plus exact commit, model ids, MLX version, hardware, script, and invocation arguments.
 
-## Validation boundary
+Required provenance fields:
 
-Two validation layers exist:
-
-1. **Public static checks**
-   - packaging metadata
-   - source-tree integrity
-   - syntax compilation
-2. **Local Apple Silicon checks**
-   - MLX install
-   - unit and integration tests
-   - structural proof tests (`make test-structural`, `make test-path-proof`)
-   - model smoke runs (`make test-smoke-llama`, `make test-smoke-gemma`, `make test-long-context`)
-   - manual memory and latency comparison
-
-Use `scripts/preflight.py` for the first layer and `scripts/validate_apple_silicon.sh` for the second.
+- `artifact_uri_or_manifest_digest`
+- `git_commit`
+- `model_ids`
+- `mlx_version`
+- `hardware`
+- `script`
+- `args`

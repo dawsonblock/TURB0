@@ -1,217 +1,135 @@
 # Runtime Certification
 
-> **STATUS: ARTIFACT-BACKED PASS MANIFESTS EXIST FOR BOTH ALLOWLISTED FAMILIES.**
-> Apple-arm64 PASS manifests now exist for `llama`, `gemma`, and a combined-family
-> release-equivalent run.
-> These manifests are generated under `artifacts/runtime-cert/<timestamp>/` and may
-> be uploaded as workflow artifacts or packaged into a release evidence bundle.
-> Source archives document the certification contract, but they do not embed those
-> generated artifact directories.
-> The Llama artifact covers real-model smoke, batch quality guardrail,
-> long-context stability, and dense-vs-TQ benchmark sweeps on the canonical path.
-> The Gemma artifact covers real-model smoke and dense-vs-TQ benchmark sweeps on the
-> canonical path; the current batch quality guardrail remains Llama-scoped.
-> Release must stay blocked unless a tagged run produces an equivalent PASS
-> `cert_manifest.json`.
+This document defines the narrow Apple-Silicon MLX certification workflow for TurboQuant.
+It describes how a release workflow is expected to produce evidence. It does not claim that a
+source archive alone proves a current PASS.
 
-## Purpose
+## Current contract
 
-This document describes the **narrow** Apple-Silicon MLX runtime
-certification surface for TurboQuant v0.2.2.
+- Supported platform: `darwin-arm64` on Apple Silicon.
+- Supported Python range: 3.9 through 3.11, with 3.11 recommended.
+- Supported MLX range: `>= 0.30.0` and `< 1.0.0`.
+- Canonical runtime path: `upgrade_cache_list(...)` inside the `mlx_lm` decode flow.
+- Supported families: `llama` and `gemma`.
+- Evidence depth is asymmetric: Llama is stronger; Gemma is narrower because the current batch quality guardrail remains Llama-scoped.
 
-Passing this certification means **only**:
+The machine-readable source of truth is `turboquant/contract.json`.
 
-> The TurboQuant compressed KV-cache path works for the supported
-> Apple-MLX runtime on selected Llama-family and Gemma-family models,
-> with reproducible artifacts, bounded quality loss, and measurable
-> memory benefit.
+## What certification does and does not mean
 
-It does **not** certify production readiness, cross-platform support,
-all model families, custom Metal kernels, or distributed inference.
+Passing this workflow means only that the narrow Apple-Silicon MLX runtime path works for the
+allowlisted families with generated evidence describing the run.
 
----
+It does not certify:
 
-## Supported certification surface
+- production readiness
+- Linux or Windows
+- CUDA or ROCm
+- the full vendored `mlx_lm` tree
+- custom Metal kernels
+- distributed inference
+- training or fine-tuning
 
-| Dimension         | Value                                    |
-| ----------------- | ---------------------------------------- |
-| Hardware          | Apple Silicon Mac (arm64)                |
-| OS                | macOS (version recorded per run)         |
-| Python            | 3.11 recommended; 3.9–3.11 supported. The certification script bootstrap prefers `python3.11`, then `python3.10`, then `python3.9`. |
-| MLX               | ≥ 0.30.0 (exact version recorded)       |
-| TurboQuant        | 0.2.2 (commit hash recorded)            |
-| Llama model       | set via `TQ_TEST_LLAMA_MODEL` env var    |
-| Gemma model       | set via `TQ_TEST_GEMMA_MODEL` env var    |
-| Modes             | dense baseline, TurboQuant enabled       |
-| Prompt classes    | short (5), medium (5), long (5)          |
+## Interpreter bootstrap
 
-## Unsupported surface
+`./scripts/certify_apple_runtime.sh` prefers `python3.11`, then `python3.10`, then `python3.9`,
+and only then falls back to `python3`.
 
-- Linux / Windows
-- CUDA / ROCm
-- General-purpose mlx_lm compatibility
-- All model families
-- Custom Metal kernel runtime
-- Production readiness
-- Distributed inference
-- Training / fine-tuning
+If you run the script inside an existing environment, keep that environment on Python 3.9-3.11.
 
----
-
-## Required environment
-
-```text
-macOS on Apple Silicon (M1/M2/M3/M4)
-Python 3.11 (recommended; 3.9–3.11 supported)
-A clean virtual environment
-pip install -e '.[apple,test]'
-```
-
-If `./scripts/certify_apple_runtime.sh` bootstraps its own environment, it
-prefers `python3.11`, then `python3.10`, then `python3.9`. If you run the
-script inside an existing environment, keep that environment on Python 3.9–3.11.
-
-## Environment variables
+## Environment
 
 ```bash
 export TQ_TEST_LLAMA_MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"
 export TQ_TEST_GEMMA_MODEL="mlx-community/gemma-2-2b-it-4bit"
-```
-
-Use small quantized models to keep certification runs fast.
-
----
-
-## Exact command
-
-```bash
 ./scripts/certify_apple_runtime.sh
 ```
 
-This single command runs the full certification pipeline. Artifacts are
-written to `artifacts/runtime-cert/<timestamp>/`. Release workflows may upload
-that directory as a workflow artifact or bundle it with other release evidence.
+Artifacts are written under `artifacts/runtime-cert/<timestamp>/` during the run. Source archives do not
+embed those generated directories. A release claim is only addressable when the workflow publishes or pins
+that evidence as a workflow artifact, release evidence bundle, or manifest digest.
 
-For tagged releases, the self-hosted Apple job in `release.yml` runs this exact
-command and validates the generated `cert_manifest.json`. PyPI publish stays blocked
-unless that manifest exists and records `result: "PASS"` on `darwin-arm64`.
-Tagged release publish also requires both `llama` and `gemma` to be present in
-`certification_scope.families` for that manifest.
+## Stage layout
 
-Generated local PASS artifacts under `artifacts/runtime-cert/<timestamp>/` are necessary
-evidence, but they are not sufficient to publish a final release tag by themselves. The
-tagged workflow must produce a fresh PASS artifact in the same run. If no runner with labels
-`self-hosted`, `macOS`, and `ARM64` is online, the release should remain queued rather
-than reusing a prior artifact or bypassing the Apple gate.
+The certification script runs the following stages:
 
-`cert_manifest.json` records `certification_scope.families` for the real-model families
-selected in that run. A PASS can therefore be family-scoped while certification widens
-(for example, `llama` first), but at least one real-model family must be in scope and
-every in-scope stage must pass. Unselected family stages are recorded as out of scope,
-not as skipped certification failures.
+1. Strict preflight
+2. Cache upgrade roundtrip
+3. Streaming attention equivalence
+4. Llama smoke test
+5. Gemma smoke test
+6. Llama batch quality guardrail for short and medium prompts
+7. Long-context stability
+8. Dense-vs-TurboQuant benchmark sweeps
+9. Metric aggregation
+10. Contract snapshot (`contract.json`)
 
-## Current PASS evidence shape
+`contract.json` is written into the artifact directory so the evidence bundle carries both the
+run result and the exact contract the run was meant to satisfy.
 
-- Family-scoped and combined-family PASS runs are generated under `artifacts/runtime-cert/<timestamp>/`.
-- `certification_scope.families=["llama"]` evidence covers real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweeps on the canonical path.
-- `certification_scope.families=["gemma"]` evidence covers real-model smoke and dense-vs-TQ benchmark sweeps on the canonical path. The current batch quality guardrail remains Llama-scoped.
-- Combined-family PASS evidence covers both `llama` and `gemma` in one manifest and is the shape required by tagged publish.
+## Required release evidence
 
----
+The generated evidence directory is expected to contain at least:
 
-## Certification stages
+- `contract.json`
+- `cert_manifest.json`
+- `preflight.json`
+- `junit_cache_roundtrip.xml`
+- `junit_attention_equiv.xml`
+- `junit_llama_smoke.xml`
+- `junit_gemma_smoke.xml`
+- `junit_long_context.xml`
+- `aggregate_runs.csv`
+- `certification_summary.json`
 
-| # | Stage                          | Tool                                                      |
-| - | ------------------------------ | --------------------------------------------------------- |
-| 1 | Strict preflight               | `python scripts/preflight.py --strict --json`             |
-| 2 | Cache upgrade roundtrip        | `pytest tests/integration_mlx/test_cache_upgrade_roundtrip.py` |
-| 3 | Streaming attention equivalence | `pytest tests/integration_mlx/test_streaming_attention_equivalence.py` |
-| 4 | Llama smoke test               | `pytest tests/integration_mlx/test_llama_runtime_smoke.py` |
-| 5 | Gemma smoke test               | `pytest tests/integration_mlx/test_gemma_runtime_smoke.py` |
-| 6 | Long-context stability         | `pytest tests/integration_mlx/test_long_context_stability.py` |
-| 7 | Quality evaluation             | `run_quality_eval.py` (short + medium, Llama)            |
-| 8 | Dense vs TQ benchmarks         | `run_dense_vs_tq.py` × 3 prompt classes × 2 models       |
-| 9 | Metric aggregation             | `collect_metrics.py`                                      |
+Optional persistence outputs may also exist:
 
----
+- `events.jsonl` when a helper explicitly records runtime events through `EventLog`
+- per-run benchmark JSON files such as `*_dense.json` and `*_turboquant.json`
 
-## Artifacts produced
+The canonical decode path does not automatically persist `events.jsonl`; event persistence remains an
+explicit certification or instrumentation surface.
 
-After a full run, `artifacts/runtime-cert/<timestamp>/` contains:
+## Manifest semantics
 
-| File                             | Description                                |
-| -------------------------------- | ------------------------------------------ |
-| `cert_manifest.json`             | Machine-readable PASS/FAIL manifest used by the release gate |
-| `preflight.json`                 | Machine-readable preflight result          |
-| `junit_cache_roundtrip.xml`      | Cache roundtrip test results               |
-| `junit_attention_equiv.xml`      | Attention equivalence test results         |
-| `junit_llama_smoke.xml`          | Llama smoke test results                   |
-| `junit_gemma_smoke.xml`          | Gemma smoke test results                   |
-| `junit_long_context.xml`         | Long-context stability test results        |
-| `*_dense.json`                   | Raw per-run dense benchmark results        |
-| `*_turboquant.json`              | Raw per-run TurboQuant benchmark results   |
-| `events.jsonl`                   | Optional persisted upgrade/failure events when a certification helper explicitly records them |
-| `aggregate_runs.csv`             | All runs in tabular form                   |
-| `certification_summary.json`     | Pass/fail rollup with memory/speed deltas  |
+`cert_manifest.json` is the machine-readable pass or fail record for a run.
 
----
+Important fields:
 
-## Thresholds and pass/fail rules
+- `result`
+- `platform`
+- `certification_scope.families`
+- stage counts and failure counts
 
-A certification run **passes** only if all of the following are true:
+The manifest is family-scoped. A run may be valid for only `llama`, only `gemma`, or both, depending on which
+real-model families were in scope. Final release publication is stricter: the tagged workflow must validate a PASS
+manifest that includes both `llama` and `gemma` in `certification_scope.families`.
 
-### Scope
+## Quality-stage interpretation
 
-- At least one real-model family is selected in `certification_scope.families`
-- Unselected family stages remain out of scope; they do not count as PASS, but they do not invalidate a family-scoped artifact either
-- Tagged release publish requires both allowlisted families in `certification_scope.families`
+The quality stage is a batch teacher-forcing guardrail, not a streaming-certification claim.
 
-### Structural
+- It currently runs only on the Llama scope.
+- It uses the `paper_mse` preset rather than the production-style `paper_prod` path.
+- It is designed to catch catastrophic regressions such as KV corruption, NaN propagation, or severe numerical drift.
 
-- Zero cache upgrade failures
-- Zero state restore failures
-- Zero sequence-offset mismatches
+Do not present this stage as proof of streaming decode quality for every supported family.
 
-### Numerical (attention equivalence)
+## Release gate expectations
 
-| Metric                | Threshold            |
-| --------------------- | -------------------- |
-| Cosine similarity     | ≥ 0.960              |
-| Mean absolute error   | ≤ 0.06               |
-| Max absolute error    | ≤ 0.25               |
+For a tagged publish to be technically credible:
 
-Thresholds frozen after pilot run on Apple Silicon (M-series).
-Observed cosine ~0.97 for 3-bit K + 4-bit V with Hadamard rotation.
+- the self-hosted Apple-Silicon workflow must run the certification script in that same workflow
+- the workflow must upload or otherwise reference the generated evidence directory
+- the manifest must record `result: PASS`
+- the manifest must include both allowlisted families for the final release gate
 
-### Runtime
+If the self-hosted `macOS` `ARM64` runner pool is offline, the release should stay blocked rather than reusing a
+previous local artifact or making a manual judgment call.
 
-- Zero crashes on supported models
-- Zero empty generations in smoke tests
-- No silent dense fallback when TurboQuant is requested
+## Related docs
 
-### Quality (batch guardrail, not streaming certification)
-
-- 100% of prompts complete without crash
-- No catastrophic degeneration on any prompt
-- `run_quality_eval.py` uses the `paper_mse` preset for this batch teacher-forcing check
-- Prompts shorter than 32 tokens are skipped for this gate
-- Mean perplexity delta (TQ - dense) ≤ 20.0
-- Mean KL divergence ≤ 5.0
-
-### Performance
-
-- Measurable memory reduction in TurboQuant long-context mode (≥ 25.0%)
-- No evidence of catastrophic decode slowdown (degradation ≤ -99.0%)
-
-The speed gate is intentionally loose because the default certification path is
-the uncompiled Python/MLX streaming implementation. It is a catastrophic-failure
-guard, not a throughput promise.
-
----
-
-## Threshold freeze process
-
-1. Change certification thresholds only when the underlying script or runtime behavior changes.
-2. Update this document and the static contract tests in the same change.
-3. Re-run `./scripts/certify_apple_runtime.sh` and inspect the saved artifacts.
-4. Treat the saved artifacts, not this prose, as the authoritative pass/fail record.
+- [docs/product_contract.md](docs/product_contract.md)
+- [docs/supported-surface.md](docs/supported-surface.md)
+- [docs/support_matrix.md](docs/support_matrix.md)
+- [docs/validation-local.md](docs/validation-local.md)

@@ -13,7 +13,7 @@ from .base import create_causal_mask
 logger = logging.getLogger("turboquant.models.cache")
 
 if TYPE_CHECKING:
-    from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
+    from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache
 
 
 def make_prompt_cache(
@@ -410,7 +410,7 @@ class KVCache(_BaseCache):
             currently used in the attention dispatch path.
         """
         from turboquant.config import TurboQuantConfig
-        from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
+        from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache
 
         warnings.warn(
             "KVCache._to_turboquant() is an internal compatibility helper "
@@ -1294,6 +1294,6 @@ class BatchRotatingKVCache(_BaseCache):
 #
 # This section replaces the former ~700-line standalone TurboQuantKCache
 # implementation with a thin adapter that delegates all compression work to
-# the turboquant.integrations.mlx.cache_adapter.TurboQuantKCache package.
+# the turboquant.integrations.mlx._cache_adapter.TurboQuantKCache package.
 #
 # Public API preserved for backward compatibility:

@@ -389,6 +389,13 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Write contract snapshot
+# ---------------------------------------------------------------------------
+run_stage "Contract Snapshot" \
+    "$PYTHON_BIN" scripts/render_support_contract.py \
+    --artifact-dir "$ARTIFACT_DIR"
+
+# ---------------------------------------------------------------------------
 # Write certification manifest
 # ---------------------------------------------------------------------------
 MANIFEST_PATH="$ARTIFACT_DIR/cert_manifest.json"

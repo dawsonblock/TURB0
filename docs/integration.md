@@ -29,8 +29,7 @@ def scaled_dot_product_attention(queries, keys, values, cache, scale, mask=None,
 This dispatch detail explains how an already-upgraded cache is consumed. It is
 not itself the support contract. The cache upgrade gate (`upgrade_cache_list`)
 separately enforces the model-family allowlist: only `"llama"` and `"gemma"`
-are in the supported set. Routing through `base.py` does not bring a family
-into the supported set.
+are in the supported set. Routing through `base.py` is not the same as being in the supported allowlist.
 
 ---
 
