@@ -39,6 +39,10 @@ Tagged release publish is stricter than local artifact generation: the release w
 run with both `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` set and validate that the
 resulting manifest includes both `llama` and `gemma` in `certification_scope.families`.
 
+If the self-hosted runner pool is offline, the tag must remain blocked in GitHub Actions.
+Do not substitute prior local artifacts, prior workflow artifacts, or a manual judgment call
+for the same-workflow Apple certification job.
+
 That combined-family gate is now demonstrated by the retained local artifact
 `artifacts/runtime-cert/20260404_015658/`.
 
@@ -48,6 +52,7 @@ That combined-family gate is now demonstrated by the retained local artifact
 - At least one Gemma-family smoke run succeeds when Gemma is in scope and `TQ_TEST_GEMMA_MODEL` is set
 - Dense vs TurboQuant artifact outputs are saved under `artifacts/runtime-cert/<timestamp>/`
 - `preflight.json` and all JUnit outputs are present in the certification artifact directory
+- A runner with labels `self-hosted`, `macOS`, and `ARM64` is online before the final release tag is pushed
 
 ## Regression gate
 

@@ -20,6 +20,11 @@ Llama-scoped, and the package is still not production-ready. A retained
 combined release-equivalent PASS manifest now also exists at
 `artifacts/runtime-cert/20260404_015658`.
 
+The release candidate tag `v0.2.2-rc1` has also been pushed to exercise the remote
+GitHub Actions gate. The Ubuntu jobs pass, and the final publish step remains
+correctly blocked until `certify-apple-runtime` runs on an online self-hosted
+`macOS` `ARM64` runner. No final `v0.2.2` tag should be cut until that job succeeds.
+
 ---
 
 ## Changes by phase
@@ -123,6 +128,9 @@ verified but now considered exploratory and removed from primary support list.
 > Tagged release publish must still re-run Apple certification with both
 > `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` in scope.
 
+The current RC tag demonstrates that this gate fails closed: the remote workflow
+will wait for the Apple runner instead of publishing from Ubuntu-only checks.
+
 | Gate | Result |
 |---|---|
 | `python scripts/preflight.py` | ✅ passes |
@@ -134,3 +142,4 @@ verified but now considered exploratory and removed from primary support list.
 | `./scripts/certify_apple_runtime.sh` with both family env vars set | ✅ PASS — `artifacts/runtime-cert/20260404_015658` |
 | Paired generative benchmark artifacts | ✅ Retained in both PASS artifact directories |
 | Dense output == TurboQuant output (correctness) | ✅ Recorded through retained PASS artifacts |
+| Remote tag `v0.2.2-rc1` release workflow | ⏳ Waiting for online `self-hosted` `macOS` `ARM64` runner |

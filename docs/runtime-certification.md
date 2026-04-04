@@ -95,6 +95,12 @@ unless that manifest exists and records `result: "PASS"` on `darwin-arm64`.
 Tagged release publish also requires both `llama` and `gemma` to be present in
 `certification_scope.families` for that manifest.
 
+The retained local PASS artifacts in `artifacts/runtime-cert/` are necessary evidence,
+but they are not sufficient to publish a final release tag by themselves. The tagged
+workflow must produce a fresh PASS artifact in the same run. If no runner with labels
+`self-hosted`, `macOS`, and `ARM64` is online, the release should remain queued rather
+than reusing a prior artifact or bypassing the Apple gate.
+
 `cert_manifest.json` records `certification_scope.families` for the real-model families
 selected in that run. A PASS can therefore be family-scoped while certification widens
 (for example, `llama` first), but at least one real-model family must be in scope and
