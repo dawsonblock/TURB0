@@ -80,10 +80,25 @@ def test_product_contract_consistency():
         "product_contract.md must describe Metal kernels as experimental"
     )
 
-    # Certification must be stated as incomplete / not yet achieved
-    assert any(phrase in content.lower() for phrase in ['not certified', 'uncertified', 'status: not']), (
-        "product_contract.md must state that runtime certification is not yet complete"
+    # Certification must be artifact-backed but still non-production
+    assert 'artifact-backed' in content.lower(), (
+        "product_contract.md must describe the supported families as artifact-backed."
     )
+    assert 'not a production runtime' in content.lower() or 'no production deployment contract' in content.lower(), (
+        "product_contract.md must keep the non-production boundary explicit."
+    )
+
+
+def test_release_facing_docs_reflect_artifact_backed_allowlist() -> None:
+    """Release-facing support docs must describe Llama and Gemma as artifact-backed."""
+    for rel_path in ('README.md', 'docs/support_matrix.md', 'docs/supported-surface.md'):
+        content = _read(rel_path).lower()
+        assert 'artifact-backed' in content, (
+            f"{rel_path} must describe the supported families as artifact-backed."
+        )
+        assert 'wired, uncertified' not in content, (
+            f"{rel_path} must not still describe Llama or Gemma as wired, uncertified."
+        )
 
 
 def test_no_metal_by_default_in_readme():
@@ -378,8 +393,14 @@ def test_runtime_certification_doc_marks_current_cert_story_honestly():
     content = _read('docs/runtime-certification.md')
     lowered = content.lower()
 
-    assert 'no passing full-model certification artifacts have been generated yet' in lowered, (
-        "docs/runtime-certification.md must say there are no passing full-model certification artifacts yet."
+    assert 'retained pass artifacts exist' in lowered or 'pass manifests now exist' in lowered, (
+        "docs/runtime-certification.md must say retained PASS artifacts now exist."
+    )
+    assert 'llama' in lowered and 'gemma' in lowered and 'artifact-backed' in lowered, (
+        "docs/runtime-certification.md must name the artifact-backed Llama and Gemma runs."
+    )
+    assert 'family-scoped' in lowered or 'certification_scope.families' in content, (
+        "docs/runtime-certification.md must explain the family-scoped manifest contract."
     )
     assert 'events.jsonl' in content and 'optional' in lowered, (
         "docs/runtime-certification.md must describe events.jsonl as optional persistence output."

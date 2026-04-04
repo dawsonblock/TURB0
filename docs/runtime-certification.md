@@ -1,14 +1,16 @@
 # Runtime Certification
 
-> **STATUS: INTEGRATION HARNESS EXISTS — FULL CERT REQUIRES APPLE SILICON WITH REAL MODELS.**
-> The integration test suite (cache roundtrip, streaming attention equivalence, long-context
-> stability) passes under TinyModel on Apple Silicon without real model downloads. Direct smoke
-> tests default to TinyModel, but stages 4–5 in the certification script (Llama/Gemma smoke tests)
-> and stages 7–8 (paired generative benchmarks and metric aggregation) require Apple Silicon,
-> a working MLX installation, and the environment variables
-> `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL` set to real model IDs.
-> No passing full-model certification artifacts have been generated yet; this document
-> describes the intended process.
+> **STATUS: RETAINED ARTIFACT-BACKED PASS ARTIFACTS EXIST FOR BOTH ALLOWLISTED FAMILIES.**
+> Apple-arm64 PASS manifests now exist at `artifacts/runtime-cert/20260404_013136`
+> for `llama` and `artifacts/runtime-cert/20260404_013527` for `gemma`.
+> A retained combined release-equivalent PASS manifest also exists at
+> `artifacts/runtime-cert/20260404_015658` with both families in scope.
+> The Llama artifact covers real-model smoke, batch quality guardrail,
+> long-context stability, and dense-vs-TQ benchmark sweeps on the canonical path.
+> The Gemma artifact covers real-model smoke and dense-vs-TQ benchmark sweeps on the
+> canonical path; the current batch quality guardrail remains Llama-scoped.
+> Release must stay blocked unless a tagged run produces an equivalent PASS
+> `cert_manifest.json`.
 
 ## Purpose
 
@@ -87,6 +89,24 @@ Use small quantized models to keep certification runs fast.
 This single command runs the full certification pipeline. Artifacts are
 written to `artifacts/runtime-cert/<timestamp>/`.
 
+For tagged releases, the self-hosted Apple job in `release.yml` runs this exact
+command and validates the generated `cert_manifest.json`. PyPI publish stays blocked
+unless that manifest exists and records `result: "PASS"` on `darwin-arm64`.
+Tagged release publish also requires both `llama` and `gemma` to be present in
+`certification_scope.families` for that manifest.
+
+`cert_manifest.json` records `certification_scope.families` for the real-model families
+selected in that run. A PASS can therefore be family-scoped while certification widens
+(for example, `llama` first), but at least one real-model family must be in scope and
+every in-scope stage must pass. Unselected family stages are recorded as out of scope,
+not as skipped certification failures.
+
+## Current retained PASS artifacts
+
+- `artifacts/runtime-cert/20260404_013136/` — `certification_scope.families=["llama"]`; real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweeps recorded on the canonical path.
+- `artifacts/runtime-cert/20260404_013527/` — `certification_scope.families=["gemma"]`; real-model smoke and dense-vs-TQ benchmark sweeps recorded on the canonical path. The current batch quality guardrail remains Llama-scoped.
+- `artifacts/runtime-cert/20260404_015658/` — `certification_scope.families=["gemma", "llama"]`; retained combined release-equivalent PASS artifact matching the tagged publish workflow requirement.
+
 ---
 
 ## Certification stages
@@ -111,6 +131,7 @@ After a full run, `artifacts/runtime-cert/<timestamp>/` contains:
 
 | File                             | Description                                |
 | -------------------------------- | ------------------------------------------ |
+| `cert_manifest.json`             | Machine-readable PASS/FAIL manifest used by the release gate |
 | `preflight.json`                 | Machine-readable preflight result          |
 | `junit_cache_roundtrip.xml`      | Cache roundtrip test results               |
 | `junit_attention_equiv.xml`      | Attention equivalence test results         |
@@ -128,6 +149,12 @@ After a full run, `artifacts/runtime-cert/<timestamp>/` contains:
 ## Thresholds and pass/fail rules
 
 A certification run **passes** only if all of the following are true:
+
+### Scope
+
+- At least one real-model family is selected in `certification_scope.families`
+- Unselected family stages remain out of scope; they do not count as PASS, but they do not invalidate a family-scoped artifact either
+- Tagged release publish requires both allowlisted families in `certification_scope.families`
 
 ### Structural
 

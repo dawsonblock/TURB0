@@ -22,8 +22,8 @@ What this repository can honestly claim to support:
 
 | Model Architecture | Explicit Integration Tested | Support Status | Notes |
 | :--- | :--- | :--- | :--- |
-| Llama | Yes | **Wired, uncertified** | Smoke test wired; defaults to TinyModel on Apple Silicon, set `TQ_TEST_LLAMA_MODEL` for real-model runs. Runtime certification not yet completed. |
-| Gemma | Yes | **Wired, uncertified** | Smoke test wired; defaults to TinyModel on Apple Silicon, set `TQ_TEST_GEMMA_MODEL` for real-model runs (run Llama first). Runtime certification not yet completed. |
+| Llama | Yes | **Artifact-backed Apple-arm64 PASS** | Retained `artifacts/runtime-cert/20260404_013136`; real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweep recorded on the canonical path. |
+| Gemma | Yes | **Artifact-backed Apple-arm64 PASS** | Retained `artifacts/runtime-cert/20260404_013527`; real-model smoke and dense-vs-TQ benchmark sweep recorded on the canonical path. The current batch quality guardrail remains Llama-scoped. |
 | Qwen | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
 | Mistral | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
 | Phi | No | Unsupported | Provided via upstream sync only. |

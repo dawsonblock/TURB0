@@ -10,7 +10,9 @@ Usage
 -----
     python3 scripts/write_cert_manifest.py \\
         --artifact-dir artifacts/runtime-cert/20241201_120000 \\
-        --passed 7 --failed 0 --skipped 0 --unimplemented 0 --total 7 \\
+        --passed 7 --failed 0 --skipped 0 --unimplemented 0 \
+        --out-of-scope 3 --total 7 \
+        --family llama \
         --turboquant-version 0.2.2
 
 Output
@@ -18,13 +20,17 @@ Output
 Writes ``<artifact-dir>/cert_manifest.json``.  Example structure::
 
     {
-      "schema_version": "2",
+            "schema_version": "3",
       "turboquant_version": "0.2.2",
       "timestamp_utc": "2024-12-01T12:00:00Z",
       "platform": "darwin-arm64",
+            "certification_scope": {
+                "families": ["llama"]
+            },
       "stages": {
         "passed": 7, "failed": 0,
-        "skipped": 0, "unimplemented": 0, "total": 7
+                "skipped": 0, "unimplemented": 0,
+                "out_of_scope": 3, "total": 7
       },
       "result": "PASS",
       "artifact_dir": "artifacts/runtime-cert/20241201_120000",
@@ -32,8 +38,11 @@ Writes ``<artifact-dir>/cert_manifest.json``.  Example structure::
     }
 
 ``result`` is ``"PASS"`` only when ``failed == 0`` AND ``skipped == 0``
-AND ``unimplemented == 0``.  Stages where all tests are marked
-``@pytest.mark.skip`` are counted as *unimplemented* and prevent PASS.
+AND ``unimplemented == 0`` and at least one real-model family is listed in
+``certification_scope``. Stages where all tests are marked
+``@pytest.mark.skip``
+are counted as *unimplemented* and prevent PASS. Out-of-scope stages are
+recorded for provenance but do not count against PASS.
 """
 
 from __future__ import annotations
@@ -87,10 +96,22 @@ def main() -> int:
         help="Number of stages where pytest ran but all tests were @skip.",
     )
     parser.add_argument(
+        "--out-of-scope",
+        type=int,
+        default=0,
+        help="Number of stages excluded from this certification scope.",
+    )
+    parser.add_argument(
         "--total",
         type=int,
         required=True,
         help="Total number of stages attempted.",
+    )
+    parser.add_argument(
+        "--family",
+        action="append",
+        choices=("llama", "gemma"),
+        help="Real-model family included in this certification scope.",
     )
     parser.add_argument(
         "--turboquant-version",
@@ -114,25 +135,36 @@ def main() -> int:
         if p.is_file() and p.name != "cert_manifest.json"
     )
 
+    families = sorted(set(args.family or []))
+
     result = (
         "PASS"
-        if args.failed == 0 and args.skipped == 0 and args.unimplemented == 0
+        if (
+            args.failed == 0
+            and args.skipped == 0
+            and args.unimplemented == 0
+            and bool(families)
+        )
         else "FAIL"
     )
 
     manifest = {
-        "schema_version": "2",
+        "schema_version": "3",
         "turboquant_version": args.turboquant_version,
         "timestamp_utc": datetime.now(tz=timezone.utc).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         ),
         "platform": _platform_tag(),
         "python_version": platform.python_version(),
+        "certification_scope": {
+            "families": families,
+        },
         "stages": {
             "passed": args.passed,
             "failed": args.failed,
             "skipped": args.skipped,
             "unimplemented": args.unimplemented,
+            "out_of_scope": args.out_of_scope,
             "total": args.total,
         },
         "result": result,

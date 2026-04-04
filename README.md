@@ -59,9 +59,13 @@ validation for **Llama-family** and **Gemma-family** models.
 
 All compression runs within the MLX compute graph — no NumPy synchronization in the hot path.
 
-> **Status:** Prototype. Not production-ready. Runtime certification is incomplete. The only
-> supported runtime path is local Apple-Silicon validation for **Llama-family** and
-> **Gemma-family** models through `upgrade_cache_list(...)`. Custom Metal kernels are
+> **Status:** Narrow release candidate. Not production-ready. Artifact-backed Apple-arm64
+> certification now exists for the canonical **Llama-family** and **Gemma-family** runtime
+> paths through `upgrade_cache_list(...)`, with retained PASS manifests at
+> `artifacts/runtime-cert/20260404_013136` and `artifacts/runtime-cert/20260404_013527`.
+> A retained combined release-equivalent PASS manifest also exists at
+> `artifacts/runtime-cert/20260404_015658` with both families in scope.
+> The current batch quality guardrail remains Llama-scoped. Custom Metal kernels are
 > experimental (`TQ_USE_METAL=1`). Other architectures (Qwen, Mistral, Phi, and the rest of the
 > vendored tree) are not supported by the canonical upgrade path. Full surface definition:
 > [docs/supported-surface.md](docs/supported-surface.md).
@@ -627,8 +631,8 @@ python benchmarks/exploratory/bench_k_encode.py            # K-encode micro-benc
 
 | Architecture | Status | Notes |
 |---|:---:|---|
-| **Llama** (Llama 2, Llama 3, TinyLlama) | ⬜ Wired, uncertified | Smoke test wired; defaults to TinyModel, set `TQ_TEST_LLAMA_MODEL` for real-model runs |
-| **Gemma** (Gemma 2) | ⬜ Wired, uncertified | Smoke test wired; defaults to TinyModel, set `TQ_TEST_GEMMA_MODEL` for real-model runs (run Llama first) |
+| **Llama** (Llama 2, Llama 3, TinyLlama) | ✅ Artifact-backed Apple-arm64 PASS | Retained `artifacts/runtime-cert/20260404_013136`; real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweep recorded on the canonical path |
+| **Gemma** (Gemma 2) | ✅ Artifact-backed Apple-arm64 PASS | Retained `artifacts/runtime-cert/20260404_013527`; real-model smoke and dense-vs-TQ benchmark sweep recorded on the canonical path. The current batch quality guardrail remains Llama-scoped |
 | Qwen | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
 | Mistral | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
 | Phi | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
@@ -720,8 +724,8 @@ TurboQuantX1/
 | `TurboQuantKCache` internal mlx\_lm adapter | ✅ 20 / 20 tests |
 | Streaming attention | ✅ `turboquant.runtime.attention` |
 | Centralized SDPA dispatch (`base.py`) | ✅ Attention routing (llama + gemma certified; gate rejects others) |
-| Gemma streaming attention | ⬜ Wired, uncertified |
-| Llama streaming attention | ⬜ Wired, uncertified |
+| Gemma streaming attention | ✅ Artifact-backed Apple-arm64 smoke + benchmark path |
+| Llama streaming attention | ✅ Artifact-backed Apple-arm64 smoke + quality + benchmark path |
 | `upgrade_cache_list` | ✅ Canonical, idempotent |
 | Eval suite (perplexity / KL / memory) | ✅ `turboquant.eval` |
 | Quality gates (Δppl ≤ 0.5, mean\_kl ≤ 0.1) | ✅ `run_quality_eval.py` |

@@ -12,10 +12,13 @@ like Qwen, Mistral, and Phi are exploratory and uncertified.
 
 This pass covers Phases 2–5 of the v0.2.2 release cycle, bringing the
 repository from scaffolding to a fully linted state with static tests
-passing. Runtime certification is **not yet complete** — integration smoke
-tests require real model weights (`TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL`)
-to exercise the memory-backed path. The quality evaluation script
-(`benchmarks/runtime_cert/run_quality_eval.py`) is implemented.
+passing. Narrow Apple-arm64 runtime certification is now artifact-backed for
+the canonical Llama and Gemma paths: `artifacts/runtime-cert/20260404_013136`
+retains the Llama PASS manifest, and `artifacts/runtime-cert/20260404_013527`
+retains the Gemma PASS manifest. The current batch quality guardrail remains
+Llama-scoped, and the package is still not production-ready. A retained
+combined release-equivalent PASS manifest now also exists at
+`artifacts/runtime-cert/20260404_015658`.
 
 ---
 
@@ -49,8 +52,9 @@ to exercise the memory-backed path. The quality evaluation script
 - Smoke tests use a tiny synthetic model by default (no download needed); the
   real-model path requires `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL`.
 - `make test-structural` runs the explicit file list.
-- `./scripts/certify_apple_runtime.sh` fails when required stages are
-  skipped — full cert requires real model weights.
+- `./scripts/certify_apple_runtime.sh` now emits family-scoped PASS manifests.
+- Retained PASS artifacts now exist at `artifacts/runtime-cert/20260404_013136`
+  (Llama) and `artifacts/runtime-cert/20260404_013527` (Gemma).
 
 ### Cleanup — Ruff linting and temp script removal
 - 78 violations resolved (unused imports, whitespace, line length)
@@ -113,12 +117,11 @@ verified but now considered exploratory and removed from primary support list.
 
 ---
 
-## Gating status (HISTORICAL — state at time of Phase 5 scaffolding)
+## Gating status
 
-> **NOTE:** The gates below reflect the state at Phase 5 scaffolding.
-> `make test-structural` now runs an explicit file list (not a name filter).
-> `./scripts/certify_apple_runtime.sh` now fails when required stages are
-> skipped — full cert requires `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL`.
+> **NOTE:** The gates below reflect the current narrow release-candidate state.
+> Tagged release publish must still re-run Apple certification with both
+> `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` in scope.
 
 | Gate | Result |
 |---|---|
@@ -126,6 +129,8 @@ verified but now considered exploratory and removed from primary support list.
 | `python -m build` (sdist + wheel) | ✅ passes |
 | `ruff check .` | ✅ 0 violations |
 | `make test-structural` | ✅ 4 / 4 (explicit file list) |
-| `./scripts/certify_apple_runtime.sh` (no model weights) | ✗ FAILS — required stages unimplemented/skipped |
-| Paired generative benchmark (30 runs) | ⬜ Not reproduced — historical only |
-| Dense output == TurboQuant output (correctness) | ⬜ Not reproduced — historical only |
+| `./scripts/certify_apple_runtime.sh` with `TQ_TEST_LLAMA_MODEL` | ✅ PASS — `artifacts/runtime-cert/20260404_013136` |
+| `./scripts/certify_apple_runtime.sh` with `TQ_TEST_GEMMA_MODEL` | ✅ PASS — `artifacts/runtime-cert/20260404_013527` |
+| `./scripts/certify_apple_runtime.sh` with both family env vars set | ✅ PASS — `artifacts/runtime-cert/20260404_015658` |
+| Paired generative benchmark artifacts | ✅ Retained in both PASS artifact directories |
+| Dense output == TurboQuant output (correctness) | ✅ Recorded through retained PASS artifacts |

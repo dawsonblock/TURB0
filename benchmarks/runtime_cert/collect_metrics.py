@@ -47,10 +47,29 @@ def collect_run_artifacts(input_dir: Path) -> list[dict]:
         if f.name.startswith("aggregate"):
             continue
         try:
-            records.append(read_json(f))
+            record = read_json(f)
         except Exception as exc:
             print(f"  WARN: skipping {f.name}: {exc}")
+            continue
+
+        if not _is_run_record(record):
+            continue
+
+        records.append(record)
     return records
+
+
+def _is_run_record(record: dict) -> bool:
+    """Return True when *record* matches the raw benchmark run schema."""
+    required_fields = {
+        "run_id",
+        "model",
+        "mode",
+        "prompt_id",
+        "prompt_class",
+        "status",
+    }
+    return required_fields.issubset(record)
 
 
 def summarize_metrics(records: list[dict]) -> dict:

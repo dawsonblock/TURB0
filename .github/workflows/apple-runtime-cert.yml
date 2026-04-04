@@ -1,12 +1,13 @@
 # Apple-Silicon runtime certification.
 #
-# Runs on a self-hosted macOS-arm64 runner.  Two tiers:
+# Runs on a self-hosted macOS-arm64 runner. Two tiers:
 #   1. Structural tests (always) — no model weights needed, ~1 s.
-#   2. Model-weight stages (optional) — needs TQ_TEST_LLAMA_MODEL / TQ_TEST_GEMMA_MODEL
-#      secrets.  Skipped gracefully when secrets are absent.
+#   2. Full certification — requires TQ_TEST_LLAMA_MODEL / TQ_TEST_GEMMA_MODEL
+#      secrets and fails closed unless the script writes a PASS cert_manifest.json.
 #
 # The full certification script (scripts/certify_apple_runtime.sh) runs end-to-end
-# and writes structured JSON/XML artifacts to artifacts/runtime-cert/.
+# and writes structured JSON/XML artifacts to artifacts/runtime-cert/. This workflow
+# now validates the resulting cert_manifest.json before treating the job as successful.
 #
 # Trigger: push to main, PRs that touch turboquant/ or mlx_lm/, and manual dispatch.
 
@@ -83,7 +84,8 @@ jobs:
 
   # -----------------------------------------------------------------------
   # Tier 2: Full certification — model weights required.
-  # Runs only when secrets are available (push to main or manual dispatch).
+  # Runs on push to main or explicit manual dispatch and fails closed unless the
+  # certification script produces a PASS cert_manifest.json.
   # -----------------------------------------------------------------------
   full-certification:
     name: Full Runtime Certification
@@ -109,19 +111,74 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[apple,test]'
 
+      - name: Clear stale certification artifacts
+        run: |
+          rm -rf artifacts/runtime-cert
+          mkdir -p artifacts/runtime-cert
+
       - name: Run full certification
+        id: cert
+        continue-on-error: true
         run: |
           # Run inside existing venv — skip the cert script's own venv creation.
           export VIRTUAL_ENV="${{ runner.tool_cache }}/dummy"
           bash scripts/certify_apple_runtime.sh
+
+      - name: Locate certification artifact directory
+        id: locate_artifacts
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          root = Path("artifacts/runtime-cert")
+          artifact_dirs = sorted(path for path in root.glob("*") if path.is_dir())
+          if not artifact_dirs:
+              print("No certification artifact directory found.")
+          else:
+              latest = artifact_dirs[-1]
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+                handle.write(f"artifact_dir={latest.as_posix()}\n")
+              print(f"Found certification artifact directory: {latest}")
+          PY
 
       - name: Upload certification artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: runtime-cert-${{ github.sha }}
-          path: artifacts/runtime-cert/
+          path: ${{ steps.locate_artifacts.outputs.artifact_dir }}
           retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Validate certification manifest
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifests = sorted(Path("artifacts/runtime-cert").glob("*/cert_manifest.json"))
+          if len(manifests) != 1:
+              raise SystemExit(
+                  "expected exactly one cert_manifest.json under artifacts/runtime-cert/, "
+                  f"found {len(manifests)}"
+              )
+
+          manifest_path = manifests[0]
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if manifest.get("result") != "PASS":
+              raise SystemExit(
+                  f"certification manifest result must be PASS, got {manifest.get('result')!r}"
+              )
+          if manifest.get("platform") != "darwin-arm64":
+              raise SystemExit(
+                  f"certification manifest platform must be darwin-arm64, got {manifest.get('platform')!r}"
+              )
+
+          print(f"Validated certification manifest: {manifest_path}")
+          PY
 
       - name: Model smoke tests
         if: env.TQ_TEST_LLAMA_MODEL != '' || env.TQ_TEST_GEMMA_MODEL != ''

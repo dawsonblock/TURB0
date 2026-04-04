@@ -50,7 +50,8 @@ make test-smoke-llama    # Llama end-to-end with TurboQuant active
 make test-smoke-gemma    # Gemma end-to-end with TurboQuant active
 make test-long-context   # long-context (>256 tokens) — NaN and fallback checks against the real Llama model
 
-# Full runtime certification (requires TQ_TEST_LLAMA_MODEL and TQ_TEST_GEMMA_MODEL)
+# Full runtime certification / full real-model certification
+# (requires at least one real-model env var; run Llama first)
 make certify-apple-runtime
 ```
 
@@ -79,7 +80,7 @@ make certify-apple-runtime
 - writes timestamped artifacts under `artifacts/runtime-cert/`
 - can include optional `events.jsonl` artifacts when a certification helper explicitly converts runtime upgrade decisions into an `EventLog`
 - fails closed: stages where all tests are `@skip` are counted as UNIMPLEMENTED, not PASSED
-- requires `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` env vars for full real-model certification
+- requires `TQ_TEST_LLAMA_MODEL` and/or `TQ_TEST_GEMMA_MODEL` for real-model certification scope; certify Llama before Gemma
 
 ## Legacy integration tests
 

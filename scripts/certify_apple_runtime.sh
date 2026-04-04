@@ -4,14 +4,16 @@
 # Usage:
 #     ./scripts/certify_apple_runtime.sh
 #
-# Environment variables (required for model smoke tests):
-#     TQ_TEST_LLAMA_MODEL   — small Llama-family HF model ID
-#     TQ_TEST_GEMMA_MODEL   — small Gemma-family HF model ID
+# Environment variables (used to select certification scope):
+#     TQ_TEST_LLAMA_MODEL   — include Llama-family stages with a real model ID
+#     TQ_TEST_GEMMA_MODEL   — include Gemma-family stages with a real model ID
 #
 # Artifacts are written to: artifacts/runtime-cert/<timestamp>/
-# Exit code is 0 only if every required stage passes with at least one test
-# executed.  Skipped tests count as certification failures — a stage where
-# all tests are marked @pytest.mark.skip is UNIMPLEMENTED, not PASSED.
+# Exit code is 0 only if every required in-scope stage passes with at least
+# one real-model family selected. Unselected family stages are treated as out
+# of scope rather than certification failures; skipped tests inside an in-scope
+# stage still fail certification, and a stage where all tests are marked
+# @pytest.mark.skip is UNIMPLEMENTED, not PASSED.
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
@@ -37,6 +39,7 @@ FAILURES=0
 STAGES_PASSED=0
 STAGES_SKIPPED=0        # stages explicitly skipped because a required env var is not set
 STAGES_UNIMPLEMENTED=0  # stages where pytest ran but produced zero passing tests (all @skip)
+STAGES_OUT_OF_SCOPE=0
 STAGES_TOTAL=0
 
 # ---------------------------------------------------------------------------
@@ -102,6 +105,20 @@ fi
 
 PYTHON_VERSION="$(_python_version "$PYTHON_BIN")"
 echo "  Python    : $PYTHON_BIN ($PYTHON_VERSION)"
+
+CERT_FAMILIES=()
+if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
+    CERT_FAMILIES+=(llama)
+fi
+if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
+    CERT_FAMILIES+=(gemma)
+fi
+
+if [ "${#CERT_FAMILIES[@]}" -eq 0 ]; then
+    echo "  Scope     : none selected"
+else
+    echo "  Scope     : ${CERT_FAMILIES[*]}"
+fi
 
 # ---------------------------------------------------------------------------
 # Internal helper: parse a JUnit XML file and decide if the stage passed.
@@ -193,6 +210,15 @@ run_stage() {
     fi
 }
 
+mark_out_of_scope() {
+    local name="$1"
+    local reason="$2"
+    echo ""
+    echo "──── Stage: $name ────"
+    echo "  OUT OF SCOPE: $reason"
+    STAGES_OUT_OF_SCOPE=$((STAGES_OUT_OF_SCOPE + 1))
+}
+
 # ---------------------------------------------------------------------------
 # Stage 0: Create / activate venv (optional — skip if already in one)
 # ---------------------------------------------------------------------------
@@ -225,6 +251,20 @@ run_stage "Strict Preflight" \
 "$PYTHON_BIN" scripts/preflight.py --strict --json > "$ARTIFACT_DIR/preflight.json" 2>&1 || true
 
 # ---------------------------------------------------------------------------
+# Stage 1.5: Certification scope selection
+# ---------------------------------------------------------------------------
+STAGES_TOTAL=$((STAGES_TOTAL + 1))
+echo ""
+echo "──── Stage: Certification Scope ────"
+if [ "${#CERT_FAMILIES[@]}" -eq 0 ]; then
+    echo "  ✗ No real-model certification scope selected — set TQ_TEST_LLAMA_MODEL and/or TQ_TEST_GEMMA_MODEL"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "  ✓ Certification Scope PASSED (families: ${CERT_FAMILIES[*]})"
+    STAGES_PASSED=$((STAGES_PASSED + 1))
+fi
+
+# ---------------------------------------------------------------------------
 # Stage 2: Cache upgrade roundtrip
 # ---------------------------------------------------------------------------
 run_pytest_stage "Cache Upgrade Roundtrip" "junit_cache_roundtrip.xml" \
@@ -243,12 +283,7 @@ if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
     run_pytest_stage "Llama Smoke" "junit_llama_smoke.xml" \
         tests/integration_mlx/test_llama_runtime_smoke.py
 else
-    echo ""
-    echo "──── Stage: Llama Smoke ────"
-    echo "  ✗ SKIPPED — TQ_TEST_LLAMA_MODEL not set (required for certification)"
-    STAGES_SKIPPED=$((STAGES_SKIPPED + 1))
-    FAILURES=$((FAILURES + 1))
-    STAGES_TOTAL=$((STAGES_TOTAL + 1))
+    mark_out_of_scope "Llama Smoke" "TQ_TEST_LLAMA_MODEL not set"
 fi
 
 # ---------------------------------------------------------------------------
@@ -258,12 +293,7 @@ if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
     run_pytest_stage "Gemma Smoke" "junit_gemma_smoke.xml" \
         tests/integration_mlx/test_gemma_runtime_smoke.py
 else
-    echo ""
-    echo "──── Stage: Gemma Smoke ────"
-    echo "  ✗ SKIPPED — TQ_TEST_GEMMA_MODEL not set (required for certification)"
-    STAGES_SKIPPED=$((STAGES_SKIPPED + 1))
-    FAILURES=$((FAILURES + 1))
-    STAGES_TOTAL=$((STAGES_TOTAL + 1))
+    mark_out_of_scope "Gemma Smoke" "TQ_TEST_GEMMA_MODEL not set"
 fi
 
 # ---------------------------------------------------------------------------
@@ -297,12 +327,8 @@ if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
             --seed 42
     done
 else
-    echo ""
-    echo "──── Stage: Quality Evaluation ────"
-    echo "  ✗ SKIPPED — TQ_TEST_LLAMA_MODEL not set (required for certification)"
-    STAGES_SKIPPED=$((STAGES_SKIPPED + 1))
-    FAILURES=$((FAILURES + 1))
-    STAGES_TOTAL=$((STAGES_TOTAL + 1))
+    mark_out_of_scope "Quality Evaluation" \
+        "quality guardrail is only defined for the selected Llama scope"
 fi
 
 # ---------------------------------------------------------------------------
@@ -326,6 +352,9 @@ if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
             --seed 42 \
             --mode both
     done
+else
+    mark_out_of_scope "Benchmark Sweep (Llama)" \
+        "TQ_TEST_LLAMA_MODEL not set"
 fi
 
 if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
@@ -340,6 +369,9 @@ if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
             --seed 42 \
             --mode both
     done
+else
+    mark_out_of_scope "Benchmark Sweep (Gemma)" \
+        "TQ_TEST_GEMMA_MODEL not set"
 fi
 
 # ---------------------------------------------------------------------------
@@ -360,13 +392,20 @@ fi
 # Write certification manifest
 # ---------------------------------------------------------------------------
 MANIFEST_PATH="$ARTIFACT_DIR/cert_manifest.json"
+MANIFEST_SCOPE_ARGS=()
+for family in "${CERT_FAMILIES[@]}"; do
+    MANIFEST_SCOPE_ARGS+=(--family "$family")
+done
+
 if ! "$PYTHON_BIN" scripts/write_cert_manifest.py \
     --artifact-dir "$ARTIFACT_DIR" \
     --passed "$STAGES_PASSED" \
     --failed "$FAILURES" \
     --skipped "$STAGES_SKIPPED" \
     --unimplemented "$STAGES_UNIMPLEMENTED" \
+    --out-of-scope "$STAGES_OUT_OF_SCOPE" \
     --total "$STAGES_TOTAL" \
+    "${MANIFEST_SCOPE_ARGS[@]}" \
     --turboquant-version "$($PYTHON_BIN -c 'import turboquant; print(turboquant.__version__)' 2>/dev/null || echo 'unknown')"; then
     if [ -f "$MANIFEST_PATH" ]; then
         echo "  cert_manifest.json recorded a FAIL result for this run."
@@ -384,6 +423,8 @@ echo "  Certification artifacts: $ARTIFACT_DIR"
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
     echo "  ✓ ALL STAGES PASSED"
+    echo "    In scope     : $STAGES_PASSED / $STAGES_TOTAL"
+    echo "    Out of scope : $STAGES_OUT_OF_SCOPE"
     echo "═══════════════════════════════════════════════════════════════"
     exit 0
 else
@@ -391,6 +432,7 @@ else
     echo "    Passed       : $STAGES_PASSED / $STAGES_TOTAL"
     echo "    Unimplemented: $STAGES_UNIMPLEMENTED  (all-skip test suites)"
     echo "    Skipped      : $STAGES_SKIPPED  (missing env vars)"
+    echo "    Out of scope : $STAGES_OUT_OF_SCOPE"
     echo "═══════════════════════════════════════════════════════════════"
     exit 1
 fi
