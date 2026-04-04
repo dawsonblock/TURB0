@@ -19,8 +19,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from pathlib import Path
+from typing import Any
 
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
@@ -44,7 +46,20 @@ def _load_prompts(prompt_file: Path) -> list[str]:
     return prompts
 
 
-def _kl_div(log_p: "mx.array", log_q: "mx.array") -> float:
+def _summary_artifact_name(
+    prompt_class: str,
+    artifact_label: str | None,
+) -> str:
+    """Return the output summary filename for one quality-eval invocation."""
+    label = (artifact_label or "").strip()
+    if not label:
+        return f"quality_eval_{prompt_class}_summary.json"
+
+    safe_label = re.sub(r"[^A-Za-z0-9]+", "_", label).strip("_")
+    return f"quality_eval_{safe_label}_{prompt_class}_summary.json"
+
+
+def _kl_div(log_p: Any, log_q: Any) -> float:
     """Mean per-token KL(P_dense || P_tq) from log-softmax arrays [T, V]."""
     import mlx.core as mx
     # KL(P || Q) = sum_v P_v (log P_v - log Q_v)
@@ -55,7 +70,7 @@ def _kl_div(log_p: "mx.array", log_q: "mx.array") -> float:
 
 def _eval_one_prompt(
     model,
-    input_ids: "mx.array",
+    input_ids: Any,
     turboquant_config,
     model_family: str = "llama",
     event_log=None,
@@ -81,7 +96,11 @@ def _eval_one_prompt(
     dense_cache = make_prompt_cache(model)
     dense_logits = model(feed, cache=dense_cache)[0]      # [T-1, V]
     mx.eval(dense_logits)
-    dense_log_p = dense_logits - mx.logsumexp(dense_logits, axis=-1, keepdims=True)
+    dense_log_p = dense_logits - mx.logsumexp(
+        dense_logits,
+        axis=-1,
+        keepdims=True,
+    )
     dense_nll = -float(mx.sum(dense_log_p[mx.arange(T), targets]).item())
     dense_ppl = math.exp(dense_nll / T)
 
@@ -113,7 +132,9 @@ def _eval_one_prompt(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="TurboQuant quality evaluation gate")
+    parser = argparse.ArgumentParser(
+        description="TurboQuant quality evaluation gate"
+    )
     parser.add_argument("--model", required=True, help="HuggingFace model ID")
     parser.add_argument(
         "--prompt-file", required=True, help="Path to a .jsonl prompt file"
@@ -123,34 +144,61 @@ def main() -> None:
     )
     parser.add_argument(
         "--prompt-class", default="default",
-        help="Prompt class label (e.g. short, medium, long) used in artifact naming"
+        help=(
+            "Prompt class label (e.g. short, medium, long) "
+            "used in artifact naming"
+        ),
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility"
     )
     parser.add_argument(
-        "--max-delta-ppl", type=float, default=0.5,
-        help="Maximum allowed mean TurboQuant PPL increase (default: 0.5)"
+        "--max-delta-ppl",
+        type=float,
+        default=0.5,
+        help="Maximum allowed mean TurboQuant PPL increase (default: 0.5)",
     )
     parser.add_argument(
-        "--max-mean-kl", type=float, default=0.1,
-        help="Maximum allowed mean per-token KL divergence (default: 0.1)"
+        "--max-mean-kl",
+        type=float,
+        default=0.1,
+        help="Maximum allowed mean per-token KL divergence (default: 0.1)",
     )
     parser.add_argument(
-        "--model-family", default="llama",
-        help="TurboQuant model family (e.g. llama, gemma; default: llama)"
+        "--model-family",
+        default="llama",
+        help="TurboQuant model family (e.g. llama, gemma; default: llama)",
     )
     parser.add_argument(
-        "--preset", default="paper_mse",
-        help="TurboQuantConfig preset to use (default: paper_mse).  "
-             "Use paper_mse for conservative 3-bit MSE (no QJL) quality gating; "
-             "paper_prod for production-grade but more aggressive settings."
+        "--preset",
+        default="paper_mse",
+        help=(
+            "TurboQuantConfig preset to use (default: paper_mse). "
+            "Use paper_mse for conservative 3-bit MSE (no QJL) quality "
+            "gating; paper_prod for production-grade but more aggressive "
+            "settings, or polarquant_exp for the experimental PolarQuant "
+            "branch."
+        ),
     )
     parser.add_argument(
-        "--min-prompt-tokens", type=int, default=32,
-        help="Skip prompts shorter than this many tokens (default: 32).  "
-             "TurboQuant is designed for long sequences; very short prompts produce "
-             "degenerate compression artefacts that are not representative of production use."
+        "--artifact-label",
+        default="",
+        help=(
+            "Optional label inserted into output summary filenames. "
+            "For example, '--artifact-label polar' writes "
+            "quality_eval_polar_<prompt-class>_summary.json."
+        ),
+    )
+    parser.add_argument(
+        "--min-prompt-tokens",
+        type=int,
+        default=32,
+        help=(
+            "Skip prompts shorter than this many tokens (default: 32). "
+            "TurboQuant is designed for long sequences; very short prompts "
+            "produce degenerate compression artefacts that are not "
+            "representative of production use."
+        ),
     )
     args = parser.parse_args()
 
@@ -163,15 +211,18 @@ def main() -> None:
 
     print(f"Loading model: {args.model}")
     from mlx_lm import load as mlx_load  # type: ignore
-    model, tokenizer = mlx_load(args.model)
+    loaded = mlx_load(args.model)
+    model, tokenizer = loaded[0], loaded[1]
 
     from turboquant.config import TurboQuantConfig
     from turboquant.runtime.events import EventLog
 
     tq_config = TurboQuantConfig.from_preset(args.preset)
-    print(f"TurboQuant preset : {args.preset}  "
-          f"(k_bits={tq_config.k_bits}, algorithm={tq_config.algorithm}, "
-          f"residual_mode={tq_config.residual_mode})")
+    print(
+        f"TurboQuant preset : {args.preset}  "
+        f"(k_bits={tq_config.k_bits}, algorithm={tq_config.algorithm}, "
+        f"residual_mode={tq_config.residual_mode})"
+    )
     print(f"Min prompt tokens : {args.min_prompt_tokens}")
 
     prompts = _load_prompts(Path(args.prompt_file))
@@ -182,7 +233,6 @@ def main() -> None:
     skipped = 0
     for i, text in enumerate(prompts):
         tokens = tokenizer.encode(text)
-        import mlx.core as mx
         n_tokens = len(tokens)
         if n_tokens < args.min_prompt_tokens:
             print(
@@ -204,7 +254,8 @@ def main() -> None:
             print(
                 f"  [{i+1}/{len(prompts)}] Δppl={metrics['delta_ppl']:+.3f}  "
                 f"KL={metrics['mean_kl']:.5f}  "
-                f"(dense={metrics['dense_ppl']:.2f}, tq={metrics['tq_ppl']:.2f})"
+                f"(dense={metrics['dense_ppl']:.2f}, "
+                f"tq={metrics['tq_ppl']:.2f})"
             )
 
     if not results:
@@ -212,7 +263,8 @@ def main() -> None:
             print(
                 f"WARN: all {skipped} prompts were shorter than "
                 f"--min-prompt-tokens={args.min_prompt_tokens}; "
-                "quality gate trivially passes (no compression artefacts to measure)."
+                "quality gate trivially passes "
+                "(no compression artefacts to measure)."
             )
             # Write a vacuous pass summary and exit 0.
             event_artifact = event_log.flush()
@@ -220,6 +272,7 @@ def main() -> None:
                 "status": "PASS",
                 "model": args.model,
                 "prompt_class": args.prompt_class,
+                "artifact_label": args.artifact_label,
                 "seed": args.seed,
                 "n_prompts": 0,
                 "n_skipped": skipped,
@@ -231,9 +284,15 @@ def main() -> None:
                 },
                 "per_prompt": [],
                 "events": event_log.summary(),
-                "note": "All prompts shorter than min_prompt_tokens; TQ not activated.",
+                "note": (
+                    "All prompts shorter than min_prompt_tokens; "
+                    "TQ not activated."
+                ),
             }
-            artifact_path = output_dir / f"quality_eval_{args.prompt_class}_summary.json"
+            artifact_path = output_dir / _summary_artifact_name(
+                args.prompt_class,
+                args.artifact_label,
+            )
             artifact_path.write_text(json.dumps(summary, indent=2))
             print(f"  Artifact : {artifact_path}")
             if event_artifact is not None:
@@ -245,7 +304,10 @@ def main() -> None:
     mean_delta_ppl = sum(r["delta_ppl"] for r in results) / len(results)
     mean_kl = sum(r["mean_kl"] for r in results) / len(results)
 
-    passed = (mean_delta_ppl <= args.max_delta_ppl) and (mean_kl <= args.max_mean_kl)
+    passed = (
+        mean_delta_ppl <= args.max_delta_ppl
+        and mean_kl <= args.max_mean_kl
+    )
     status = "PASS" if passed else "FAIL"
 
     event_artifact = event_log.flush()
@@ -254,6 +316,7 @@ def main() -> None:
         "model": args.model,
         "prompt_class": args.prompt_class,
         "preset": args.preset,
+        "artifact_label": args.artifact_label,
         "seed": args.seed,
         "n_prompts": len(results),
         "n_skipped": skipped,
@@ -267,11 +330,17 @@ def main() -> None:
         "per_prompt": results,
     }
 
-    artifact_path = output_dir / f"quality_eval_{args.prompt_class}_summary.json"
+    artifact_path = output_dir / _summary_artifact_name(
+        args.prompt_class,
+        args.artifact_label,
+    )
     artifact_path.write_text(json.dumps(summary, indent=2))
     print(f"\n{'='*60}")
     print(f"  Status        : {status}")
-    print(f"  Mean Δppl     : {mean_delta_ppl:+.4f}  (threshold ≤ {args.max_delta_ppl})")
+    print(
+        f"  Mean Δppl     : {mean_delta_ppl:+.4f}  "
+        f"(threshold ≤ {args.max_delta_ppl})"
+    )
     print(f"  Mean KL       : {mean_kl:.6f}  (threshold ≤ {args.max_mean_kl})")
     print(f"  Artifact      : {artifact_path}")
     if event_artifact is not None:

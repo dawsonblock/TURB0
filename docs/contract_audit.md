@@ -70,5 +70,5 @@ The retained evidence directories also contain benchmark and exploratory detail 
 ## Residual constraints
 
 - Evidence depth remains asymmetric: Llama is stronger; Gemma is narrower because the batch quality guardrail remains Llama-scoped.
-- `legacy_topk` remains a compatibility branch, and `polarquant_exp` now works through the allowlisted runtime path with a Llama-scoped certification smoke stage while remaining experimental and outside the formal supported product contract.
+- `legacy_topk` remains a compatibility branch, and `polarquant_exp` now works through the allowlisted runtime path with Llama and Gemma certification smoke stages plus a Llama-scoped batch quality guardrail while remaining experimental and outside the formal supported product contract.
 - Family-scoped local PASS runs do not substitute for the tagged release workflow requirement that both allowlisted families appear in the manifest scope.

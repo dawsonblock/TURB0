@@ -42,7 +42,10 @@ A release claim is only addressable when the workflow publishes or references:
 - `junit_attention_equiv.xml`
 - `junit_llama_smoke.xml`
 - `junit_polar_llama_runtime.xml`
+- `quality_eval_polar_short_summary.json`
+- `quality_eval_polar_medium_summary.json`
 - `junit_gemma_smoke.xml`
+- `junit_polar_gemma_runtime.xml`
 - `junit_long_context.xml`
 - `aggregate_runs.csv`
 - `certification_summary.json`

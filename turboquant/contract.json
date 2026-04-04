@@ -39,7 +39,10 @@
       "junit_attention_equiv.xml",
       "junit_llama_smoke.xml",
       "junit_polar_llama_runtime.xml",
+      "quality_eval_polar_short_summary.json",
+      "quality_eval_polar_medium_summary.json",
       "junit_gemma_smoke.xml",
+      "junit_polar_gemma_runtime.xml",
       "junit_long_context.xml",
       "aggregate_runs.csv",
       "certification_summary.json"
@@ -55,6 +58,7 @@
       "coverage": [
         "real-model smoke",
         "experimental PolarQuant runtime smoke",
+        "experimental PolarQuant quality guardrail",
         "batch quality guardrail",
         "long-context stability",
         "dense-vs-TurboQuant benchmark sweeps"
@@ -69,6 +73,7 @@
       "workflow_story": "The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Gemma.",
       "coverage": [
         "real-model smoke",
+        "experimental PolarQuant runtime smoke",
         "dense-vs-TurboQuant benchmark sweeps"
       ],
       "notes": "Gemma coverage is narrower than Llama because the batch quality guardrail remains Llama-scoped; source archives alone do not prove a current PASS."
@@ -198,7 +203,7 @@
     },
     {
       "title": "Experimental branches outside paper-facing presets",
-      "description": "legacy_topk remains a compatibility branch and polarquant_exp remains an experimental runtime branch: PolarQuant now works through the allowlisted upgrade_cache_list path for allowlisted families and has a Llama-scoped certification smoke stage, but it is not part of the paper-facing preset story or formal supported product contract."
+      "description": "legacy_topk remains a compatibility branch and polarquant_exp remains an experimental runtime branch: PolarQuant now works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and a Llama-scoped batch quality guardrail, but it is still outside the paper-facing preset story and formal supported product contract."
     }
   ]
 }

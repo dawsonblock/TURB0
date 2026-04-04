@@ -57,12 +57,15 @@ The certification script runs the following stages:
 2. Cache upgrade roundtrip
 3. Streaming attention equivalence
 4. Llama smoke test
-5. Gemma smoke test
-6. Llama batch quality guardrail for short and medium prompts
-7. Long-context stability
-8. Dense-vs-TurboQuant benchmark sweeps
-9. Metric aggregation
-10. Contract snapshot (`contract.json`)
+5. PolarQuant runtime smoke for Llama
+6. Gemma smoke test
+7. PolarQuant runtime smoke for Gemma
+8. Llama batch quality guardrail for short and medium prompts (`paper_mse`)
+9. Llama PolarQuant batch quality guardrail for short and medium prompts (`polarquant_exp`)
+10. Long-context stability
+11. Dense-vs-TurboQuant benchmark sweeps
+12. Metric aggregation
+13. Contract snapshot (`contract.json`)
 
 `contract.json` is written into the artifact directory so the evidence bundle carries both the
 run result and the exact contract the run was meant to satisfy.
@@ -77,7 +80,11 @@ The generated evidence directory is expected to contain at least:
 - `junit_cache_roundtrip.xml`
 - `junit_attention_equiv.xml`
 - `junit_llama_smoke.xml`
+- `junit_polar_llama_runtime.xml`
 - `junit_gemma_smoke.xml`
+- `junit_polar_gemma_runtime.xml`
+- `quality_eval_polar_short_summary.json`
+- `quality_eval_polar_medium_summary.json`
 - `junit_long_context.xml`
 - `aggregate_runs.csv`
 - `certification_summary.json`
@@ -110,7 +117,7 @@ manifest that includes both `llama` and `gemma` in `certification_scope.families
 The quality stage is a batch teacher-forcing guardrail, not a streaming-certification claim.
 
 - It currently runs only on the Llama scope.
-- It uses the `paper_mse` preset rather than the production-style `paper_prod` path.
+- It now has two Llama-scoped variants: a conservative `paper_mse` guardrail and an experimental `polarquant_exp` guardrail.
 - It is designed to catch catastrophic regressions such as KV corruption, NaN propagation, or severe numerical drift.
 
 Do not present this stage as proof of streaming decode quality for every supported family.

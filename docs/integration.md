@@ -210,7 +210,7 @@ an experimental runtime mode rather than part of the supported product contract.
 **Limitations:**
 - Decode is slightly slower than scalar at large sequence lengths (interleaved reconstruction).
 - Does not currently support QJL residual correction (residual is skipped).
-- Certification evidence is currently limited to a Llama-scoped PolarQuant smoke stage; this does not promote the mode into the formal product contract.
+- Certification evidence now includes Llama and Gemma PolarQuant runtime smoke plus a Llama-scoped batch quality guardrail; that still does not promote the mode into the formal product contract.
 - `paper_faithful_mode=True` is a deprecated stub; use `quantizer_mode="polar"` directly.
 
 ---
