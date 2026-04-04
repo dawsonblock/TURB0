@@ -62,12 +62,9 @@ class TurboQuantKVCache:
             )
             self._v_quantize = _v.quantize
             self._v_dequantize = _v.dequantize
-            # Derived config for V: MSE-only, no residual, same rotation
-            self._v_config = TurboQuantConfig(
+            self._v_config = TurboQuantConfig.paper_mse(
                 k_bits=config.v_bits,
                 k_group_size=config.v_group_size,
-                algorithm="turboquant_mse",
-                residual_mode="none",
                 rotation=config.rotation,
                 rotation_seed=config.rotation_seed,
             )
@@ -249,11 +246,12 @@ class TurboQuantKVCache:
         }
 
     def state(self) -> dict[str, Any]:
-        """Return the canonical block-list state dict for serialisation.
+        """Return the canonical v4 block-list state dict for serialisation.
 
         The returned dict is compatible with
         ``turboquant.runtime.state.validate_state``.
         """
+        algo = self.config.algorithm_family()
         return {
             "schema_version": STATE_SCHEMA_VERSION,
             "offset": self._offset,
@@ -273,9 +271,45 @@ class TurboQuantKVCache:
             "scale_dtype": self.config.scale_dtype,
             "v_scale_dtype": self.config.v_scale_dtype,
             "eps": self.config.eps,
-            # V3 canonical block payload
+            "algorithm": algo,
+            "rotation_type": self.config.rotation,
+            "residual_kind": self.config.residual_mode,
+            "qjl_dim": (
+                self.config.qjl_proj_dim
+                if self.config.residual_mode == "qjl"
+                else 0
+            ),
+            "qjl_seed": (
+                self.config.qjl_seed if self.config.residual_mode == "qjl" else 0
+            ),
+            "codebook_id": self._codebook_id_for_state(),
+            "main_bits": self._main_bits_for_state(),
+            "residual_bits": self._residual_bits_for_state(),
             "blocks": [b.to_dict() for b in self._blocks],
         }
+
+    def _main_bits_for_state(self) -> int:
+        if self.config.is_prod_mode():
+            return max(1, self.config.k_bits - 1)
+        return self.config.k_bits
+
+    def _residual_bits_for_state(self) -> int:
+        if self.config.residual_mode == "qjl":
+            return self.config.qjl_bits
+        return 0
+
+    def _codebook_id_for_state(self) -> str:
+        algo = self.config.algorithm_family()
+        if algo == "paper_mse":
+            return f"lloydmax-k{self._main_bits_for_state()}-{self.config.rotation}"
+        if algo == "paper_prod_qjl":
+            return (
+                f"lloydmax-qjl-k{self._main_bits_for_state()}-"
+                f"m{self.config.qjl_proj_dim}-{self.config.rotation}"
+            )
+        if algo == "polarquant_exp":
+            return "polar-angle-codebook-exp"
+        return f"legacy-topk-k{self.config.k_bits}-{self.config.rotation}"
 
     @classmethod
     def from_state(
@@ -293,26 +327,14 @@ class TurboQuantKVCache:
         # Support legacy nested format: {blocks: [...], config: {...}}
         if "config" in state and isinstance(state.get("config"), dict):
             cfg = state["config"]
-            config = TurboQuantConfig(
-                k_bits=int(cfg.get("k_bits", 3)),
-                k_group_size=int(cfg.get("k_group_size", 64)),
-                rotation=cfg.get("rotation", "hadamard"),
-                rotation_pad_to_pow2=bool(cfg.get("rotation_pad_to_pow2", True)),
-                residual_mode=cfg.get("residual_mode", "qjl"),
-                residual_topk=int(cfg.get("residual_topk", 0)),
-                resid_scale_bits=int(cfg.get("resid_scale_bits", 8)),
-                qjl_proj_dim=int(cfg.get("qjl_proj_dim", 64)),
-                qjl_seed=int(cfg.get("qjl_seed", 42)),
-                qjl_bits=int(cfg.get("qjl_bits", 1)),
-                algorithm=cfg.get("algorithm", "turboquant_prod"),
-                return_mode=cfg.get("return_mode", "view"),
-            )
+            config = TurboQuantConfig.from_legacy_kwargs(**cfg)
             blocks_data = state.get("blocks", [])
             offset = state.get("offset", 0)
             d_head = state.get("d_head", 0)
             d_pad = state.get("d_pad", 0)
         else:
             # Current block-list format produced by state()
+            algorithm = state.get("algorithm", "paper_prod_qjl")
             config = TurboQuantConfig(
                 k_bits=int(state.get("k_bits", 3)),
                 k_group_size=int(state.get("k_group_size", 64)),
@@ -321,11 +343,24 @@ class TurboQuantKVCache:
                 v_enabled=bool(state.get("v_enabled", True)),
                 rotation=state.get("rotation", "hadamard"),
                 rotation_seed=int(state.get("rotation_seed", 1337)),
+                residual_mode=state.get(
+                    "residual_kind",
+                    state.get("residual_mode", "qjl"),
+                ),
                 residual_topk=int(state.get("residual_topk", 0)),
                 scale_dtype=state.get("scale_dtype", "float16"),
                 v_scale_dtype=state.get("v_scale_dtype", "float16"),
                 eps=float(state.get("eps", 1e-6)),
-                algorithm=state.get("algorithm", "turboquant_prod"),
+                qjl_proj_dim=int(state.get("qjl_dim", state.get("qjl_proj_dim", 64))),
+                qjl_seed=int(state.get("qjl_seed", 42)),
+                qjl_bits=int(state.get("residual_bits", state.get("qjl_bits", 1))),
+                algorithm=algorithm,
+                quantizer_mode=(
+                    "polar"
+                    if TurboQuantConfig.normalize_algorithm(algorithm)
+                    == "polarquant_exp"
+                    else "scalar"
+                ),
             )
             validate_state(state, config)
             blocks_data = state.get("blocks", [])

@@ -17,7 +17,11 @@ def test_codec_dispatch_none():
 
 
 def test_codec_dispatch_topk():
-    cfg = TurboQuantConfig(residual_mode="topk", residual_topk=8)
+    cfg = TurboQuantConfig(
+        algorithm="legacy_topk",
+        residual_mode="topk",
+        residual_topk=8,
+    )
     codec = build_residual_codec(cfg)
     assert codec.mode == "topk"
 

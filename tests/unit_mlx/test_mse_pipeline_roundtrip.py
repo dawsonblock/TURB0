@@ -94,7 +94,7 @@ def test_encoded_block_stores_algorithm():
     pipe = TurboQuantPipeline(cfg)
     x = mx.random.normal(shape=(1, 2, 64), key=mx.random.key(0))
     block = pipe.encode_k(x)
-    assert block.algorithm == cfg.algorithm
+    assert block.algorithm == cfg.algorithm_family()
 
 
 # ── to_dict / from_dict roundtrip ────────────────────────────────────────────
