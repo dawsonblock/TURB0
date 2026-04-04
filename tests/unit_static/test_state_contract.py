@@ -21,8 +21,8 @@ def _config_fields(config: TurboQuantConfig) -> dict[str, object]:
     }
 
 
-def _canonical_v3_state() -> tuple[dict[str, object], TurboQuantConfig]:
-    config = TurboQuantConfig()
+def _canonical_v4_state() -> tuple[dict[str, object], TurboQuantConfig]:
+    config = TurboQuantConfig.paper_prod_qjl()
     state = {
         "schema_version": STATE_SCHEMA_VERSION,
         "offset": 4,
@@ -31,6 +31,14 @@ def _canonical_v3_state() -> tuple[dict[str, object], TurboQuantConfig]:
         "v_dim": 0,
         "v_pad": 0,
         **_config_fields(config),
+        "algorithm": "paper_prod_qjl",
+        "rotation_type": "hadamard",
+        "residual_kind": "qjl",
+        "qjl_dim": 64,
+        "qjl_seed": 42,
+        "codebook_id": "lloydmax-qjl-k2-m64-hadamard",
+        "main_bits": 2,
+        "residual_bits": 1,
         "blocks": [
             {
                 "packed_main": "ZmFrZS1wYWNrZWQ=",
@@ -40,7 +48,7 @@ def _canonical_v3_state() -> tuple[dict[str, object], TurboQuantConfig]:
                 "d_head": 128,
                 "d_rot": 128,
                 "d_quant": 128,
-                "algorithm": "turboquant_prod",
+                "algorithm": "paper_prod_qjl",
                 "orig_dim": 128,
             }
         ],
@@ -48,49 +56,59 @@ def _canonical_v3_state() -> tuple[dict[str, object], TurboQuantConfig]:
     return state, config
 
 
-def test_state_schema_version_is_3() -> None:
-    assert STATE_SCHEMA_VERSION == 3
+def test_state_schema_version_is_4() -> None:
+    assert STATE_SCHEMA_VERSION == 4
 
 
-def test_validate_state_accepts_canonical_v3_block_list() -> None:
-    state, config = _canonical_v3_state()
+def test_validate_state_accepts_canonical_v4_block_list() -> None:
+    state, config = _canonical_v4_state()
     validate_state(state, config)
 
 
-def test_validate_state_accepts_legacy_v2_payload() -> None:
-    config = TurboQuantConfig()
+def test_validate_state_accepts_legacy_v3_payload() -> None:
+    config = TurboQuantConfig.paper_prod_qjl()
     state = {
-        "schema_version": 2,
+        "schema_version": 3,
         "offset": 0,
         "d_head": 128,
         "d_pad": 128,
         "v_dim": 0,
         "v_pad": 0,
         **_config_fields(config),
+        "blocks": [],
     }
 
     validate_state(state, config)
 
 
-def test_validate_state_rejects_v3_without_blocks() -> None:
-    state, config = _canonical_v3_state()
+def test_validate_state_rejects_v4_without_algorithm_metadata() -> None:
+    state, config = _canonical_v4_state()
+    state.pop("algorithm")
+
+    with pytest.raises(TurboQuantStateError, match="missing metadata keys"):
+        validate_state(state, config)
+
+
+def test_validate_state_rejects_v4_without_qjl_metadata() -> None:
+    state, config = _canonical_v4_state()
+    state["qjl_dim"] = 0
+
+    with pytest.raises(TurboQuantStateError, match="qjl_dim > 0"):
+        validate_state(state, config)
+
+
+def test_validate_state_rejects_v4_paper_prod_without_qjl_kind() -> None:
+    state, config = _canonical_v4_state()
+    state["residual_kind"] = "none"
+
+    with pytest.raises(TurboQuantStateError, match="paper_prod_qjl"):
+        validate_state(state, config)
+
+
+def test_validate_state_rejects_v4_without_blocks() -> None:
+    state, config = _canonical_v4_state()
     state.pop("blocks")
 
     with pytest.raises(TurboQuantStateError, match="requires 'blocks'"):
         validate_state(state, config)
 
-
-def test_validate_state_rejects_v3_empty_blocks_with_offset() -> None:
-    state, config = _canonical_v3_state()
-    state["blocks"] = []
-
-    with pytest.raises(TurboQuantStateError, match="offset=4"):
-        validate_state(state, config)
-
-
-def test_validate_state_rejects_malformed_v3_block() -> None:
-    state, config = _canonical_v3_state()
-    state["blocks"] = [{"packed_main": 123}]
-
-    with pytest.raises(TurboQuantStateError, match="Block 0"):
-        validate_state(state, config)

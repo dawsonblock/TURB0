@@ -50,8 +50,8 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/dawsonblock/TurboQuant"
-Issues = "https://github.com/dawsonblock/TurboQuant/issues"
+Repository = "https://github.com/dawsonblock/TURB0"
+Issues = "https://github.com/dawsonblock/TURB0/issues"
 
 [tool.setuptools]
 include-package-data = true

@@ -182,13 +182,13 @@ def mode_contract(config: TurboQuantConfig) -> None:
     """
     if config.is_prod_mode() and config.residual_mode == "none":
         raise ValueError(
-            "mode_contract: turboquant_prod algorithm requires a residual codec; "
+            "mode_contract: paper_prod_qjl requires a residual codec; "
             "residual_mode='none' is incompatible.  "
-            "Use algorithm='turboquant_mse' for MSE-only quantization."
+            "Use algorithm='paper_mse' for MSE-only quantization."
         )
     if config.is_mse_mode() and config.residual_mode != "none":
         raise ValueError(
-            f"mode_contract: turboquant_mse algorithm requires residual_mode='none', "
+            f"mode_contract: paper_mse requires residual_mode='none', "
             f"got residual_mode={config.residual_mode!r}."
         )
 
@@ -197,20 +197,16 @@ def build_residual_codec(config: TurboQuantConfig) -> ResidualCodec:
     """Build the residual codec for *config*.
 
     Dispatch order:
-    1. Named algorithm (``turboquant_mse`` / ``turboquant_prod``) — takes
+    1. Canonical algorithm family (``paper_mse`` / ``paper_prod_qjl``) takes
        precedence over ``residual_mode``.
-    2. Legacy / experimental — fall back to ``residual_mode`` field.
+    2. Legacy / experimental modes fall back to ``residual_mode``.
     """
     config.validate()
 
-    # ── Paper-faithful algorithm dispatch ────────────────────────────────────
-    if config.algorithm == "turboquant_mse":
-        # MSE mode never uses a residual codec.
+    if config.is_mse_mode():
         return NoResidualCodec()
 
-    if config.algorithm == "turboquant_prod":
-        # Prod mode uses QJL for unbiased inner-product estimation.
-        # TopK is retained as an experimental override.
+    if config.is_prod_mode():
         if config.residual_mode == "topk":
             return TopKResidualCodec()
         return QJLResidualCodec(
@@ -218,7 +214,6 @@ def build_residual_codec(config: TurboQuantConfig) -> ResidualCodec:
             seed=config.qjl_seed,
         )
 
-    # ── Legacy / experimental dispatch via residual_mode ────────────────────
     if config.residual_mode == "none":
         return NoResidualCodec()
 

@@ -49,9 +49,9 @@ def test_paper_prod_uses_hadamard_rotation():
 
 
 def test_mse_with_qjl_residual_raises():
-    with pytest.raises(ValueError, match="algorithm='turboquant_mse' requires residual_mode='none'"):
+    with pytest.raises(ValueError, match="paper_mse requires residual_mode='none'"):
         TurboQuantConfig(
-            algorithm="turboquant_mse",
+            algorithm="paper_mse",
             residual_mode="qjl",
         ).validate()
 
@@ -59,16 +59,16 @@ def test_mse_with_qjl_residual_raises():
 def test_mse_with_topk_residual_raises():
     with pytest.raises(ValueError):
         TurboQuantConfig(
-            algorithm="turboquant_mse",
+            algorithm="paper_mse",
             residual_mode="topk",
             residual_topk=2,
         ).validate()
 
 
 def test_prod_with_none_residual_raises():
-    with pytest.raises(ValueError, match="algorithm='turboquant_prod' requires a residual encoder"):
+    with pytest.raises(ValueError, match="paper_prod_qjl requires residual_mode='qjl'"):
         TurboQuantConfig(
-            algorithm="turboquant_prod",
+            algorithm="paper_prod_qjl",
             residual_mode="none",
         ).validate()
 

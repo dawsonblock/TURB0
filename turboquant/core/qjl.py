@@ -5,13 +5,15 @@ from typing import Any
 
 import mlx.core as mx
 
+from turboquant.config import TurboQuantConfig
+
 
 @dataclass(slots=True)
 class QJLMeta:
     input_dim: int
     proj_dim: int
     seed: int
-    algorithm: str = "turboquant_prod"  # for future-proofing
+    algorithm: str = "paper_prod_qjl"
 
     def to_dict(self) -> dict:
         return {
@@ -27,7 +29,9 @@ class QJLMeta:
             input_dim=int(data["input_dim"]),
             proj_dim=int(data["proj_dim"]),
             seed=int(data["seed"]),
-            algorithm=str(data.get("algorithm", "turboquant_prod")),
+            algorithm=TurboQuantConfig.normalize_algorithm(
+                str(data.get("algorithm", "paper_prod_qjl"))
+            ),
         )
 
 

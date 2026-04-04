@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Any
 
 import mlx.core as mx
 import numpy as np
@@ -19,12 +20,14 @@ class EncodedKeyBlock:
     d_rot: int
     d_quant: int
     polar: object = None             # PolarQuantPayload | None
-    algorithm: str = "turboquant_prod"  # "turboquant_mse" | "turboquant_prod"
-    orig_dim: int = 0                # original head-dim before padding (0 = same as d_head)
+    algorithm: str = "paper_prod_qjl"
+    orig_dim: int = 0  # original head-dim before padding (0 = same as d_head)
 
     def to_dict(self) -> dict:
-        """Serialise to a JSON-compatible dict (arrays stored as base64 numpy bytes)."""
-        import base64, io
+        """Serialise to a JSON-compatible dict."""
+        import base64
+        import io
+
         def _arr_to_b64(arr):
             if arr is None:
                 return None
@@ -47,7 +50,9 @@ class EncodedKeyBlock:
     @classmethod
     def from_dict(cls, data: dict) -> "EncodedKeyBlock":
         """Restore from a dict produced by to_dict()."""
-        import base64, io
+        import base64
+        import io
+
         def _b64_to_arr(b64):
             if b64 is None:
                 return None
@@ -57,7 +62,10 @@ class EncodedKeyBlock:
 
         packed_main = _b64_to_arr(data.get("packed_main"))
         scales = _b64_to_arr(data.get("scales"))
-        residual = ResidualPayload(mode=data.get("residual_mode", "none"), data={})
+        residual = ResidualPayload(
+            mode=data.get("residual_mode", "none"),
+            data={},
+        )
         return cls(
             packed_main=packed_main,
             scales=scales,
@@ -65,47 +73,63 @@ class EncodedKeyBlock:
             d_head=int(data.get("d_head", 0)),
             d_rot=int(data.get("d_rot", 0)),
             d_quant=int(data.get("d_quant", 0)),
-            algorithm=data.get("algorithm", "turboquant_prod"),
+            algorithm=TurboQuantConfig.normalize_algorithm(
+                data.get("algorithm", "paper_prod_qjl")
+            ),
             orig_dim=int(data.get("orig_dim", 0)),
         )
 
 
 class TurboQuantPipeline:
     """High-level encode/decode pipeline for a single layer."""
+
     def __init__(self, config: TurboQuantConfig, layer_id: int = 0):
         self.config = config
         self.layer_id = layer_id
         # In a real implementation, this would hold fitted quantizer state.
         # For now, it delegates to the functional encode/decode helpers.
         from .quantizer import GroupScalarQuantizer
+
+        self._k_quant: Any
         if config.quantizer_mode == "polar":
             from .polar_quant import PolarQuantizer
+
             self._k_quant = PolarQuantizer()
         elif config.is_mse_mode() or config.is_prod_mode():
             from .quantizer import LloydMaxScalarQuantizer
+
             self._k_quant = LloydMaxScalarQuantizer(
                 n_bits=config.k_bits, group_size=config.k_group_size
             )
         else:
-            self._k_quant = GroupScalarQuantizer(n_bits=config.k_bits, group_size=config.k_group_size)
-        self._v_quant = GroupScalarQuantizer(n_bits=config.v_bits, group_size=config.v_group_size)
+            self._k_quant = GroupScalarQuantizer(
+                n_bits=config.k_bits,
+                group_size=config.k_group_size,
+            )
+        self._v_quant = GroupScalarQuantizer(
+            n_bits=config.v_bits,
+            group_size=config.v_group_size,
+        )
 
-    def _get_k_quant(self): return self._k_quant
-    def _get_v_quant(self): return self._v_quant
+    def _get_k_quant(self):
+        return self._k_quant
+
+    def _get_v_quant(self):
+        return self._v_quant
 
     def encode_k(self, k: mx.array) -> EncodedKeyBlock:
         return encode_k_block(
-            k, 
-            config=self.config, 
+            k,
+            config=self.config,
             quantize_main=self._k_quant.quantize,
-            dequantize_main=self._k_quant.dequantize
+            dequantize_main=self._k_quant.dequantize,
         )
 
     def decode_k(self, block: EncodedKeyBlock) -> mx.array:
         return decode_k_block(
-            block, 
-            config=self.config, 
-            dequantize_main=self._k_quant.dequantize
+            block,
+            config=self.config,
+            dequantize_main=self._k_quant.dequantize,
         )
 
 
@@ -158,7 +182,7 @@ def encode_k_block(
             d_rot=d_rot,
             d_quant=d_quant,
             polar=packed_main,
-            algorithm=config.algorithm,
+            algorithm=config.algorithm_family(),
             orig_dim=orig_dim,
         )
 
@@ -176,7 +200,7 @@ def encode_k_block(
         d_head=d_head,
         d_rot=d_rot,
         d_quant=d_quant,
-        algorithm=config.algorithm,
+        algorithm=config.algorithm_family(),
         orig_dim=orig_dim,
     )
 
