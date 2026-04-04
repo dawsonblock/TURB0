@@ -52,7 +52,8 @@ because they exist in `mlx_lm/`.
 | `upgrade_cache_list(...)` | Canonical runtime path | Enforces the model-family allowlist before promotion |
 | `TurboQuantKVCache` | Canonical storage engine | Owns the compressed runtime representation |
 | `TurboQuantKCache(...)` | Internal / eval-only adapter | Thin `mlx_lm` protocol adapter around the canonical storage engine |
-| `KVCache.to_turboquant()` | Deprecated internal compatibility helper | Bypasses the support gate; kept only for compatibility and interop |
+| `KVCache._to_turboquant()` | Private eval-only implementation | Primary bypass implementation; constructs `TurboQuantKCache` directly without the support gate |
+| `KVCache.to_turboquant()` | Deprecated public alias | Delegates to `_to_turboquant()`; retained only for compatibility and interop |
 | `_collect_logits_compressed()` | Private eval-only bypass | Direct adapter construction for dense-vs-compressed comparison |
 
 ### 2.3 Attention dispatch
@@ -126,7 +127,7 @@ The support claim remains narrow:
 ## 6. Limitations
 
 - Hadamard rotation is dense `O(d²)`, not butterfly `O(d log d)`.
-- `TurboQuantKCache(...)`, `KVCache.to_turboquant()`, and
+- `TurboQuantKCache(...)`, `KVCache._to_turboquant()`, `KVCache.to_turboquant()`, and
   `_collect_logits_compressed()` bypass the canonical upgrade gate and should
   not be treated as peer runtime APIs.
 - For custom attention implementations that do not call

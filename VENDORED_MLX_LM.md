@@ -22,8 +22,8 @@ The following files diverge from upstream `mlx-lm`:
 
 ### `mlx_lm/models/cache.py`
 
-- Added deprecated/internal `to_turboquant()` compatibility helper on `KVCache`
-- `to_turboquant()` bypasses the TurboQuant model-family support gate; the canonical public path is `upgrade_cache_list(...)`
+- Added private `_to_turboquant()` on `KVCache` — the internal/eval-only implementation that bypasses the TurboQuant model-family support gate directly
+- Added deprecated/internal public `to_turboquant()` as a compatibility alias that delegates to `_to_turboquant()`; the canonical public path is `upgrade_cache_list(...)`
 - Added `make_tq_config()` helper
 - Added structured logging (`turboquant.cache`)
 

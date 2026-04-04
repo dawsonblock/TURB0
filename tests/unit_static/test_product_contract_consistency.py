@@ -491,3 +491,18 @@ def test_block_tokens_marked_compatibility_only_in_docs():
         or 'not a live tuning lever' in architecture
     ), "docs/architecture.md must make clear that block_tokens is not active in the hot path."
 
+
+def test_architecture_doc_lists_private_to_turboquant_as_eval_surface():
+    """architecture.md must list _to_turboquant() as a private eval-only bypass surface."""
+    content = _read('docs/architecture.md')
+
+    assert '_to_turboquant()' in content, (
+        "docs/architecture.md cache surfaces table must include `_to_turboquant()` as a private bypass surface."
+    )
+    assert 'private eval-only' in content.lower() or 'private eval' in content.lower(), (
+        "docs/architecture.md must classify `_to_turboquant()` as private eval-only."
+    )
+    assert 'delegates to `_to_turboquant()`' in content or 'delegates to' in content.lower(), (
+        "docs/architecture.md must show that to_turboquant() delegates to _to_turboquant()."
+    )
+
