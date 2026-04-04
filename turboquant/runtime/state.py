@@ -15,26 +15,25 @@ from typing import Any
 from turboquant.config import TurboQuantConfig
 from turboquant.errors import TurboQuantStateError
 
-STATE_SCHEMA_VERSION: int = 2
+STATE_SCHEMA_VERSION: int = 3
 """Integer version of the TurboQuant state dict format.
 
 Changelog
 ---------
-1  initial  – keys: schema_version, offset, d_head, d_pad, v_dim, v_pad,
-              k_packed, k_scales, resid_vals, resid_idx, v_packed, v_scales
-2  current  – stores 11 per-field config keys (k_bits … eps) alongside the
-              tensor data.  ``_expect_config_match()`` compares each stored
-              value against the live ``TurboQuantConfig`` on restore and
-              raises ``TurboQuantStateError`` on any mismatch, preventing
-              silent encode-behavior drift.  Also adds optional
-              ``k_calibrated_scales`` / ``v_calibrated_scales`` arrays.
+1  initial  – flat tensor payload with top-level packed K/V arrays
+2  legacy   – adds 11 stored config keys plus optional calibrated scales,
+              while keeping the flat tensor payload
+3  current  – canonical block-list payload. Stores the same top-level scalar
+              and config keys, but serialises encoded key blocks under
+              ``blocks``. ``validate_state()`` still accepts legacy v1/v2
+              flat payloads for migration and fixture compatibility.
 """
 
-_SUPPORTED_VERSIONS = frozenset({1, 2})
+_SUPPORTED_VERSIONS = frozenset({1, 2, 3})
 _REQUIRED_SCALAR_KEYS = frozenset(
     {"schema_version", "offset", "d_head", "d_pad", "v_dim", "v_pad"}
 )
-_CONFIG_KEYS_V2 = frozenset(
+_CONFIG_KEYS_V23 = frozenset(
     {
         "k_bits",
         "k_group_size",
@@ -47,6 +46,19 @@ _CONFIG_KEYS_V2 = frozenset(
         "scale_dtype",
         "v_scale_dtype",
         "eps",
+    }
+)
+_BLOCK_KEYS_V3 = frozenset(
+    {
+        "packed_main",
+        "scales",
+        "residual_mode",
+        "residual_data_keys",
+        "d_head",
+        "d_rot",
+        "d_quant",
+        "algorithm",
+        "orig_dim",
     }
 )
 
@@ -87,6 +99,64 @@ def _expect_config_match(state: dict[str, Any], config: TurboQuantConfig) -> Non
         )
 
 
+def _validate_block_payload(blocks: Any, *, offset: int) -> None:
+    if not isinstance(blocks, list):
+        raise TurboQuantStateError(
+            "State schema v3 requires 'blocks' to be a list of serialized "
+            "EncodedKeyBlock payloads."
+        )
+
+    if offset > 0 and not blocks:
+        raise TurboQuantStateError(
+            f"State has offset={offset} but 'blocks' is empty. State is corrupt."
+        )
+
+    for index, block in enumerate(blocks):
+        if not isinstance(block, dict):
+            raise TurboQuantStateError(
+                f"Block {index} must be a dict, got {type(block).__name__!r}."
+            )
+
+        missing = _BLOCK_KEYS_V3 - block.keys()
+        if missing:
+            raise TurboQuantStateError(
+                f"Block {index} is missing required keys: {sorted(missing)}."
+            )
+
+        for key in ("packed_main", "scales"):
+            value = block.get(key)
+            if value is not None and not isinstance(value, str):
+                raise TurboQuantStateError(
+                    f"Block {index} field {key!r} must be a base64 string or None, "
+                    f"got {type(value).__name__!r}."
+                )
+
+        if not isinstance(block.get("residual_mode"), str):
+            raise TurboQuantStateError(
+                f"Block {index} field 'residual_mode' must be a string."
+            )
+
+        residual_keys = block.get("residual_data_keys")
+        if not isinstance(residual_keys, list) or not all(
+            isinstance(item, str) for item in residual_keys
+        ):
+            raise TurboQuantStateError(
+                f"Block {index} field 'residual_data_keys' must be a list of strings."
+            )
+
+        if not isinstance(block.get("algorithm"), str):
+            raise TurboQuantStateError(
+                f"Block {index} field 'algorithm' must be a string."
+            )
+
+        for key in ("d_head", "d_rot", "d_quant", "orig_dim"):
+            value = block.get(key)
+            if not isinstance(value, int) or value < 0:
+                raise TurboQuantStateError(
+                    f"Block {index} field {key!r} must be a non-negative int, got {value!r}."
+                )
+
+
 def validate_state(
     state: dict[str, Any],
     config: TurboQuantConfig | None = None,
@@ -123,7 +193,9 @@ def validate_state(
             f"'offset' must be a non-negative int, got {offset!r}."
         )
 
-    if offset > 0:
+    if version >= 3:
+        _validate_block_payload(state.get("blocks"), offset=offset)
+    elif offset > 0:
         k_packed = state.get("k_packed")
         if k_packed is None:
             raise TurboQuantStateError(
@@ -137,10 +209,10 @@ def validate_state(
             )
 
     if version >= 2:
-        missing_cfg = _CONFIG_KEYS_V2 - state.keys()
+        missing_cfg = _CONFIG_KEYS_V23 - state.keys()
         if missing_cfg:
             raise TurboQuantStateError(
-                f"State schema v2 is missing config keys: {sorted(missing_cfg)}."
+                f"State schema v{version} is missing config keys: {sorted(missing_cfg)}."
             )
 
     if config is None:
@@ -152,49 +224,50 @@ def validate_state(
     if offset == 0:
         return
 
-    k_scales = state.get("k_scales")
-    d_pad = state.get("d_pad")
-    if k_scales is not None and hasattr(k_scales, "shape") and d_pad is not None:
-        ng_stored = k_scales.shape[-1]
-        ng_expected = d_pad // config.k_group_size
-        if ng_stored != ng_expected:
-            raise TurboQuantStateError(
-                f"k_scales group count {ng_stored} does not match "
-                f"config.k_group_size={config.k_group_size} with d_pad={d_pad} "
-                f"(expected {ng_expected} groups)."
-            )
-
-    v_scales = state.get("v_scales")
-    v_pad = state.get("v_pad")
-    if (
-        config.v_enabled
-        and v_scales is not None
-        and hasattr(v_scales, "shape")
-        and v_pad is not None
-    ):
-        vg_stored = v_scales.shape[-1]
-        vg_expected = v_pad // config.v_group_size
-        if vg_stored != vg_expected:
-            raise TurboQuantStateError(
-                f"v_scales group count {vg_stored} does not match "
-                f"config.v_group_size={config.v_group_size} with v_pad={v_pad} "
-                f"(expected {vg_expected} groups)."
-            )
-
-    if version >= 2:
-        k_cal = state.get("k_calibrated_scales")
-        if k_cal is not None and hasattr(k_cal, "shape") and d_pad is not None:
-            expected = d_pad // config.k_group_size
-            if k_cal.shape[-1] != expected:
+    if version < 3:
+        k_scales = state.get("k_scales")
+        d_pad = state.get("d_pad")
+        if k_scales is not None and hasattr(k_scales, "shape") and d_pad is not None:
+            ng_stored = k_scales.shape[-1]
+            ng_expected = d_pad // config.k_group_size
+            if ng_stored != ng_expected:
                 raise TurboQuantStateError(
-                    f"k_calibrated_scales width {k_cal.shape[-1]} does not match "
-                    f"expected group count {expected}."
+                    f"k_scales group count {ng_stored} does not match "
+                    f"config.k_group_size={config.k_group_size} with d_pad={d_pad} "
+                    f"(expected {ng_expected} groups)."
                 )
-        v_cal = state.get("v_calibrated_scales")
-        if v_cal is not None and hasattr(v_cal, "shape") and v_pad is not None:
-            expected = v_pad // config.v_group_size
-            if v_cal.shape[-1] != expected:
+
+        v_scales = state.get("v_scales")
+        v_pad = state.get("v_pad")
+        if (
+            config.v_enabled
+            and v_scales is not None
+            and hasattr(v_scales, "shape")
+            and v_pad is not None
+        ):
+            vg_stored = v_scales.shape[-1]
+            vg_expected = v_pad // config.v_group_size
+            if vg_stored != vg_expected:
                 raise TurboQuantStateError(
-                    f"v_calibrated_scales width {v_cal.shape[-1]} does not match "
-                    f"expected group count {expected}."
+                    f"v_scales group count {vg_stored} does not match "
+                    f"config.v_group_size={config.v_group_size} with v_pad={v_pad} "
+                    f"(expected {vg_expected} groups)."
                 )
+
+        if version >= 2:
+            k_cal = state.get("k_calibrated_scales")
+            if k_cal is not None and hasattr(k_cal, "shape") and d_pad is not None:
+                expected = d_pad // config.k_group_size
+                if k_cal.shape[-1] != expected:
+                    raise TurboQuantStateError(
+                        f"k_calibrated_scales width {k_cal.shape[-1]} does not match "
+                        f"expected group count {expected}."
+                    )
+            v_cal = state.get("v_calibrated_scales")
+            if v_cal is not None and hasattr(v_cal, "shape") and v_pad is not None:
+                expected = v_pad // config.v_group_size
+                if v_cal.shape[-1] != expected:
+                    raise TurboQuantStateError(
+                        f"v_calibrated_scales width {v_cal.shape[-1]} does not match "
+                        f"expected group count {expected}."
+                    )

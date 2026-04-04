@@ -61,10 +61,10 @@ All compression runs within the MLX compute graph — no NumPy synchronization i
 
 > **Status:** Narrow release candidate. Not production-ready. Artifact-backed Apple-arm64
 > certification now exists for the canonical **Llama-family** and **Gemma-family** runtime
-> paths through `upgrade_cache_list(...)`, with retained PASS manifests at
-> `artifacts/runtime-cert/20260404_013136` and `artifacts/runtime-cert/20260404_013527`.
-> A retained combined release-equivalent PASS manifest also exists at
-> `artifacts/runtime-cert/20260404_015658` with both families in scope.
+> paths through `upgrade_cache_list(...)`. Certification runs generate PASS manifests under
+> `artifacts/runtime-cert/<timestamp>/`; release workflows may upload those directories as
+> workflow artifacts or package them into release evidence bundles. Source archives document
+> that evidence format, but they do not embed generated artifact directories.
 > The current batch quality guardrail remains Llama-scoped. Custom Metal kernels are
 > experimental (`TQ_USE_METAL=1`). Other architectures (Qwen, Mistral, Phi, and the rest of the
 > vendored tree) are not supported by the canonical upgrade path. Full surface definition:
@@ -161,8 +161,9 @@ No extra per-model **attention wiring** is required for families that already ro
 `turboquant/runtime/support.py` before `upgrade_cache_list()` will promote their cache.
 Routing through `base.py` is not the same as being in the supported allowlist.
 
-**Versioned state schema** — all `state()` dicts carry `schema_version: 2`. `validate_state()`
-enforces structural correctness on restore — raises rather than silently loading corrupt state.
+**Versioned state schema** — all current `state()` dicts carry `schema_version: 3` and use a
+canonical block-list payload. `validate_state()` still accepts legacy flat v1/v2 payloads for
+migration checks and raises rather than silently loading corrupt state.
 
 ---
 
@@ -478,7 +479,7 @@ cache = TurboQuantKCache(
 
 ```python
 state = cache.state()
-assert state["schema_version"] == 2
+assert state["schema_version"] == 3
 
 from turboquant.runtime.state import validate_state
 validate_state(state)   # raises on structural mismatch
@@ -631,8 +632,8 @@ python benchmarks/exploratory/bench_k_encode.py            # K-encode micro-benc
 
 | Architecture | Status | Notes |
 |---|:---:|---|
-| **Llama** (Llama 2, Llama 3, TinyLlama) | ✅ Artifact-backed Apple-arm64 PASS | Retained `artifacts/runtime-cert/20260404_013136`; real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweep recorded on the canonical path |
-| **Gemma** (Gemma 2) | ✅ Artifact-backed Apple-arm64 PASS | Retained `artifacts/runtime-cert/20260404_013527`; real-model smoke and dense-vs-TQ benchmark sweep recorded on the canonical path. The current batch quality guardrail remains Llama-scoped |
+| **Llama** (Llama 2, Llama 3, TinyLlama) | ✅ Artifact-backed Apple-arm64 PASS | PASS evidence is generated under `artifacts/runtime-cert/<timestamp>/` and may be uploaded as workflow artifacts or release evidence bundles; current coverage includes real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweeps on the canonical path |
+| **Gemma** (Gemma 2) | ✅ Artifact-backed Apple-arm64 PASS | PASS evidence is generated under `artifacts/runtime-cert/<timestamp>/` and may be uploaded as workflow artifacts or release evidence bundles; current coverage includes real-model smoke and dense-vs-TQ benchmark sweeps on the canonical path. The batch quality guardrail remains Llama-scoped |
 | Qwen | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
 | Mistral | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |
 | Phi | ⬜ Unsupported | Not in the certified allowlist; `upgrade_cache_list` raises `UnsupportedModelError` |

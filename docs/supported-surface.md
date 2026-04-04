@@ -22,8 +22,8 @@ What this repository can honestly claim to support:
 
 | Model Architecture | Explicit Integration Tested | Support Status | Notes |
 | :--- | :--- | :--- | :--- |
-| Llama | Yes | **Artifact-backed Apple-arm64 PASS** | Retained `artifacts/runtime-cert/20260404_013136`; real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweep recorded on the canonical path. |
-| Gemma | Yes | **Artifact-backed Apple-arm64 PASS** | Retained `artifacts/runtime-cert/20260404_013527`; real-model smoke and dense-vs-TQ benchmark sweep recorded on the canonical path. The current batch quality guardrail remains Llama-scoped. |
+| Llama | Yes | **Artifact-backed Apple-arm64 PASS** | PASS evidence is generated under `artifacts/runtime-cert/<timestamp>/` and may be uploaded as workflow artifacts or release evidence bundles; current coverage includes real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweeps on the canonical path. |
+| Gemma | Yes | **Artifact-backed Apple-arm64 PASS** | PASS evidence is generated under `artifacts/runtime-cert/<timestamp>/` and may be uploaded as workflow artifacts or release evidence bundles; current coverage includes real-model smoke and dense-vs-TQ benchmark sweeps on the canonical path. The current batch quality guardrail remains Llama-scoped. |
 | Qwen | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
 | Mistral | No | Unsupported | Not in the allowlist; `upgrade_cache_list` rejects it. |
 | Phi | No | Unsupported | Provided via upstream sync only. |

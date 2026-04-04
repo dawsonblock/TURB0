@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from turboquant.config import TurboQuantConfig
-from turboquant.runtime.state import STATE_SCHEMA_VERSION
+from turboquant.runtime.state import STATE_SCHEMA_VERSION, validate_state
 
 
 class TurboQuantKVCache:
@@ -249,7 +249,7 @@ class TurboQuantKVCache:
         }
 
     def state(self) -> dict[str, Any]:
-        """Return the canonical flat state dict for serialisation.
+        """Return the canonical block-list state dict for serialisation.
 
         The returned dict is compatible with
         ``turboquant.runtime.state.validate_state``.
@@ -273,7 +273,7 @@ class TurboQuantKVCache:
             "scale_dtype": self.config.scale_dtype,
             "v_scale_dtype": self.config.v_scale_dtype,
             "eps": self.config.eps,
-            # Block data (extra key; not constrained by validate_state)
+            # V3 canonical block payload
             "blocks": [b.to_dict() for b in self._blocks],
         }
 
@@ -285,7 +285,7 @@ class TurboQuantKVCache:
         quantize_main,
         dequantize_main,
     ) -> TurboQuantKVCache:
-        """Reconstruct a cache from a flat state dict (current format) or the
+        """Reconstruct a cache from the current block-list state dict or the
         legacy nested format ``{blocks: [...], config: {...}}``.
         """
         from turboquant.core.pipeline import EncodedKeyBlock
@@ -312,7 +312,7 @@ class TurboQuantKVCache:
             d_head = state.get("d_head", 0)
             d_pad = state.get("d_pad", 0)
         else:
-            # Current flat format produced by state()
+            # Current block-list format produced by state()
             config = TurboQuantConfig(
                 k_bits=int(state.get("k_bits", 3)),
                 k_group_size=int(state.get("k_group_size", 64)),
@@ -327,6 +327,7 @@ class TurboQuantKVCache:
                 eps=float(state.get("eps", 1e-6)),
                 algorithm=state.get("algorithm", "turboquant_prod"),
             )
+            validate_state(state, config)
             blocks_data = state.get("blocks", [])
             offset = int(state.get("offset", 0))
             d_head = int(state.get("d_head", 0))

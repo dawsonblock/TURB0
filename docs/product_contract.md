@@ -2,7 +2,7 @@
 
 This document defines the narrow supported surface TurboQuant can honestly claim today.
 
-TurboQuant supports one canonical runtime path for allowlisted Llama and Gemma models via `upgrade_cache_list(...)` inside the `mlx_lm` decode flow. Direct `TurboQuantKCache(...)` construction exists only for internal/eval use and bypasses the support gate. Runtime upgrade events and persisted certification logs are separate layers. Benchmark numbers in this repo are historical or illustrative unless backed by saved certification artifacts. `block_tokens` is retained as a compatibility-only knob for future experimentation, but does not currently affect the attention dispatch path.
+TurboQuant supports one canonical runtime path for allowlisted Llama and Gemma models via `upgrade_cache_list(...)` inside the `mlx_lm` decode flow. Direct `TurboQuantKCache(...)` construction exists only for internal/eval use and bypasses the support gate. Runtime upgrade events and persisted certification logs are separate layers. Benchmark numbers in this repo are historical or illustrative unless backed by saved certification artifacts. Certification evidence is generated under `artifacts/runtime-cert/<timestamp>/` and may be carried as workflow artifacts or release evidence bundles; source archives do not embed those generated directories. `block_tokens` is retained as a compatibility-only knob for future experimentation, but does not currently affect the attention dispatch path.
 
 ## 1. Supported Hardware
 TurboQuant is designed exclusively for **Apple Silicon** (M1, M2, M3, M4 families). 
@@ -17,8 +17,8 @@ The canonical runtime is the **local MLX runtime** on macOS.
 
 ## 3. Supported Model Families
 Only model families explicitly listed in `turboquant/runtime/support.py` are in the wired allowlist.
-- **Llama-family** (Llama 2, Llama 3, Llama 3.1) — artifact-backed Apple-arm64 PASS on the canonical path (`artifacts/runtime-cert/20260404_013136`)
-- **Gemma-family** (Gemma, Gemma 2) — artifact-backed Apple-arm64 PASS on the canonical path (`artifacts/runtime-cert/20260404_013527`); the current batch quality guardrail remains Llama-scoped
+- **Llama-family** (Llama 2, Llama 3, Llama 3.1) — artifact-backed Apple-arm64 PASS on the canonical path, with evidence generated under `artifacts/runtime-cert/<timestamp>/` and publishable as workflow artifacts or release evidence bundles
+- **Gemma-family** (Gemma, Gemma 2) — artifact-backed Apple-arm64 PASS on the canonical path, with evidence generated under `artifacts/runtime-cert/<timestamp>/` and publishable as workflow artifacts or release evidence bundles; the current batch quality guardrail remains Llama-scoped
 - Other models (e.g., Qwen, Mistral, Phi, Falcon, Baichuan, Yi) may exist in the `mlx_lm` vendored directory, but that does not make them supported. If they are not in the allowlist, `upgrade_cache_list(...)` rejects them.
 
 ## 4. Canonical Import Surfaces
@@ -61,16 +61,16 @@ the main support claim:
 
 ## 7. Runtime Certification
 
-> **STATUS: NARROW APPLE-ARM64 CERTIFICATION ARTIFACTS EXIST.** Retained PASS manifests exist at
-> `artifacts/runtime-cert/20260404_013136` for `llama` and
-> `artifacts/runtime-cert/20260404_013527` for `gemma`.
-> These artifacts prove the canonical `upgrade_cache_list(...)` path on Apple Silicon for the
-> stages recorded in each manifest; they do not certify production readiness, unsupported families,
+> **STATUS: NARROW APPLE-ARM64 CERTIFICATION ARTIFACTS EXIST.** Artifact-backed PASS manifests exist
+> for `llama` and `gemma` on the canonical `upgrade_cache_list(...)` path. Those manifests are
+> generated under `artifacts/runtime-cert/<timestamp>/` and may be uploaded as workflow artifacts
+> or release evidence bundles; source archives document the contract, but do not embed those
+> generated directories. This evidence does not certify production readiness, unsupported families,
 > or experimental Metal kernels.
 
 "Full TurboQuant" status requires artifact-backed evidence generated via `make certify-apple-runtime`.
 - Generic CI passes do not constitute runtime certification.
 - Release publish must validate a PASS `cert_manifest.json` from `./scripts/certify_apple_runtime.sh`.
-- The retained Llama artifact includes real-model smoke, batch quality guardrail, long-context stability, and dense/TQ benchmark sweeps.
-- The retained Gemma artifact includes real-model smoke and dense/TQ benchmark sweeps; the batch quality guardrail remains Llama-scoped.
+- Llama PASS evidence includes real-model smoke, batch quality guardrail, long-context stability, and dense/TQ benchmark sweeps.
+- Gemma PASS evidence includes real-model smoke and dense/TQ benchmark sweeps; the batch quality guardrail remains Llama-scoped.
 - The repo remains a narrow release candidate, not a production runtime.

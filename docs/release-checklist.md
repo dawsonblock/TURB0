@@ -46,11 +46,13 @@ for the same-workflow Apple certification job.
 Release-candidate tags may exercise the release workflow gates, but they must not execute the
 `publish` job. Only the final stable tag should attempt PyPI publish and GitHub release creation.
 
-That combined-family gate is now demonstrated by the retained local artifact
-`artifacts/runtime-cert/20260404_015658/`.
+That combined-family gate must be evidenced by a PASS artifact generated under
+`artifacts/runtime-cert/<timestamp>/` and carried forward as a workflow artifact
+or release evidence bundle. Source archives do not embed those generated
+directories.
 
 - `./scripts/certify_apple_runtime.sh` passes
-- `cert_manifest.json` exists in the retained certification artifact directory and records `result: PASS`
+- `cert_manifest.json` exists in the generated certification artifact directory and records `result: PASS`
 - At least one Llama-family smoke run succeeds when Llama is in scope and `TQ_TEST_LLAMA_MODEL` is set
 - At least one Gemma-family smoke run succeeds when Gemma is in scope and `TQ_TEST_GEMMA_MODEL` is set
 - Dense vs TurboQuant artifact outputs are saved under `artifacts/runtime-cert/<timestamp>/`

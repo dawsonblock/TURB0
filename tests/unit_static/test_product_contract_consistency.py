@@ -89,15 +89,44 @@ def test_product_contract_consistency():
     )
 
 
-def test_release_facing_docs_reflect_artifact_backed_allowlist() -> None:
-    """Release-facing support docs must describe Llama and Gemma as artifact-backed."""
-    for rel_path in ('README.md', 'docs/support_matrix.md', 'docs/supported-surface.md'):
-        content = _read(rel_path).lower()
-        assert 'artifact-backed' in content, (
-            f"{rel_path} must describe the supported families as artifact-backed."
+def test_release_facing_docs_do_not_claim_embedded_retained_artifacts() -> None:
+    """Release-facing docs must describe generated evidence, not embedded retained dirs."""
+    timestamped_artifact_dir = re.compile(r'artifacts/runtime-cert/\d{8}_\d{6}')
+
+    for rel_path in (
+        'README.md',
+        'docs/support_matrix.md',
+        'docs/supported-surface.md',
+        'docs/product_contract.md',
+        'docs/runtime-certification.md',
+        'docs/release-checklist.md',
+    ):
+        content = _read(rel_path)
+        lowered = content.lower()
+
+        assert not timestamped_artifact_dir.search(content), (
+            f"{rel_path} must not imply retained timestamped artifact directories are shipped in source archives."
         )
-        assert 'wired, uncertified' not in content, (
-            f"{rel_path} must not still describe Llama or Gemma as wired, uncertified."
+        assert 'artifacts/runtime-cert/<timestamp>/' in content or 'artifacts/runtime-cert/<timestamp>' in content, (
+            f"{rel_path} must describe generated certification evidence under artifacts/runtime-cert/<timestamp>/."
+        )
+
+        if rel_path != 'docs/release-checklist.md':
+            assert 'artifact-backed' in lowered, (
+                f"{rel_path} must describe the supported families as artifact-backed."
+            )
+
+    for rel_path in (
+        'docs/product_contract.md',
+        'docs/runtime-certification.md',
+        'docs/release-checklist.md',
+    ):
+        lowered = _read(rel_path).lower()
+        assert 'workflow artifact' in lowered or 'release evidence bundle' in lowered, (
+            f"{rel_path} must explain that generated certification evidence may travel as workflow artifacts or release evidence bundles."
+        )
+        assert 'do not embed' in lowered, (
+            f"{rel_path} must say source archives do not embed generated artifact directories."
         )
 
 
@@ -393,11 +422,20 @@ def test_runtime_certification_doc_marks_current_cert_story_honestly():
     content = _read('docs/runtime-certification.md')
     lowered = content.lower()
 
-    assert 'retained pass artifacts exist' in lowered or 'pass manifests now exist' in lowered, (
-        "docs/runtime-certification.md must say retained PASS artifacts now exist."
+    assert 'artifact-backed pass manifests exist' in lowered or 'pass manifests now exist' in lowered, (
+        "docs/runtime-certification.md must say artifact-backed PASS manifests now exist."
     )
     assert 'llama' in lowered and 'gemma' in lowered and 'artifact-backed' in lowered, (
         "docs/runtime-certification.md must name the artifact-backed Llama and Gemma runs."
+    )
+    assert 'artifacts/runtime-cert/<timestamp>/' in content or 'artifacts/runtime-cert/<timestamp>' in content, (
+        "docs/runtime-certification.md must describe the generated artifact directory shape."
+    )
+    assert 'workflow artifact' in lowered or 'release evidence bundle' in lowered, (
+        "docs/runtime-certification.md must explain how generated certification evidence is carried forward."
+    )
+    assert 'do not embed' in lowered, (
+        "docs/runtime-certification.md must say source archives do not embed generated artifact directories."
     )
     assert 'family-scoped' in lowered or 'certification_scope.families' in content, (
         "docs/runtime-certification.md must explain the family-scoped manifest contract."

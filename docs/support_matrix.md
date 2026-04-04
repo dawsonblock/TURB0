@@ -28,8 +28,8 @@ Only allowlisted families are eligible for the canonical runtime path today. Wir
 
 | Model Architecture | Runtime Verified | Notes |
 |:---|:---:|:---|
-| Llama | ✅ | Allowlisted and artifact-backed by retained Apple-arm64 PASS artifact `artifacts/runtime-cert/20260404_013136`; includes real-model smoke, batch quality guardrail, long-context stability, and dense/TQ benchmark sweep on the canonical path |
-| Gemma | ✅ | Allowlisted and artifact-backed by retained Apple-arm64 PASS artifact `artifacts/runtime-cert/20260404_013527`; includes real-model smoke and dense/TQ benchmark sweep on the canonical path. The current batch quality guardrail remains Llama-scoped |
+| Llama | ✅ | Allowlisted and artifact-backed by Apple-arm64 PASS evidence generated under `artifacts/runtime-cert/<timestamp>/`; evidence may be uploaded as workflow artifacts or release evidence bundles and currently covers real-model smoke, batch quality guardrail, long-context stability, and dense/TQ benchmark sweeps on the canonical path |
+| Gemma | ✅ | Allowlisted and artifact-backed by Apple-arm64 PASS evidence generated under `artifacts/runtime-cert/<timestamp>/`; evidence may be uploaded as workflow artifacts or release evidence bundles and currently covers real-model smoke and dense/TQ benchmark sweeps on the canonical path. The current batch quality guardrail remains Llama-scoped |
 | Qwen | ⬜ | Vendored-only in this repo; unsupported by `upgrade_cache_list(...)` |
 | Mistral | ⬜ | Vendored-only in this repo; unsupported by `upgrade_cache_list(...)` |
 | Phi | ⬜ | Vendored-only in this repo; unsupported by `upgrade_cache_list(...)` |

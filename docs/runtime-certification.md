@@ -1,10 +1,12 @@
 # Runtime Certification
 
-> **STATUS: RETAINED ARTIFACT-BACKED PASS ARTIFACTS EXIST FOR BOTH ALLOWLISTED FAMILIES.**
-> Apple-arm64 PASS manifests now exist at `artifacts/runtime-cert/20260404_013136`
-> for `llama` and `artifacts/runtime-cert/20260404_013527` for `gemma`.
-> A retained combined release-equivalent PASS manifest also exists at
-> `artifacts/runtime-cert/20260404_015658` with both families in scope.
+> **STATUS: ARTIFACT-BACKED PASS MANIFESTS EXIST FOR BOTH ALLOWLISTED FAMILIES.**
+> Apple-arm64 PASS manifests now exist for `llama`, `gemma`, and a combined-family
+> release-equivalent run.
+> These manifests are generated under `artifacts/runtime-cert/<timestamp>/` and may
+> be uploaded as workflow artifacts or packaged into a release evidence bundle.
+> Source archives document the certification contract, but they do not embed those
+> generated artifact directories.
 > The Llama artifact covers real-model smoke, batch quality guardrail,
 > long-context stability, and dense-vs-TQ benchmark sweeps on the canonical path.
 > The Gemma artifact covers real-model smoke and dense-vs-TQ benchmark sweeps on the
@@ -87,7 +89,8 @@ Use small quantized models to keep certification runs fast.
 ```
 
 This single command runs the full certification pipeline. Artifacts are
-written to `artifacts/runtime-cert/<timestamp>/`.
+written to `artifacts/runtime-cert/<timestamp>/`. Release workflows may upload
+that directory as a workflow artifact or bundle it with other release evidence.
 
 For tagged releases, the self-hosted Apple job in `release.yml` runs this exact
 command and validates the generated `cert_manifest.json`. PyPI publish stays blocked
@@ -95,9 +98,9 @@ unless that manifest exists and records `result: "PASS"` on `darwin-arm64`.
 Tagged release publish also requires both `llama` and `gemma` to be present in
 `certification_scope.families` for that manifest.
 
-The retained local PASS artifacts in `artifacts/runtime-cert/` are necessary evidence,
-but they are not sufficient to publish a final release tag by themselves. The tagged
-workflow must produce a fresh PASS artifact in the same run. If no runner with labels
+Generated local PASS artifacts under `artifacts/runtime-cert/<timestamp>/` are necessary
+evidence, but they are not sufficient to publish a final release tag by themselves. The
+tagged workflow must produce a fresh PASS artifact in the same run. If no runner with labels
 `self-hosted`, `macOS`, and `ARM64` is online, the release should remain queued rather
 than reusing a prior artifact or bypassing the Apple gate.
 
@@ -107,11 +110,12 @@ selected in that run. A PASS can therefore be family-scoped while certification 
 every in-scope stage must pass. Unselected family stages are recorded as out of scope,
 not as skipped certification failures.
 
-## Current retained PASS artifacts
+## Current PASS evidence shape
 
-- `artifacts/runtime-cert/20260404_013136/` — `certification_scope.families=["llama"]`; real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweeps recorded on the canonical path.
-- `artifacts/runtime-cert/20260404_013527/` — `certification_scope.families=["gemma"]`; real-model smoke and dense-vs-TQ benchmark sweeps recorded on the canonical path. The current batch quality guardrail remains Llama-scoped.
-- `artifacts/runtime-cert/20260404_015658/` — `certification_scope.families=["gemma", "llama"]`; retained combined release-equivalent PASS artifact matching the tagged publish workflow requirement.
+- Family-scoped and combined-family PASS runs are generated under `artifacts/runtime-cert/<timestamp>/`.
+- `certification_scope.families=["llama"]` evidence covers real-model smoke, batch quality guardrail, long-context stability, and dense-vs-TQ benchmark sweeps on the canonical path.
+- `certification_scope.families=["gemma"]` evidence covers real-model smoke and dense-vs-TQ benchmark sweeps on the canonical path. The current batch quality guardrail remains Llama-scoped.
+- Combined-family PASS evidence covers both `llama` and `gemma` in one manifest and is the shape required by tagged publish.
 
 ---
 
