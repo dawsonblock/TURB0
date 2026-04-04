@@ -47,6 +47,9 @@ jobs:
     name: Structural Tests (no weights)
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 10
+    env:
+      AGENT_TOOLSDIRECTORY: ${{ github.workspace }}/.hostedtoolcache
+      RUNNER_TOOL_CACHE: ${{ github.workspace }}/.hostedtoolcache
     steps:
       - uses: actions/checkout@v4
 
@@ -96,6 +99,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 60
     env:
+      AGENT_TOOLSDIRECTORY: ${{ github.workspace }}/.hostedtoolcache
+      RUNNER_TOOL_CACHE: ${{ github.workspace }}/.hostedtoolcache
       TQ_TEST_LLAMA_MODEL: ${{ secrets.TQ_TEST_LLAMA_MODEL }}
       TQ_TEST_GEMMA_MODEL: ${{ secrets.TQ_TEST_GEMMA_MODEL }}
     steps:
@@ -121,7 +126,7 @@ jobs:
         continue-on-error: true
         run: |
           # Run inside existing venv — skip the cert script's own venv creation.
-          export VIRTUAL_ENV="${{ runner.tool_cache }}/dummy"
+          export VIRTUAL_ENV="${RUNNER_TOOL_CACHE}/dummy"
           bash scripts/certify_apple_runtime.sh
 
       - name: Locate certification artifact directory

@@ -1,4 +1,5 @@
 from pathlib import Path
+import textwrap
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -6,6 +7,28 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _read(rel_path: str) -> str:
     return (REPO_ROOT / rel_path).read_text(encoding="utf-8")
+
+
+def _extract_inline_python_blocks(rel_path: str) -> list[str]:
+    blocks: list[str] = []
+    current: list[str] = []
+    in_block = False
+
+    for line in _read(rel_path).splitlines():
+        stripped = line.strip()
+        if stripped == "python - <<'PY'":
+            in_block = True
+            current = []
+            continue
+        if in_block and stripped == "PY":
+            blocks.append(textwrap.dedent("\n".join(current)))
+            in_block = False
+            current = []
+            continue
+        if in_block:
+            current.append(line)
+
+    return blocks
 
 
 def test_release_workflow_requires_apple_cert_and_vendored_audit() -> None:
@@ -36,13 +59,23 @@ def test_release_workflow_requires_apple_cert_and_vendored_audit() -> None:
         "release.yml must validate a real cert_manifest.json before publish."
     )
     assert "Clear stale certification artifacts" in content, (
-        "release.yml must clear stale runtime-cert artifacts on the self-hosted runner."
+        "release.yml must clear stale runtime-cert artifacts on the "
+        "self-hosted runner."
     )
     assert "Require both release model secrets" in content, (
-        "release.yml must fail closed unless both Llama and Gemma release-model secrets are set."
+        "release.yml must fail closed unless both Llama and Gemma "
+        "release-model secrets are set."
     )
     assert 'families != {"llama", "gemma"}' in content, (
-        "release.yml must require both allowlisted families in the release manifest scope."
+        "release.yml must require both allowlisted families in the "
+        "release manifest scope."
+    )
+    assert (
+        "AGENT_TOOLSDIRECTORY:" in content
+        and "RUNNER_TOOL_CACHE:" in content
+    ), (
+        "release.yml self-hosted Apple jobs must set a writable toolcache "
+        "for actions/setup-python."
     )
 
 
@@ -66,7 +99,8 @@ def test_apple_runtime_workflow_validates_manifest() -> None:
         "cert_manifest.json."
     )
     assert "Clear stale certification artifacts" in content, (
-        "apple-runtime-cert.yml must clear stale runtime-cert artifacts on the self-hosted runner."
+        "apple-runtime-cert.yml must clear stale runtime-cert artifacts on "
+        "the self-hosted runner."
     )
     assert "runtime-cert-${{ github.sha }}" in content, (
         "apple-runtime-cert.yml must retain a SHA-scoped "
@@ -76,3 +110,19 @@ def test_apple_runtime_workflow_validates_manifest() -> None:
         "apple-runtime-cert.yml must fail closed unless the manifest "
         "is a PASS on darwin-arm64."
     )
+    assert (
+        "AGENT_TOOLSDIRECTORY:" in content
+        and "RUNNER_TOOL_CACHE:" in content
+    ), (
+        "apple-runtime-cert.yml self-hosted jobs must set a writable "
+        "toolcache for actions/setup-python."
+    )
+
+
+def test_workflow_inline_python_blocks_compile() -> None:
+    for rel_path in (
+        ".github/workflows/release.yml",
+        ".github/workflows/apple-runtime-cert.yml",
+    ):
+        for block in _extract_inline_python_blocks(rel_path):
+            compile(block, rel_path, "exec")

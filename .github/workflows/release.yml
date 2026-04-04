@@ -50,6 +50,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 60
     env:
+      AGENT_TOOLSDIRECTORY: ${{ github.workspace }}/.hostedtoolcache
+      RUNNER_TOOL_CACHE: ${{ github.workspace }}/.hostedtoolcache
       TQ_TEST_LLAMA_MODEL: ${{ secrets.TQ_TEST_LLAMA_MODEL }}
       TQ_TEST_GEMMA_MODEL: ${{ secrets.TQ_TEST_GEMMA_MODEL }}
     steps:
@@ -80,7 +82,7 @@ jobs:
         id: cert
         continue-on-error: true
         run: |
-          export VIRTUAL_ENV="${{ runner.tool_cache }}/dummy"
+          export VIRTUAL_ENV="${RUNNER_TOOL_CACHE}/dummy"
           bash scripts/certify_apple_runtime.sh
 
       - name: Locate certification artifact directory
@@ -134,11 +136,11 @@ jobs:
               raise SystemExit(
                   f"certification manifest platform must be darwin-arm64, got {manifest.get('platform')!r}"
               )
-            families = set(manifest.get("certification_scope", {}).get("families", []))
-            if families != {"llama", "gemma"}:
+          families = set(manifest.get("certification_scope", {}).get("families", []))
+          if families != {"llama", "gemma"}:
               raise SystemExit(
-                "release certification manifest must include both 'llama' and 'gemma' in scope, "
-                f"got {sorted(families)!r}"
+                  "release certification manifest must include both 'llama' and 'gemma' in scope, "
+                  f"got {sorted(families)!r}"
               )
 
           print(f"Validated certification manifest: {manifest_path}")
