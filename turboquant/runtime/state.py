@@ -151,7 +151,9 @@ def _expect_config_match(
                 f"config={expected_qjl_seed!r}"
             )
         expected_main_bits = (
-            config.k_bits - 1 if config.is_prod_mode() else config.k_bits
+            max(1, config.k_bits - 1)
+            if config.is_prod_mode()
+            else config.k_bits
         )
         if state.get("main_bits") != expected_main_bits:
             mismatches.append(
