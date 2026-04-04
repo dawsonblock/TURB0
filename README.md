@@ -68,12 +68,12 @@ All compression runs within the MLX compute graph — no NumPy synchronization i
 
 Contract summary: TurboQuant supports one canonical runtime path for allowlisted Llama and
 Gemma models via `upgrade_cache_list(...)` inside the `mlx_lm` decode flow. Direct
-`TurboQuantKCache(...)` construction and `KVCache.to_turboquant()` remain internal/eval-only
-compatibility surfaces that bypass the support gate. Runtime upgrade decisions and persisted
-certification logs are separate layers. Benchmark numbers in this repo are historical or
-illustrative unless backed by saved certification artifacts. `block_tokens` is retained for
-compatibility and future experimentation, but does not currently affect the attention dispatch
-path.
+`TurboQuantKCache(...)` construction and internal `_to_turboquant()` (formerly 
+`KVCache.to_turboquant()`) remain secondary/eval-only compatibility surfaces that bypass 
+the support gate. Runtime upgrade decisions and persisted certification logs are separate 
+layers. Benchmark numbers in this repo are historical or illustrative unless backed by 
+saved certification artifacts. `block_tokens` is retained for compatibility but does 
+not currently affect the attention dispatch path.
 
 ---
 

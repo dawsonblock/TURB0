@@ -45,14 +45,14 @@ compared to a dense-cache baseline.
 PPL = exp( mean NLL )
 delta_ppl = tq_ppl - dense_ppl
 ```text
-A `delta_ppl` below **0.5** is an illustrative local heuristic from informal
-testing. Values above **2.0** often suggest the bit-width is too aggressive.
-These numbers are not certification baselines — runtime certification requires
-Apple Silicon hardware with saved artifacts from real model weights.
+A `delta_ppl` below **0.5** is an illustrative exploratory heuristic from
+informal testing. Higher deviations are common depending on model size and
+dataset. These are not certification baselines — runtime certification
+requires Apple Silicon hardware with saved artifacts from real model weights.
 
-`benchmarks/runtime_cert/run_quality_eval.py` currently uses **0.5** as its
-local default `--max-delta-ppl` threshold. That script default is a convenience
-check for one workflow, not a certification guarantee.
+`benchmarks/runtime_cert/run_quality_eval.py` uses **0.5** as reaching one
+checking threshold in its default workflow. That is a tool default, not a
+production guarantee.
 
 **API**:
 ```python
@@ -68,13 +68,12 @@ targets — it compares the model's beliefs unconditionally.
 ```text
 KL(P_dense || P_tq) = sum_v P_dense(v) * (log P_dense(v) - log P_tq(v))
 ```text
-A `mean_kl` below **0.01** nats is an illustrative heuristic for negligible
-distribution shift in informal testing. It is not a release or certification
+A `mean_kl` below **0.01** nats is an illustrative exploratory heuristic for
+stable generation in small-scale tests. It is not a release or certification
 gate.
 
-`benchmarks/runtime_cert/run_quality_eval.py` currently uses **0.1** as its
-local default `--max-mean-kl` threshold. That default is intentionally looser
-than the small-run `0.01` heuristic above.
+`benchmarks/runtime_cert/run_quality_eval.py` uses **0.1** as its default
+threshold for this specific drift metric.
 
 **API**:
 ```python
@@ -89,9 +88,10 @@ forward pass.
 ```text
 ratio = dense_cache_bytes / tq_cache_bytes
 ```text
-A ratio of **3.7×** or higher is an illustrative snapshot for 3-bit K + 4-bit V
-at `group_size=64` for sequences longer than 512 tokens. This figure is from
-synthetic benchmarks on Apple Silicon; it is not a certified production claim.
+A ratio of ~**3.7×** is an illustrative exploratory figure for 3-bit K + 4-bit V
+at `group_size=64`. This is derived from analytic memory footprints and
+confirmed in small synthetic runs on Apple Silicon; it is not a certified
+production claim.
 
 **API**:
 ```python

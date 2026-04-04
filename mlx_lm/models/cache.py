@@ -378,7 +378,7 @@ class KVCache(_BaseCache):
             )
         return quant_cache
 
-    def to_turboquant(
+    def _to_turboquant(
         self,
         *,
         k_bits: int = 3,
@@ -394,10 +394,10 @@ class KVCache(_BaseCache):
         v_enabled: bool = True,
         block_tokens: int = 256,
     ) -> "TurboQuantKCache":
-        """Deprecated compatibility helper for converting a dense KVCache.
+        """Internal/eval-only compatibility helper for converting a dense KVCache.
 
         .. warning::
-            This is a **deprecated internal/eval-only compatibility helper**. It
+            This is an **internal/eval-only compatibility helper**. It
             constructs ``TurboQuantKCache`` directly and **bypasses the
             model-family support gate** — no check is made against the
             certified ``SUPPORTED_FAMILIES`` allowlist.  Callers are
@@ -406,14 +406,14 @@ class KVCache(_BaseCache):
             :func:`~turboquant.integrations.mlx.upgrade.upgrade_cache_list`
             which enforces the gate and is idempotent across decode steps.
 
-            ``block_tokens`` is accepted by ``TurboQuantConfig`` but is not
+            Note: ``block_tokens`` is accepted for compatibility but is not
             currently used in the attention dispatch path.
         """
         from turboquant.config import TurboQuantConfig
         from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
 
         warnings.warn(
-            "KVCache.to_turboquant() is a deprecated compatibility helper "
+            "KVCache._to_turboquant() is an internal compatibility helper "
             "that bypasses the TurboQuant model-family support gate; prefer "
             "upgrade_cache_list(...).",
             DeprecationWarning,
@@ -441,11 +441,26 @@ class KVCache(_BaseCache):
             values = self.values[..., : self.offset, :]
             tq.update_and_fetch(keys, values)
         logger.debug(
-            "to_turboquant: upgraded layer with offset=%d  "
+            "_to_turboquant: upgraded layer with offset=%d  "
             "(k_bits=%d, rotation=%s)",
             self.offset, k_bits, rotation,
         )
         return tq
+
+    def to_turboquant(self, *args, **kwargs):
+        """Deprecated compatibility alias for _to_turboquant().
+
+        This alias is maintained for compatibility while the transition to
+        the private `_to_turboquant` (which **bypasses the support gate**)
+        is completed. Prefer `upgrade_cache_list(...)` for production.
+        """
+        warnings.warn(
+            "KVCache.to_turboquant() is deprecated; use _to_turboquant() "
+            "for internal eval or upgrade_cache_list() for runtime code.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._to_turboquant(*args, **kwargs)
 
     def make_mask(self, *args, **kwargs):
         return create_attention_mask(*args, offset=self.offset, **kwargs)
