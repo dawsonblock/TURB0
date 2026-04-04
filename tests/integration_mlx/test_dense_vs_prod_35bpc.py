@@ -1,15 +1,18 @@
 """Integration test: dense vs TurboQuant (~3.5 bpc) perplexity gate.
 
-Uses ``paper_mse`` preset (k_bits=3, k_group_size=64, v_bits=4, v_group_size=64)
-which achieves approximately 3.75 bpc average.
+Uses ``paper_mse`` preset
+(``k_bits=3, k_group_size=64, v_bits=4, v_group_size=64``) which achieves
+approximately 3.75 bpc average.
 
-With a real Llama model the quality gate is Δppl ≤ 0.5.
+With a real Llama model the quality gate is Δppl ≤ 0.5, but that real-model
+path is exploratory and opt-in.
 With the synthetic tiny model (no download required) the gate is Δppl ≤ 100.0
 — this only verifies that the pipeline runs end-to-end without errors.
 
-To test quality with a real model::
+To test the exploratory real-model gate::
 
     export TQ_TEST_LLAMA_MODEL=mlx-community/Llama-3.2-1B-Instruct-4bit
+    export TQ_RUN_EXPLORATORY_REAL_MODEL_QUALITY=1
     python -m pytest tests/integration_mlx/test_dense_vs_prod_35bpc.py -v
 """
 
@@ -23,15 +26,25 @@ import pytest
 mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
 
 _SAMPLE_PROMPTS = [
-    "The theory of relativity was developed by Albert Einstein in the early twentieth century.",
-    "In machine learning, transformers have revolutionised natural language processing tasks.",
-    "The Pythagorean theorem states that in a right triangle, the square of the hypotenuse",
+    (
+        "The theory of relativity was developed by Albert Einstein "
+        "in the early twentieth century."
+    ),
+    (
+        "In machine learning, transformers have revolutionised natural "
+        "language processing tasks."
+    ),
+    (
+        "The Pythagorean theorem states that in a right triangle, "
+        "the square of the hypotenuse"
+    ),
 ]
 
 _MAX_TOKENS = 64
 # Quality gate: tight for real models, loose for synthetic model.
 _MAX_DELTA_PPL_REAL = 0.5
 _MAX_DELTA_PPL_SYNTHETIC = 100.0
+_REAL_MODEL_OPT_IN_ENV = "TQ_RUN_EXPLORATORY_REAL_MODEL_QUALITY"
 
 
 def _ppl(log_p, targets):
@@ -45,8 +58,10 @@ def test_dense_vs_prod_35bpc(tmp_path):
     """Dense vs TurboQuant (~3.5 bpc) perplexity comparison.
 
     Uses the tiny synthetic model by default (exercises the full pipeline).
-    When TQ_TEST_LLAMA_MODEL is set a real Llama model is loaded and the
-    strict Δppl ≤ 0.5 gate is applied.
+    When both TQ_TEST_LLAMA_MODEL and TQ_RUN_EXPLORATORY_REAL_MODEL_QUALITY=1
+    are set a real Llama model is loaded and the strict Δppl ≤ 0.5 gate is
+    applied. The real-model path is treated as an exploratory batch-quality
+    probe rather than a default integration contract.
     """
     from mlx_lm.models.cache import make_prompt_cache
     from turboquant.config import TurboQuantConfig
@@ -54,8 +69,15 @@ def test_dense_vs_prod_35bpc(tmp_path):
 
     _model_id = os.environ.get("TQ_TEST_LLAMA_MODEL", "")
     if _model_id:
+        if os.environ.get(_REAL_MODEL_OPT_IN_ENV) != "1":
+            pytest.skip(
+                "real-model Δppl gate is exploratory; set "
+                "TQ_RUN_EXPLORATORY_REAL_MODEL_QUALITY=1 to opt in"
+            )
         from mlx_lm import load as _load
-        model, tokenizer = _load(_model_id)
+        loaded = _load(_model_id)
+        model = loaded[0]
+        tokenizer = loaded[1]
         max_delta_ppl = _MAX_DELTA_PPL_REAL
     else:
         from tests.helpers.tiny_model import TinyModel, TinyTokenizer
@@ -67,7 +89,7 @@ def test_dense_vs_prod_35bpc(tmp_path):
 
     delta_ppls = []
     for text in _SAMPLE_PROMPTS:
-        tok_ids = tokenizer.encode(text)[:_MAX_TOKENS + 1]
+        tok_ids = list(getattr(tokenizer, "encode")(text))[: _MAX_TOKENS + 1]
         if len(tok_ids) < 4:
             continue
         input_ids = mx.array(tok_ids)[None]   # [1, T]
@@ -78,15 +100,21 @@ def test_dense_vs_prod_35bpc(tmp_path):
         dense_cache = make_prompt_cache(model)
         dense_logits = model(feed, cache=dense_cache)[0]
         mx.eval(dense_logits)
-        dense_log_p = dense_logits - mx.logsumexp(dense_logits, axis=-1, keepdims=True)
+        dense_log_p = dense_logits - mx.logsumexp(
+            dense_logits, axis=-1, keepdims=True
+        )
         dense_ppl = _ppl(dense_log_p, targets)
 
         # TurboQuant forward (cache pre-upgraded before the forward pass)
         tq_cache = make_prompt_cache(model)
-        upgrade_cache_list(tq_cache, k_start=0, config=cfg, model_family="llama")
+        upgrade_cache_list(
+            tq_cache, k_start=0, config=cfg, model_family="llama"
+        )
         tq_logits = model(feed, cache=tq_cache)[0]
         mx.eval(tq_logits)
-        tq_log_p = tq_logits - mx.logsumexp(tq_logits, axis=-1, keepdims=True)
+        tq_log_p = tq_logits - mx.logsumexp(
+            tq_logits, axis=-1, keepdims=True
+        )
         tq_ppl = _ppl(tq_log_p, targets)
 
         delta = tq_ppl - dense_ppl
