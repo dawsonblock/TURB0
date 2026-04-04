@@ -287,6 +287,17 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Stage 4.5: Experimental PolarQuant runtime smoke (Llama)
+# ---------------------------------------------------------------------------
+if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
+    run_pytest_stage "PolarQuant Runtime (Llama)" "junit_polar_llama_runtime.xml" \
+        tests/integration_mlx/test_polar_long_context_runtime.py
+else
+    mark_out_of_scope "PolarQuant Runtime (Llama)" \
+        "TQ_TEST_LLAMA_MODEL not set"
+fi
+
+# ---------------------------------------------------------------------------
 # Stage 5: Gemma smoke test
 # ---------------------------------------------------------------------------
 if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then

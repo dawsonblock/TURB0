@@ -156,25 +156,27 @@ mapping automatically.
 
 ## 4a. PolarQuant mode
 
-Set `quantizer_mode="polar"` to use the `PolarQuantizer` (arXiv:2502.02617) instead of
-`GroupScalarQuantizer` as the main K-cache quantiser.  All other configuration
-fields (`rotation`, `residual_mode`, etc.) behave identically.
+Use `TurboQuantConfig.polarquant_exp(...)` to select the experimental
+PolarQuant branch. The same config can drive the lower-level pipeline and, for
+allowlisted families, the canonical `upgrade_cache_list(...)` runtime path.
 
 ```python
 from turboquant.config import TurboQuantConfig
 from turboquant.core.pipeline import TurboQuantPipeline
 
-# Drop-in replacement for scalar mode
-cfg = TurboQuantConfig(
-    quantizer_mode="polar",   # <-- switch here
-    rotation="hadamard",       # recommended — makes angle distribution uniform
-    residual_mode="none",      # polar encodes residual implicitly; QJL optional
+# Experimental PolarQuant branch
+cfg = TurboQuantConfig.polarquant_exp(
+    rotation="random_orthogonal",
+    residual_mode="none",
 )
 pipe = TurboQuantPipeline(cfg)
 
 block = pipe.encode_k(k_rotated)   # returns EncodedKeyBlock with .polar set
 k_hat = pipe.decode_k(block)       # reconstructs via polar inverse
 ```
+
+If you need the lower-level switch directly, `quantizer_mode="polar"` still
+routes to the same `PolarQuantizer` implementation.
 
 Or use the lower-level API directly:
 
@@ -208,6 +210,7 @@ an experimental runtime mode rather than part of the supported product contract.
 **Limitations:**
 - Decode is slightly slower than scalar at large sequence lengths (interleaved reconstruction).
 - Does not currently support QJL residual correction (residual is skipped).
+- Certification evidence is currently limited to a Llama-scoped PolarQuant smoke stage; this does not promote the mode into the formal product contract.
 - `paper_faithful_mode=True` is a deprecated stub; use `quantizer_mode="polar"` directly.
 
 ---

@@ -38,6 +38,7 @@
       "junit_cache_roundtrip.xml",
       "junit_attention_equiv.xml",
       "junit_llama_smoke.xml",
+      "junit_polar_llama_runtime.xml",
       "junit_gemma_smoke.xml",
       "junit_long_context.xml",
       "aggregate_runs.csv",
@@ -53,6 +54,7 @@
       "workflow_story": "The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Llama.",
       "coverage": [
         "real-model smoke",
+        "experimental PolarQuant runtime smoke",
         "batch quality guardrail",
         "long-context stability",
         "dense-vs-TurboQuant benchmark sweeps"
@@ -196,7 +198,7 @@
     },
     {
       "title": "Experimental branches outside paper-facing presets",
-      "description": "legacy_topk and polarquant_exp remain implementation-specific branches and are not part of the paper-facing preset story."
+      "description": "legacy_topk remains a compatibility branch and polarquant_exp remains an experimental runtime branch: PolarQuant now works through the allowlisted upgrade_cache_list path for allowlisted families and has a Llama-scoped certification smoke stage, but it is not part of the paper-facing preset story or formal supported product contract."
     }
   ]
 }

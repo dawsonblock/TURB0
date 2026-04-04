@@ -33,12 +33,21 @@ def score_block(
     rotation = FixedRotation.from_config(config, orig_dim)
     q_rot = rotation.apply(q.astype(mx.float32)).astype(q.dtype)
 
-    main_hat = dequantize_main(block.packed_main, block.scales, config=config)
+    if block.polar is not None:
+        main_hat = dequantize_main(block.polar, None, config=config)
+    else:
+        main_hat = dequantize_main(
+            block.packed_main,
+            block.scales,
+            config=config,
+        )
     main_rot = main_hat[..., : block.d_rot]
 
     if int(q_rot.shape[-1]) != int(main_rot.shape[-1]):
         raise ValueError(
-            f"q_rot dim {int(q_rot.shape[-1])} != main_rot dim {int(main_rot.shape[-1])}"
+            "q_rot dim "
+            f"{int(q_rot.shape[-1])} != main_rot dim "
+            f"{int(main_rot.shape[-1])}"
         )
 
 
@@ -58,6 +67,7 @@ def score_block(
 
     if block.residual.mode == "topk":
         resid_hat = codec.decode(block.residual, config=config)
+        assert resid_hat is not None
         resid_rot = resid_hat[..., : block.d_rot]
 
         if q_rot.shape[-3] != resid_rot.shape[-3]:

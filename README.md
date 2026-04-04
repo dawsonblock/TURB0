@@ -112,7 +112,7 @@ Exact deviations from the paper-facing story:
 - Non-power-of-two head dimensions use a deterministic orthogonal fallback instead of an exact Hadamard matrix.
 - Legacy aliases, `residual_topk`, and `block_tokens` remain for compatibility, but they are not part of the paper-facing preset contract.
 - The vendored `mlx_lm` tree is much wider than the supported boundary; only allowlisted families are eligible for the canonical path.
-- `legacy_topk` and `polarquant_exp` remain implementation branches, not the repo's primary paper-facing claim.
+- `legacy_topk` remains a compatibility branch and `polarquant_exp` remains an experimental runtime branch: PolarQuant now works through `upgrade_cache_list(...)` for allowlisted families and has a Llama-scoped certification smoke stage, but it is not part of the repo's paper-facing claim or formal supported product contract.
 
 ---
 
@@ -208,6 +208,13 @@ cfg_mse = TurboQuantConfig.from_preset("paper_mse")
 Use `paper_prod` for the production-style QJL path and `paper_mse` for the batch-quality
 reference path.
 
+`polarquant_exp` is also available through
+`TurboQuantConfig.polarquant_exp(...)` for allowlisted families when you call
+`upgrade_cache_list(...)` directly. That route now round-trips through the
+runtime cache path, and the release harness now collects a dedicated
+Llama-scoped PolarQuant smoke artifact for it. It still remains experimental
+and is not part of the formal supported product contract.
+
 ---
 
 ## Configuration Reference
@@ -244,6 +251,10 @@ Key fields:
 | `residual_topk` | `0` | Compatibility-only for legacy top-k mode |
 | `block_tokens` | `256` | Compatibility-only knob; not read by the hot path |
 | `return_mode` | `view` | Canonical runtime path always upgrades into the streaming view mode |
+
+`polarquant_exp` appears in the canonical algorithm list for config and state
+compatibility, but unlike `paper_mse` and `paper_prod_qjl` it remains an
+experimental branch.
 
 Legacy aliases still normalize to the canonical algorithm families:
 

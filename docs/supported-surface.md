@@ -41,6 +41,7 @@ A release claim is only addressable when the workflow publishes or references:
 - `junit_cache_roundtrip.xml`
 - `junit_attention_equiv.xml`
 - `junit_llama_smoke.xml`
+- `junit_polar_llama_runtime.xml`
 - `junit_gemma_smoke.xml`
 - `junit_long_context.xml`
 - `aggregate_runs.csv`
