@@ -72,7 +72,7 @@ def test_dense_vs_prod_35bpc(tmp_path):
         if os.environ.get(_REAL_MODEL_OPT_IN_ENV) != "1":
             pytest.skip(
                 "real-model Δppl gate is exploratory; set "
-                "TQ_RUN_EXPLORATORY_REAL_MODEL_QUALITY=1 to opt in"
+                f"{_REAL_MODEL_OPT_IN_ENV}=1 to opt in"
             )
         from mlx_lm import load as _load
         model, tokenizer = _load(_model_id)
