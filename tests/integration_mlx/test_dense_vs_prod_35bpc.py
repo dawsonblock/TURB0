@@ -75,9 +75,7 @@ def test_dense_vs_prod_35bpc(tmp_path):
                 "TQ_RUN_EXPLORATORY_REAL_MODEL_QUALITY=1 to opt in"
             )
         from mlx_lm import load as _load
-        loaded = _load(_model_id)
-        model = loaded[0]
-        tokenizer = loaded[1]
+        model, tokenizer = _load(_model_id)
         max_delta_ppl = _MAX_DELTA_PPL_REAL
     else:
         from tests.helpers.tiny_model import TinyModel, TinyTokenizer
