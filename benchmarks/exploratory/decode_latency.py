@@ -10,15 +10,15 @@ import os
 import sys
 import time
 
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
+sys.path.insert(0, os.path.join(_ROOT, "tests.integration"))
+
 import mlx.core as mx
 
 from tests.integration.test_turboquant_gemma import PREFILL_LEN, _make_kv
 from turboquant import TurboQuantConfig
 from turboquant.runtime.kv_interface import TurboQuantKVCache as KVCompressor
-
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _ROOT)
-sys.path.insert(0, os.path.join(_ROOT, "tests.integration"))
 
 
 def my_make_tq_cache(rm):
