@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = REPO_ROOT / "turboquant" / "contract.json"
 

@@ -257,9 +257,9 @@ def test_upgrade_cache_list_none_family_raises() -> None:
     if injected:
         sys.path.insert(0, repo_str)
     try:
+        from turboquant.config import TurboQuantConfig
         from turboquant.errors import UnsupportedModelError
         from turboquant.integrations.mlx.upgrade import upgrade_cache_list
-        from turboquant.config import TurboQuantConfig
 
         cfg = TurboQuantConfig()
         with pytest.raises(UnsupportedModelError):

@@ -37,7 +37,8 @@ Usage
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace as _dc_replace
+from dataclasses import dataclass
+from dataclasses import replace as _dc_replace
 
 from turboquant.config import TurboQuantConfig
 from turboquant.runtime.support import assert_supported_model_family
