@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from turboquant.errors import UnsupportedModelError
 
@@ -36,8 +37,11 @@ from turboquant.errors import UnsupportedModelError
 _SUPPORT_CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contract.json"
 
 
-def load_support_contract() -> dict:
-    return json.loads(_SUPPORT_CONTRACT_PATH.read_text(encoding="utf-8"))
+def load_support_contract() -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        json.loads(_SUPPORT_CONTRACT_PATH.read_text(encoding="utf-8")),
+    )
 
 
 _SUPPORT_CONTRACT = load_support_contract()

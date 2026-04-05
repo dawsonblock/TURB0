@@ -42,6 +42,10 @@ tagged release workflow all consume or validate against that same contract.
   tree on generic CI.
 - Those checks prove a bounded package and a mechanically enforced support
   story; they do not prove real-model Apple runtime behavior by themselves.
+- If a non-Apple or no-MLX environment only runs the packaging,
+  support-contract, static-test, and typecheck lanes, and those lanes pass,
+  the honest result is "buildable" plus "statically coherent", not
+  runtime-proven on target hardware.
 
 ## What only Apple certification proves
 
@@ -88,17 +92,14 @@ treated as release-facing entry points.
 
 ## Validation executed for this cleanup
 
-Validation for this boundary-hardening pass was run in `.venv-cert311` on
-2026-04-04 and stayed confined to the packaging/docs/static lane plus the
-already-retained Apple runtime evidence.
+Validation for this boundary-hardening pass was rerun in generic packaging and
+static environments on 2026-04-05 and stayed confined to the build,
+support-contract, and static-test lanes plus the already-retained Apple
+runtime evidence.
 
-- `python scripts/render_support_contract.py --check` — passed
-- `python scripts/preflight.py` — passed
-- `python tools/audit_vendored_surface.py` — passed
 - `python -m build` — passed
-- `python tools/verify_dist_contents.py` — passed
-- `python -m compileall turboquant mlx_lm tests` — passed
-- `pytest tests/unit_static -q` — `99 passed`
+- `python scripts/render_support_contract.py --check` — passed
+- `pytest tests/unit_static -q` — passed
 
 The long-running real-model certification workflow does not need to be rerun
 for packaging/docs-only changes so long as the retained `PASS` bundle under

@@ -59,6 +59,7 @@ def test_readme_tracks_primary_contract_story() -> None:
     """README must reflect the runtime contract and its boundaries."""
     content = _read("README.md")
     lowered = content.lower()
+    normalized = " ".join(lowered.split())
 
     assert "Contract summary:" in content
     assert "upgrade_cache_list(...)" in content
@@ -72,6 +73,8 @@ def test_readme_tracks_primary_contract_story() -> None:
     assert "compatibility-only" in lowered or "compatibility only" in lowered
     assert "artifacts/runtime-cert/" in content
     assert "built wheels and source distributions do not ship" in lowered
+    assert "apple silicon is required for runtime inference" in lowered
+    assert "not a runtime go/no-go" in normalized
     assert "encode_topk_residual" not in content
     assert "top-k sparse residual" not in lowered
 
@@ -201,3 +204,22 @@ def test_validation_local_distinguishes_smoke_from_real_certification(
         "full real-model certification" in lowered
         or "full runtime certification" in lowered
     )
+    assert "buildable" in lowered
+    assert "statically coherent" in lowered
+    assert "not runtime-proven on target hardware" in lowered
+
+
+def test_contract_status_distinguishes_static_from_runtime_proof() -> None:
+    """contract_status.md must not present generic validation as runtime
+    proof.
+    """
+    content = _read("docs/contract_status.md")
+    lowered = content.lower()
+    normalized = " ".join(lowered.split())
+
+    assert "buildable" in lowered
+    assert "statically coherent" in lowered
+    assert "not runtime-proven on target" in normalized
+    assert "support-contract" in lowered
+    assert "typecheck" in lowered
+    assert "and those lanes pass" in normalized

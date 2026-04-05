@@ -4,6 +4,14 @@ Public CI in this repository checks packaging and static validation. It does not
 
 If you do not run the Apple-Silicon path yourself, you do not have runtime evidence. You only have static evidence.
 
+If all you have is a generic non-Apple or no-MLX validation environment, the
+honest status is:
+
+- buildable, if the wheel/sdist and install-structure checks pass
+- statically coherent, if the support-contract, static-test, and any
+  available typecheck lanes pass
+- not runtime-proven on target hardware
+
 ## The one real proof you can run today
 
 ```bash

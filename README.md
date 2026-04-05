@@ -159,6 +159,11 @@ Allowlist membership is a contract decision, not a side effect of vendored code.
 
 ## Validation And Certification
 
+If you only validated this repo from a non-Apple or no-MLX environment, the
+strongest honest claim is that the package build/install structure and
+non-runtime validation lanes work there. That is useful, but it is not a
+runtime go/no-go for the Apple-Silicon MLX path.
+
 Local validation entry points:
 
 ```bash
