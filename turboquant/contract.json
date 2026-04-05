@@ -38,7 +38,13 @@
       "junit_cache_roundtrip.xml",
       "junit_attention_equiv.xml",
       "junit_llama_smoke.xml",
+      "junit_polar_llama_runtime.xml",
+      "quality_eval_polar_short_summary.json",
+      "quality_eval_polar_medium_summary.json",
       "junit_gemma_smoke.xml",
+      "junit_polar_gemma_runtime.xml",
+      "quality_eval_polar_gemma_short_summary.json",
+      "quality_eval_polar_gemma_medium_summary.json",
       "junit_long_context.xml",
       "aggregate_runs.csv",
       "certification_summary.json"
@@ -53,6 +59,8 @@
       "workflow_story": "The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Llama.",
       "coverage": [
         "real-model smoke",
+        "PolarQuant runtime smoke",
+        "PolarQuant quality guardrail",
         "batch quality guardrail",
         "long-context stability",
         "dense-vs-TurboQuant benchmark sweeps"
@@ -67,9 +75,11 @@
       "workflow_story": "The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Gemma.",
       "coverage": [
         "real-model smoke",
+        "PolarQuant runtime smoke",
+        "PolarQuant quality guardrail",
         "dense-vs-TurboQuant benchmark sweeps"
       ],
-      "notes": "Gemma coverage is narrower than Llama because the batch quality guardrail remains Llama-scoped; source archives alone do not prove a current PASS."
+      "notes": "Gemma coverage remains narrower overall because the conservative paper_mse batch quality guardrail remains Llama-scoped, even though PolarQuant runtime and quality evidence now exist for Gemma; source archives alone do not prove a current PASS."
     }
   ],
   "presets": [
@@ -147,6 +157,19 @@
       "residual_topk": 4,
       "paper_facing": false,
       "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract."
+    },
+    {
+      "name": "polarquant_exp",
+      "display_name": "polarquant_exp (supported non-paper-facing)",
+      "algorithm": "polarquant_exp",
+      "algorithm_aliases": [],
+      "k_bits": 3,
+      "k_group_size": 64,
+      "v_bits": 4,
+      "v_group_size": 64,
+      "residual_kind": "none",
+      "paper_facing": false,
+      "notes": "Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification."
     }
   ],
   "secondary_surfaces": [
@@ -195,8 +218,8 @@
       "description": "The vendored mlx_lm tree contains many model files, but only the allowlisted families in this contract are supported by the canonical upgrade path."
     },
     {
-      "title": "Experimental branches outside paper-facing presets",
-      "description": "legacy_topk and polarquant_exp remain implementation-specific branches and are not part of the paper-facing preset story."
+      "title": "Compatibility and non-paper-facing branches",
+      "description": "legacy_topk remains a compatibility branch, while polarquant_exp is now a supported non-paper-facing branch: PolarQuant works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and family-scoped batch quality guardrails, but it remains outside the paper-facing preset story."
     }
   ]
 }

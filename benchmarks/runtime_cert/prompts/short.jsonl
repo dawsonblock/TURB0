@@ -1,5 +1,5 @@
-{"id": "short_001", "text": "Explain what a KV cache is in one paragraph."}
-{"id": "short_002", "text": "Write a Python function that reverses a string."}
-{"id": "short_003", "text": "What is the capital of France?"}
-{"id": "short_004", "text": "Describe the difference between a list and a tuple in Python."}
-{"id": "short_005", "text": "Write a one-line Python expression that computes the factorial of 10."}
+{"id": "short_001", "text": "Describe how to make a cup of tea at home, including heating the water, steeping the tea, and deciding whether to add milk, lemon, honey, or sugar before serving."}
+{"id": "short_002", "text": "Write a short Python function that removes leading and trailing spaces from a string, and include one example call that shows the cleaned result after the function runs."}
+{"id": "short_003", "text": "Explain why many people enjoy visiting a city park on a sunny weekend afternoon, mentioning walking paths, open grass, and time spent with friends or family."}
+{"id": "short_004", "text": "Compare a list and a tuple in Python, focusing on mutability, readability, and one ordinary situation where each option is a sensible choice for a program."}
+{"id": "short_005", "text": "Describe how a public library helps a neighborhood by lending books, offering quiet study space, and giving children and adults a place to read after school or work."}

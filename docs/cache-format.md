@@ -41,6 +41,17 @@ Each entry in `blocks` is produced by `EncodedKeyBlock.to_dict()` and contains:
 | `d_quant` | `int` | quantized dimension |
 | `algorithm` | `str` | encoder algorithm name |
 | `orig_dim` | `int` | original dimension before padding |
+| `polar_payload` | `dict \| None` | present only for `polarquant_exp`; contains encoded angle codes and final radii |
+
+When `algorithm == "polarquant_exp"`, `packed_main` and `scales` are `None` and `polar_payload` carries:
+
+| key | type | description |
+| --- | --- | --- |
+| `angle_codes` | `list[str]` | base64-encoded per-level angle-code tensors |
+| `final_radii` | `str` | base64-encoded final-radii tensor |
+| `d_orig` | `int` | original head dimension before padding |
+| `d_pad` | `int` | padded dimension used by PolarQuant |
+| `n_levels` | `int` | recursive PolarQuant depth |
 
 ## 2. Legacy payloads
 

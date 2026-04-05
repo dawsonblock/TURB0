@@ -33,6 +33,10 @@ Retained evidence already present in this workspace:
 
 Those surfaces remain available for compatibility or investigation, but they are outside the supported contract.
 
+`polarquant_exp` now survives the allowlisted `upgrade_cache_list(...)` runtime
+path and cache state round-trip, but it still lacks certification coverage and
+remains outside the supported product contract.
+
 ## Validation executed for this cleanup
 
 Validation was run in `.venv-cert311` on Apple Silicon with Python 3.11.13 and MLX 0.31.1.

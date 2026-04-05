@@ -56,6 +56,48 @@ def _canonical_v4_state() -> tuple[dict[str, object], TurboQuantConfig]:
     return state, config
 
 
+def _polar_v4_state() -> tuple[dict[str, object], TurboQuantConfig]:
+    config = TurboQuantConfig.polarquant_exp(rotation="random_orthogonal")
+    state = {
+        "schema_version": STATE_SCHEMA_VERSION,
+        "offset": 4,
+        "d_head": 128,
+        "d_pad": 128,
+        "v_dim": 0,
+        "v_pad": 0,
+        **_config_fields(config),
+        "algorithm": "polarquant_exp",
+        "rotation_type": "random_orthogonal",
+        "residual_kind": "none",
+        "qjl_dim": 0,
+        "qjl_seed": 0,
+        "codebook_id": "polar-angle-codebook-exp",
+        "main_bits": 3,
+        "residual_bits": 0,
+        "blocks": [
+            {
+                "packed_main": None,
+                "scales": None,
+                "residual_mode": "none",
+                "residual_data_keys": [],
+                "d_head": 128,
+                "d_rot": 128,
+                "d_quant": 128,
+                "algorithm": "polarquant_exp",
+                "orig_dim": 128,
+                "polar_payload": {
+                    "angle_codes": ["ZmFrZS1jb2RlLTE=", "ZmFrZS1jb2RlLTI="],
+                    "final_radii": "ZmFrZS1yYWRpaQ==",
+                    "d_orig": 128,
+                    "d_pad": 128,
+                    "n_levels": 2,
+                },
+            }
+        ],
+    }
+    return state, config
+
+
 def test_state_schema_version_is_4() -> None:
     assert STATE_SCHEMA_VERSION == 4
 
@@ -110,5 +152,18 @@ def test_validate_state_rejects_v4_without_blocks() -> None:
     state.pop("blocks")
 
     with pytest.raises(TurboQuantStateError, match="requires 'blocks'"):
+        validate_state(state, config)
+
+
+def test_validate_state_accepts_polar_v4_block_list() -> None:
+    state, config = _polar_v4_state()
+    validate_state(state, config)
+
+
+def test_validate_state_rejects_polar_v4_without_payload() -> None:
+    state, config = _polar_v4_state()
+    state["blocks"][0].pop("polar_payload")
+
+    with pytest.raises(TurboQuantStateError, match="must include 'polar_payload'"):
         validate_state(state, config)
 

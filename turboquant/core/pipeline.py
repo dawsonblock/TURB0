@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import mlx.core as mx
 import numpy as np
@@ -9,6 +9,9 @@ import numpy as np
 from turboquant.config import TurboQuantConfig
 
 from .residual_codec import ResidualPayload, build_residual_codec
+
+if TYPE_CHECKING:
+    from .polar_quant import PolarQuantPayload
 
 
 @dataclass(slots=True)
@@ -19,14 +22,28 @@ class EncodedKeyBlock:
     d_head: int
     d_rot: int
     d_quant: int
-    polar: object = None             # PolarQuantPayload | None
+    polar: PolarQuantPayload | None = None
     algorithm: str = "paper_prod_qjl"
     orig_dim: int = 0  # original head-dim before padding (0 = same as d_head)
+
+    def byte_size(self) -> int:
+        total = 0
+        for arr in (self.packed_main, self.scales):
+            if arr is not None and hasattr(arr, "nbytes"):
+                total += int(arr.nbytes)
+        for value in self.residual.data.values():
+            if hasattr(value, "nbytes"):
+                total += int(value.nbytes)
+        if self.polar is not None:
+            total += self.polar.byte_size()
+        return total
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dict."""
         import base64
         import io
+
+        from .polar_quant import PolarQuantPayload
 
         def _arr_to_b64(arr):
             if arr is None:
@@ -45,6 +62,11 @@ class EncodedKeyBlock:
             "d_quant": self.d_quant,
             "algorithm": self.algorithm,
             "orig_dim": self.orig_dim,
+            "polar_payload": (
+                self.polar.to_dict()
+                if isinstance(self.polar, PolarQuantPayload)
+                else None
+            ),
         }
 
     @classmethod
@@ -52,6 +74,8 @@ class EncodedKeyBlock:
         """Restore from a dict produced by to_dict()."""
         import base64
         import io
+
+        from .polar_quant import PolarQuantPayload
 
         def _b64_to_arr(b64):
             if b64 is None:
@@ -73,6 +97,11 @@ class EncodedKeyBlock:
             d_head=int(data.get("d_head", 0)),
             d_rot=int(data.get("d_rot", 0)),
             d_quant=int(data.get("d_quant", 0)),
+            polar=(
+                PolarQuantPayload.from_dict(data["polar_payload"])
+                if isinstance(data.get("polar_payload"), dict)
+                else None
+            ),
             algorithm=TurboQuantConfig.normalize_algorithm(
                 data.get("algorithm", "paper_prod_qjl")
             ),

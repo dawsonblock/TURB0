@@ -120,6 +120,9 @@ else
     echo "  Scope     : ${CERT_FAMILIES[*]}"
 fi
 
+POLAR_MAX_DELTA_PPL="${TQ_POLAR_MAX_DELTA_PPL:-20.0}"
+POLAR_MAX_MEAN_KL="${TQ_POLAR_MAX_MEAN_KL:-5.0}"
+
 # ---------------------------------------------------------------------------
 # Internal helper: parse a JUnit XML file and decide if the stage passed.
 # Returns:
@@ -287,6 +290,17 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Stage 4.5: PolarQuant runtime smoke (Llama)
+# ---------------------------------------------------------------------------
+if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
+    run_pytest_stage "PolarQuant Runtime (Llama)" "junit_polar_llama_runtime.xml" \
+        tests/integration_mlx/test_polar_long_context_runtime.py
+else
+    mark_out_of_scope "PolarQuant Runtime (Llama)" \
+        "TQ_TEST_LLAMA_MODEL not set"
+fi
+
+# ---------------------------------------------------------------------------
 # Stage 5: Gemma smoke test
 # ---------------------------------------------------------------------------
 if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
@@ -294,6 +308,17 @@ if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
         tests/integration_mlx/test_gemma_runtime_smoke.py
 else
     mark_out_of_scope "Gemma Smoke" "TQ_TEST_GEMMA_MODEL not set"
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 5.2: PolarQuant runtime smoke (Gemma)
+# ---------------------------------------------------------------------------
+if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
+    run_pytest_stage "PolarQuant Runtime (Gemma)" "junit_polar_gemma_runtime.xml" \
+        tests/integration_mlx/test_polar_gemma_runtime.py
+else
+    mark_out_of_scope "PolarQuant Runtime (Gemma)" \
+        "TQ_TEST_GEMMA_MODEL not set"
 fi
 
 # ---------------------------------------------------------------------------
@@ -329,6 +354,56 @@ if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
 else
     mark_out_of_scope "Quality Evaluation" \
         "quality guardrail is only defined for the selected Llama scope"
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 5.7: PolarQuant quality evaluation (Llama)
+# ---------------------------------------------------------------------------
+if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
+    for CLASS in short medium; do
+        # PolarQuant remains experimental, so this is still a catastrophic-
+        # regression guardrail rather than a promotion-quality claim.
+        run_stage "PolarQuant Quality Eval $CLASS (Llama)" \
+            "$PYTHON_BIN" benchmarks/runtime_cert/run_quality_eval.py \
+            --model "$TQ_TEST_LLAMA_MODEL" \
+            --prompt-file "benchmarks/runtime_cert/prompts/$CLASS.jsonl" \
+            --prompt-class "$CLASS" \
+            --output-dir "$ARTIFACT_DIR" \
+            --artifact-label polar \
+            --preset polarquant_exp \
+            --model-family llama \
+            --min-prompt-tokens 32 \
+            --max-delta-ppl "$POLAR_MAX_DELTA_PPL" \
+            --max-mean-kl "$POLAR_MAX_MEAN_KL" \
+            --seed 42
+    done
+else
+    mark_out_of_scope "PolarQuant Quality Evaluation" \
+        "quality guardrail is only defined for the selected Llama scope"
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 5.8: PolarQuant quality evaluation (Gemma)
+# ---------------------------------------------------------------------------
+if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
+    for CLASS in short medium; do
+        run_stage "PolarQuant Quality Eval $CLASS (Gemma)" \
+            "$PYTHON_BIN" benchmarks/runtime_cert/run_quality_eval.py \
+            --model "$TQ_TEST_GEMMA_MODEL" \
+            --prompt-file "benchmarks/runtime_cert/prompts/$CLASS.jsonl" \
+            --prompt-class "$CLASS" \
+            --output-dir "$ARTIFACT_DIR" \
+            --artifact-label polar_gemma \
+            --preset polarquant_exp \
+            --model-family gemma \
+            --min-prompt-tokens 32 \
+            --max-delta-ppl "$POLAR_MAX_DELTA_PPL" \
+            --max-mean-kl "$POLAR_MAX_MEAN_KL" \
+            --seed 42
+    done
+else
+    mark_out_of_scope "PolarQuant Quality Evaluation (Gemma)" \
+        "quality guardrail requires the selected Gemma scope"
 fi
 
 # ---------------------------------------------------------------------------

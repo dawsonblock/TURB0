@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any, cast
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -11,13 +12,15 @@ GENERATED_HEADER = (
     "<!-- Generated from turboquant/contract.json by "
     "scripts/render_support_contract.py. Do not edit by hand. -->"
 )
+JsonDict = dict[str, Any]
 
 
-def load_contract() -> dict:
-    return json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+def load_contract() -> JsonDict:
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    return cast(JsonDict, payload)
 
 
-def _k_bpc_d128(preset: dict) -> str:
+def _k_bpc_d128(preset: JsonDict) -> str:
     residual_kind = preset["residual_kind"]
     k_bits = int(preset["k_bits"])
     k_group_size = int(preset["k_group_size"])
@@ -31,7 +34,7 @@ def _k_bpc_d128(preset: dict) -> str:
     return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
-def _avg_kv_bpc_d128(preset: dict) -> str:
+def _avg_kv_bpc_d128(preset: JsonDict) -> str:
     residual_kind = preset["residual_kind"]
     if residual_kind == "topk":
         return "legacy / compatibility-only"
@@ -50,7 +53,14 @@ def _avg_kv_bpc_d128(preset: dict) -> str:
     return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
-def render_support_matrix(contract: dict) -> str:
+def _format_deviation(deviation: JsonDict) -> str:
+    return (
+        f"- **{deviation['title']}** — "
+        f"{deviation['description']}"
+    )
+
+
+def render_support_matrix(contract: JsonDict) -> str:
     lines = [
         GENERATED_HEADER,
         "# TurboQuant Support Matrix",
@@ -63,7 +73,9 @@ def render_support_matrix(contract: dict) -> str:
         "",
         "## Algorithm Presets",
         "",
-        "| Preset | Canonical algorithm | Residual | Effective K bpc (d=128) | Average KV bpc (d=128) | Notes |",
+        "| Preset | Canonical algorithm | Residual | "
+        "Effective K bpc (d=128) | Average KV bpc (d=128) | "
+        "Notes |",
         "| :--- | :--- | :--- | :---: | :---: | :--- |",
     ]
     for preset in contract["presets"]:
@@ -85,20 +97,22 @@ def render_support_matrix(contract: dict) -> str:
         ]
     )
     for deviation in contract["deviations"]:
-        lines.append(f"- **{deviation['title']}** — {deviation['description']}")
+        lines.append(_format_deviation(deviation))
 
     lines.extend(
         [
             "",
             "## Model Architecture Matrix",
             "",
-            "| Model family | Canonical support status | Evidence depth | Notes |",
+            "| Model family | Canonical support status | Evidence depth | "
+            "Notes |",
             "| :--- | :--- | :--- | :--- |",
         ]
     )
     for family in contract["families"]:
         lines.append(
-            f"| {family['display_name']} | Allowlisted via `upgrade_cache_list(...)` | "
+            f"| {family['display_name']} | "
+            "Allowlisted via `upgrade_cache_list(...)` | "
             f"{family['evidence_depth']} | {family['workflow_story']} "
             f"{family['notes']} Coverage: {', '.join(family['coverage'])}. |"
         )
@@ -119,7 +133,7 @@ def render_support_matrix(contract: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_supported_surface(contract: dict) -> str:
+def render_supported_surface(contract: JsonDict) -> str:
     runtime = contract["canonical_runtime"]
     lines = [
         GENERATED_HEADER,
@@ -132,9 +146,11 @@ def render_supported_surface(contract: dict) -> str:
         "## Supported slice",
         "",
         f"- {runtime['platform']} on {', '.join(runtime['hardware'])}",
-        f"- Python {runtime['python']['min']} through {runtime['python']['max']} "
+        f"- Python {runtime['python']['min']} through "
+        f"{runtime['python']['max']} "
         f"(recommended {runtime['python']['recommended']})",
-        f"- MLX >= {runtime['mlx']['min']} and < {runtime['mlx']['max_exclusive']}",
+        f"- MLX >= {runtime['mlx']['min']} and < "
+        f"{runtime['mlx']['max_exclusive']}",
         f"- Canonical runtime entry point: `{runtime['entrypoint']}(...)`",
         "- Research and local evaluation workflows only",
         "",
@@ -145,7 +161,8 @@ def render_supported_surface(contract: dict) -> str:
     ]
     for family in contract["families"]:
         lines.append(
-            f"| {family['display_name']} | Allowlisted | {family['evidence_depth']} | "
+            f"| {family['display_name']} | Allowlisted | "
+            f"{family['evidence_depth']} | "
             f"{family['workflow_story']} {family['notes']} |"
         )
 
@@ -154,7 +171,8 @@ def render_supported_surface(contract: dict) -> str:
             "",
             "## Secondary surfaces",
             "",
-            "These surfaces exist, but they are not peer public runtime entry points:",
+            "These surfaces exist, but they are not peer public runtime "
+            "entry points:",
             "",
             "| Surface | Status | Why it is secondary | Preferred path |",
             "| :--- | :--- | :--- | :--- |",
@@ -162,7 +180,8 @@ def render_supported_surface(contract: dict) -> str:
     )
     for surface in contract["secondary_surfaces"]:
         lines.append(
-            f"| `{surface['path']}` | {surface['status']} | {surface['gate']} | `{surface['preferred']}` |"
+            f"| `{surface['path']}` | {surface['status']} | "
+            f"{surface['gate']} | `{surface['preferred']}` |"
         )
 
     lines.extend(
@@ -170,7 +189,8 @@ def render_supported_surface(contract: dict) -> str:
             "",
             "## Release evidence contract",
             "",
-            "A release claim is only addressable when the workflow publishes or references:",
+            "A release claim is only addressable when the workflow "
+            "publishes or references:",
             "",
         ]
     )
@@ -193,7 +213,7 @@ def render_supported_surface(contract: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_product_contract(contract: dict) -> str:
+def render_product_contract(contract: JsonDict) -> str:
     runtime = contract["canonical_runtime"]
     lines = [
         GENERATED_HEADER,
@@ -202,9 +222,10 @@ def render_product_contract(contract: dict) -> str:
         "This document defines the narrow supported surface TurboQuant can "
         "honestly claim today.",
         "",
-        f"TurboQuant supports one canonical runtime path via `{runtime['entrypoint']}(...)`. "
-        "A source archive documents that workflow, but it does not prove a current PASS "
-        "without an addressable workflow artifact, release evidence bundle, or pinned "
+        f"TurboQuant supports one canonical runtime path via "
+        f"`{runtime['entrypoint']}(...)`. A source archive documents that "
+        "workflow, but it does not prove a current PASS without an "
+        "addressable workflow artifact, release evidence bundle, or pinned "
         "manifest digest.",
         "",
         "## 1. Supported hardware and runtime",
@@ -213,8 +234,10 @@ def render_product_contract(contract: dict) -> str:
         f"- Hardware: {', '.join(runtime['hardware'])}",
         f"- Python: {runtime['python']['min']} to {runtime['python']['max']} "
         f"(recommended {runtime['python']['recommended']})",
-        f"- MLX: >= {runtime['mlx']['min']} and < {runtime['mlx']['max_exclusive']}",
-        "- Scope: local Apple-Silicon MLX validation, not production deployment",
+        f"- MLX: >= {runtime['mlx']['min']} and < "
+        f"{runtime['mlx']['max_exclusive']}",
+        "- Scope: local Apple-Silicon MLX validation, not production "
+        "deployment",
         "",
         "## 2. Supported model families",
         "",
@@ -222,7 +245,8 @@ def render_product_contract(contract: dict) -> str:
     for family in contract["families"]:
         lines.append(
             f"- **{family['display_name']}** — allowlisted; evidence depth is "
-            f"**{family['evidence_depth']}**. {family['workflow_story']} {family['notes']} "
+            f"**{family['evidence_depth']}**. {family['workflow_story']} "
+            f"{family['notes']} "
             f"Coverage: {', '.join(family['coverage'])}."
         )
 
@@ -232,12 +256,14 @@ def render_product_contract(contract: dict) -> str:
             "## 3. Canonical and secondary surfaces",
             "",
             f"- Canonical runtime path: `{runtime['entrypoint']}(...)`",
-            "- Secondary surfaces remain available only for compatibility or eval use:",
+            "- Secondary surfaces remain available only for compatibility or "
+            "eval use:",
         ]
     )
     for surface in contract["secondary_surfaces"]:
         lines.append(
-            f"  - `{surface['path']}` ({surface['status']}) — {surface['gate']}"
+            f"  - `{surface['path']}` ({surface['status']}) — "
+            f"{surface['gate']}"
         )
 
     lines.extend(
@@ -245,13 +271,14 @@ def render_product_contract(contract: dict) -> str:
             "",
             "## 4. Paper-facing presets and exact deviations",
             "",
-            "Paper-facing presets are `paper_mse` and `paper_prod`/`paper_prod_qjl`. "
-            "Legacy top-k presets remain compatibility paths, not the main algorithm story.",
+            "Paper-facing presets are `paper_mse` and "
+            "`paper_prod`/`paper_prod_qjl`. Legacy top-k presets remain "
+            "compatibility paths, not the main algorithm story.",
             "",
         ]
     )
     for deviation in contract["deviations"]:
-        lines.append(f"- **{deviation['title']}** — {deviation['description']}")
+        lines.append(_format_deviation(deviation))
 
     lines.extend(
         [
@@ -274,29 +301,49 @@ def render_product_contract(contract: dict) -> str:
 def render_docs() -> dict[Path, str]:
     contract = load_contract()
     return {
-        REPO_ROOT / "docs" / "support_matrix.md": render_support_matrix(contract),
-        REPO_ROOT / "docs" / "supported-surface.md": render_supported_surface(contract),
-        REPO_ROOT / "docs" / "product_contract.md": render_product_contract(contract),
+        REPO_ROOT / "docs" / "support_matrix.md": render_support_matrix(
+            contract
+        ),
+        REPO_ROOT / "docs" / "supported-surface.md": render_supported_surface(
+            contract
+        ),
+        REPO_ROOT / "docs" / "product_contract.md": render_product_contract(
+            contract
+        ),
     }
 
 
 def write_artifact(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "contract.json"
-    output_path.write_text(CONTRACT_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    output_path.write_text(
+        CONTRACT_PATH.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Render contract-driven docs and artifacts")
-    parser.add_argument("--check", action="store_true", help="Fail if rendered docs differ from checked-in docs")
-    parser.add_argument("--artifact-dir", help="Optional artifact directory to receive contract.json")
+    parser = argparse.ArgumentParser(
+        description="Render contract-driven docs and artifacts"
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Fail if rendered docs differ from checked-in docs",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        help="Optional artifact directory to receive contract.json",
+    )
     args = parser.parse_args()
 
     docs = render_docs()
     mismatches: list[str] = []
     for path, content in docs.items():
         if args.check:
-            existing = path.read_text(encoding="utf-8") if path.exists() else ""
+            existing = (
+                path.read_text(encoding="utf-8") if path.exists() else ""
+            )
             if existing != content:
                 mismatches.append(str(path.relative_to(REPO_ROOT)))
         else:
@@ -307,7 +354,8 @@ def main() -> None:
 
     if mismatches:
         raise SystemExit(
-            "Rendered support-contract docs are out of date: " + ", ".join(mismatches)
+            "Rendered support-contract docs are out of date: "
+            + ", ".join(mismatches)
         )
 
 
