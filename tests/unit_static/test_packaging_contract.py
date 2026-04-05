@@ -63,13 +63,20 @@ def test_pyproject_intentionally_ships_vendored_boundary() -> None:
     assert includes == {"turboquant*", "mlx_lm*"}
     assert {"tests*", "benchmarks*"} <= excludes
     assert mlx_data == {"py.typed"}
-    assert turboquant_data == {"contract.json"}
+    assert turboquant_data == {
+        "contract.json",
+        "experimental/kernels/metal/decode_k.metal",
+    }
 
 
 def test_manifest_explicitly_prunes_non_shipped_top_level_dirs() -> None:
     content = _read("MANIFEST.in")
 
     assert "include turboquant/contract.json" in content
+    assert (
+        "recursive-include turboquant/experimental/kernels/metal *.metal"
+        in content
+    )
     assert "recursive-include mlx_lm py.typed" in content
     assert "recursive-include docs *.md" in content
     assert "prune tests" in content
@@ -97,3 +104,15 @@ def test_dist_verifier_tracks_the_same_boundary() -> None:
         "benchmarks/",
         "artifacts/",
     }
+
+
+def test_dist_verifier_requires_colocated_assets_for_shipped_runtime_modules(
+) -> None:
+    verifier = _load_dist_verifier()
+
+    assert verifier.REQUIRED_COLOCATED_ASSETS == (
+        (
+            "turboquant/experimental/kernels/metal/runtime.py",
+            ("turboquant/experimental/kernels/metal/decode_k.metal",),
+        ),
+    )

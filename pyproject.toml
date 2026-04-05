@@ -65,7 +65,7 @@ exclude = ["tests*", "benchmarks*"]
 [tool.setuptools.package-data]
 # Non-Python files that must survive in built artifacts.
 mlx_lm = ["py.typed"]
-turboquant = ["contract.json"]
+turboquant = ["contract.json", "experimental/kernels/metal/decode_k.metal"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
