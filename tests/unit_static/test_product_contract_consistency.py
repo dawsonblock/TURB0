@@ -215,9 +215,11 @@ def test_contract_status_distinguishes_static_from_runtime_proof() -> None:
     """
     content = _read("docs/contract_status.md")
     lowered = content.lower()
+    normalized = " ".join(lowered.split())
 
     assert "buildable" in lowered
     assert "statically coherent" in lowered
-    assert "not runtime-proven on target" in lowered
+    assert "not runtime-proven on target" in normalized
     assert "support-contract" in lowered
     assert "typecheck" in lowered
+    assert "and those lanes pass" in normalized

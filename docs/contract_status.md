@@ -43,9 +43,9 @@ tagged release workflow all consume or validate against that same contract.
 - Those checks prove a bounded package and a mechanically enforced support
   story; they do not prove real-model Apple runtime behavior by themselves.
 - If a non-Apple or no-MLX environment only runs the packaging,
-  support-contract, static-test, and typecheck lanes, the honest result is
-  "buildable" plus "statically coherent", not runtime-proven on target
-  hardware.
+  support-contract, static-test, and typecheck lanes, and those lanes pass,
+  the honest result is "buildable" plus "statically coherent", not
+  runtime-proven on target hardware.
 
 ## What only Apple certification proves
 
