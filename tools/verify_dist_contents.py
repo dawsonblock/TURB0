@@ -4,9 +4,11 @@ tools/verify_dist_contents.py — fail-closed audit for built wheel/sdist output
 
 The wheel intentionally ships the bounded ``turboquant`` package together with
 the vendored ``mlx_lm`` tree, ``turboquant/contract.json``, and
-``mlx_lm/py.typed``. Top-level ``tests/``, ``benchmarks/``, and retained
-runtime evidence under ``artifacts/`` remain outside the published artifact
-boundary, while ``docs/*.md`` remain source-distribution-only for human review.
+``mlx_lm/py.typed``. Shipped Python runtime modules that rely on colocated
+non-Python assets must ship those assets in the same built artifact. Top-level
+``tests/``, ``benchmarks/``, and retained runtime evidence under ``artifacts/``
+remain outside the published artifact boundary, while ``docs/*.md`` remain
+source-distribution-only for human review.
 
 Usage
 -----
@@ -44,6 +46,12 @@ REQUIRED_SDIST_ONLY_MEMBERS: tuple[str, ...] = (
     "docs/support_matrix.md",
     "docs/supported-surface.md",
     "docs/contract_status.md",
+)
+REQUIRED_COLOCATED_ASSETS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "turboquant/experimental/kernels/metal/runtime.py",
+        ("turboquant/experimental/kernels/metal/decode_k.metal",),
+    ),
 )
 FORBIDDEN_TOP_LEVEL_PREFIXES: tuple[str, ...] = (
     "tests/",
@@ -111,6 +119,21 @@ def _forbidden_members(members: tuple[str, ...]) -> list[str]:
     )
 
 
+def _missing_colocated_assets(
+    members: tuple[str, ...],
+    requirements: tuple[tuple[str, tuple[str, ...]], ...],
+) -> list[str]:
+    member_set = set(members)
+    missing: list[str] = []
+    for module_path, asset_paths in requirements:
+        if module_path not in member_set:
+            continue
+        for asset_path in asset_paths:
+            if asset_path not in member_set:
+                missing.append(f"{module_path} -> {asset_path}")
+    return sorted(missing)
+
+
 def run_audit(dist_dir: Path = DEFAULT_DIST_DIR) -> dict[str, object]:
     wheel_path = _find_single(dist_dir, "*.whl")
     sdist_path = _find_single(dist_dir, "*.tar.gz")
@@ -123,11 +146,19 @@ def run_audit(dist_dir: Path = DEFAULT_DIST_DIR) -> dict[str, object]:
         wheel_members,
         REQUIRED_WHEEL_PREFIXES,
     )
+    wheel_missing_colocated_assets = _missing_colocated_assets(
+        wheel_members,
+        REQUIRED_COLOCATED_ASSETS,
+    )
     wheel_forbidden = _forbidden_members(wheel_members)
 
     sdist_missing = _missing_members(
         sdist_members,
         REQUIRED_SHARED_MEMBERS + REQUIRED_SDIST_ONLY_MEMBERS,
+    )
+    sdist_missing_colocated_assets = _missing_colocated_assets(
+        sdist_members,
+        REQUIRED_COLOCATED_ASSETS,
     )
     sdist_forbidden = _forbidden_members(sdist_members)
 
@@ -135,8 +166,10 @@ def run_audit(dist_dir: Path = DEFAULT_DIST_DIR) -> dict[str, object]:
         (
             wheel_missing,
             wheel_missing_prefixes,
+            wheel_missing_colocated_assets,
             wheel_forbidden,
             sdist_missing,
+            sdist_missing_colocated_assets,
             sdist_forbidden,
         )
     )
@@ -148,11 +181,13 @@ def run_audit(dist_dir: Path = DEFAULT_DIST_DIR) -> dict[str, object]:
             "path": wheel_path.as_posix(),
             "missing_members": wheel_missing,
             "missing_prefixes": wheel_missing_prefixes,
+            "missing_colocated_assets": wheel_missing_colocated_assets,
             "forbidden_members": wheel_forbidden,
         },
         "sdist": {
             "path": sdist_path.as_posix(),
             "missing_members": sdist_missing,
+            "missing_colocated_assets": sdist_missing_colocated_assets,
             "forbidden_members": sdist_forbidden,
         },
     }
@@ -177,6 +212,11 @@ def _print_human(result: dict[str, object]) -> None:
             print("  Missing prefixes:")
             for prefix in missing_prefixes:
                 print(f"    {prefix}")
+        missing_colocated_assets = payload.get("missing_colocated_assets", [])
+        if missing_colocated_assets:
+            print("  Missing colocated assets:")
+            for dependency in missing_colocated_assets:
+                print(f"    {dependency}")
         forbidden_members = payload.get("forbidden_members", [])
         if forbidden_members:
             print("  Forbidden members:")
