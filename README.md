@@ -56,6 +56,11 @@ formal support claim is intentionally narrower than the codebase footprint.
 
 ## Runtime Contract
 
+Contract summary: TurboQuant supports one canonical runtime path for
+allowlisted Llama and Gemma models via `upgrade_cache_list(...)` inside the
+`mlx_lm` decode flow. Direct adapter construction and deprecated cache
+conversion helpers remain secondary surfaces that bypass the support gate.
+
 The validated promotion path is:
 
 `generate_step(...)` -> `maybe_turboquant_k_cache(...)` -> `upgrade_cache_list(...)` -> `TurboQuantKCache.update_and_fetch(...)` -> `TurboQuantKeysView` -> `scaled_dot_product_attention(...)` -> `turboquant_streaming_attention(...)`
@@ -66,6 +71,9 @@ Important boundaries:
 - `TurboQuantKCache(...)`, `KVCache._to_turboquant()`, and `KVCache.to_turboquant()` remain compatibility or eval surfaces, not peer public runtime APIs.
 - The canonical decode path returns runtime-upgrade events, but it does not automatically persist `events.jsonl`.
 - Evidence depth is intentionally asymmetric today: Llama coverage is stronger; Gemma remains narrower overall because the conservative `paper_mse` batch quality guardrail is still Llama-scoped even though PolarQuant runtime and quality stages now run on both families.
+
+The supported public cache-state persistence format is
+`TurboQuantKVCache.state()` with `schema_version == 4`.
 
 Generated summaries of the contract live in
 [docs/product_contract.md](docs/product_contract.md),
@@ -84,6 +92,7 @@ Generated summaries of the contract live in
 Notes:
 
 - `high_compression` remains a legacy alias for the `paper_prod_qjl` family.
+- `balanced`, `max_quality`, and `legacy_topk` are legacy top-k compatibility-only surfaces.
 - `polarquant_exp` is part of the formal supported product contract, but it is not part of the paper-facing preset story.
 - Exact preset math and deviations are generated in [docs/support_matrix.md](docs/support_matrix.md).
 
@@ -159,6 +168,9 @@ make test-smoke-llama
 make test-smoke-gemma
 make test-long-context
 ```
+
+On Apple Silicon, the smoke targets above default to `TinyModel` when the
+real-model environment variables are unset.
 
 Real-model smoke targets:
 

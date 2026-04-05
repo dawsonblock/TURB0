@@ -3,19 +3,22 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from turboquant.runtime.support import SUPPORTED_FAMILIES
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = REPO_ROOT / "turboquant" / "contract.json"
+JsonDict = dict[str, Any]
 
 
 def _read(rel_path: str) -> str:
     return (REPO_ROOT / rel_path).read_text(encoding="utf-8")
 
 
-def _load_contract() -> dict:
-    return json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+def _load_contract() -> JsonDict:
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    return cast(JsonDict, payload)
 
 
 def _load_renderer_module():
@@ -36,7 +39,8 @@ def test_generated_contract_docs_match_renderer() -> None:
     rendered = renderer.render_docs()
     for path, expected_content in rendered.items():
         assert path.read_text(encoding="utf-8") == expected_content, (
-            f"{path.relative_to(REPO_ROOT)} is out of date; rerun scripts/render_support_contract.py"
+            f"{path.relative_to(REPO_ROOT)} is out of date; rerun "
+            "scripts/render_support_contract.py"
         )
 
 
@@ -52,7 +56,7 @@ def test_allowlisted_families_match_contract_json() -> None:
 
 
 def test_readme_tracks_primary_contract_story() -> None:
-    """README must reflect the paper-facing runtime contract and its boundaries."""
+    """README must reflect the runtime contract and its boundaries."""
     content = _read("README.md")
     lowered = content.lower()
 
@@ -64,13 +68,14 @@ def test_readme_tracks_primary_contract_story() -> None:
     assert "TinyModel" in content
     assert "schema_version == 4" in content
     assert "paper_prod" in content and "paper_mse" in content
-    assert "legacy top-k compatibility only" in lowered
+    assert "legacy_topk" in content
+    assert "compatibility-only" in lowered or "compatibility only" in lowered
     assert "encode_topk_residual" not in content
     assert "top-k sparse residual" not in lowered
 
 
 def test_release_facing_docs_use_addressable_evidence_language() -> None:
-    """Release-facing docs must describe addressable evidence rather than embedded PASS claims."""
+    """Release-facing docs must use addressable evidence language."""
     for rel_path in (
         "README.md",
         "docs/product_contract.md",
@@ -90,7 +95,7 @@ def test_release_facing_docs_use_addressable_evidence_language() -> None:
 
 
 def test_runtime_certification_doc_tracks_scope_and_artifacts() -> None:
-    """runtime-certification.md must describe the new evidence contract clearly."""
+    """runtime-certification.md must describe the evidence contract."""
     content = _read("docs/runtime-certification.md")
     lowered = content.lower()
 
@@ -102,7 +107,9 @@ def test_runtime_certification_doc_tracks_scope_and_artifacts() -> None:
     assert "certification_scope.families" in content
     assert "events.jsonl" in content and "optional" in lowered
     assert "teacher-forcing" in lowered or "batch" in lowered
-    assert "python3.11" in content and "python3.10" in content and "python3.9" in content
+    assert "python3.11" in content
+    assert "python3.10" in content
+    assert "python3.9" in content
     assert "llama" in lowered and "gemma" in lowered
     assert "stronger" in lowered and "narrower" in lowered
 
@@ -128,7 +135,7 @@ def test_evaluation_and_benchmark_docs_are_non_certification_guides() -> None:
 
 
 def test_integration_doc_no_blanket_support_claim() -> None:
-    """integration.md must not imply that base.py dispatch alone grants support."""
+    """integration.md must not imply that base.py dispatch grants support."""
     content = _read("docs/integration.md")
     lowered = content.lower()
 
@@ -136,32 +143,39 @@ def test_integration_doc_no_blanket_support_claim() -> None:
     assert "works out of the box" not in lowered
     assert "model_family" in content
     assert (
-        "Routing through `base.py` is not the same as being in the supported allowlist."
+        "Routing through `base.py` is not the same as being in the "
+        "supported allowlist."
         in content
     )
 
 
 def test_supported_surface_generated_doc_has_secondary_surfaces() -> None:
-    """supported-surface.md must clearly distinguish canonical and secondary paths."""
+    """supported-surface.md must distinguish canonical and secondary paths."""
     content = _read("docs/supported-surface.md")
 
     assert "upgrade_cache_list" in content
     assert "Secondary surfaces" in content
-    assert "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache" in content
-    assert "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache" in content
+    assert (
+        "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache"
+        in content
+    )
+    assert (
+        "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache"
+        in content
+    )
     assert "KVCache.to_turboquant()" in content
     assert "contract.json" in content
 
 
 def test_runtime_api_points_to_upgrade_cache_list() -> None:
-    """runtime/api.py must still point callers at the canonical upgrade path."""
+    """runtime/api.py must still point callers at the canonical path."""
     content = _read("turboquant/runtime/api.py")
     assert "upgrade_cache_list" in content
     assert "Do not instantiate TurboQuantKCache directly" in content
 
 
 def test_vendored_doc_marks_to_turboquant_as_secondary_helper() -> None:
-    """VENDORED_MLX_LM.md must classify to_turboquant() as deprecated/internal."""
+    """VENDORED_MLX_LM.md must classify to_turboquant() as secondary."""
     content = _read("VENDORED_MLX_LM.md")
     lowered = content.lower()
 
@@ -171,10 +185,16 @@ def test_vendored_doc_marks_to_turboquant_as_secondary_helper() -> None:
     assert "canonical public path is `upgrade_cache_list(...)`" in content
 
 
-def test_validation_local_distinguishes_smoke_from_real_certification() -> None:
-    """validation-local.md must distinguish TinyModel smoke from real-model certification."""
+def test_validation_local_distinguishes_smoke_from_real_certification(
+) -> None:
+    """validation-local.md must distinguish TinyModel smoke from real-model
+    certification.
+    """
     content = _read("docs/validation-local.md")
     lowered = content.lower()
 
     assert "TinyModel" in content
-    assert "full real-model certification" in lowered or "full runtime certification" in lowered
+    assert (
+        "full real-model certification" in lowered
+        or "full runtime certification" in lowered
+    )
