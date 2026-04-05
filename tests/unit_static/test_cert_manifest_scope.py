@@ -3,7 +3,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WRITE_CERT_MANIFEST = REPO_ROOT / "scripts" / "write_cert_manifest.py"
 

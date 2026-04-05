@@ -34,8 +34,8 @@ def test_gemma_runtime_smoke(tmp_path):
     Uses a tiny synthetic model by default (no download needed).  Identical
     contract to test_llama_runtime_smoke.
     """
-    from mlx_lm.models.cache import make_prompt_cache
     from mlx_lm.generate import generate_step
+    from mlx_lm.models.cache import make_prompt_cache
 
     _model_id = os.environ.get("TQ_TEST_GEMMA_MODEL", "")
     if _model_id:

@@ -20,7 +20,6 @@ mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
 from turboquant.config import TurboQuantConfig
 from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
 from turboquant.runtime.attention import turboquant_streaming_attention
-from turboquant.runtime.kv_interface import TurboQuantKeysView
 
 
 def _build_cache_with_keys(cfg, batch, heads, seq, d_head):

@@ -170,7 +170,7 @@ class FixedRotation:
         return float(mx.max(mx.abs(roundtripped - x)).item())
 
     @classmethod
-    def from_config(cls, config: _RotationConfig, dim: int) -> "FixedRotation":
+    def from_config(cls, config: _RotationConfig, dim: int) -> FixedRotation:
         """Construct a FixedRotation from a TurboQuantConfig and head-dim."""
         return cls(
             dim=dim,

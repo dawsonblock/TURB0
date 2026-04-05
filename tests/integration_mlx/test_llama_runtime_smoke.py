@@ -41,8 +41,8 @@ def test_llama_runtime_smoke(tmp_path):
     generation routes through the dense (non-TurboQuant) path, i.e. no cache
     layers are TurboQuantKCache after generate_step.
     """
-    from mlx_lm.models.cache import make_prompt_cache
     from mlx_lm.generate import generate_step
+    from mlx_lm.models.cache import make_prompt_cache
 
     _model_id = os.environ.get("TQ_TEST_LLAMA_MODEL", "")
     if _model_id:

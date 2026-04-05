@@ -94,6 +94,7 @@ def perplexity_report(
         ``dense_ppl``, ``tq_ppl`` (or ``None``), ``delta_ppl``, ``n_tokens``
     """
     import mlx.core as mx
+
     from mlx_lm.models.cache import make_prompt_cache
 
     targets = input_ids[0, 1:]  # [T-1]  (next-token targets)

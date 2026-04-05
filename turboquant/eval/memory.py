@@ -26,6 +26,7 @@ Typical usage
 
 from __future__ import annotations
 
+
 def peak_memory_bytes(cache_list) -> int:
     """Sum the byte sizes of all MLX arrays in a cache list.
 
@@ -105,6 +106,7 @@ def memory_report(
         ``ratio`` (dense / tq), ``n_layers``
     """
     import mlx.core as mx
+
     from mlx_lm.models.cache import make_prompt_cache
 
     # dense

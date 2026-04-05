@@ -1,4 +1,3 @@
-from turboquant.config import TurboQuantConfig
 
 
 class TurboQuantRuntime:

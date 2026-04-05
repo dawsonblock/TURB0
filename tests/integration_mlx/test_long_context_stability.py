@@ -41,8 +41,8 @@ def test_long_context_stability(tmp_path):
       - No NaN logprobs are produced.
       - At least one cache layer is TurboQuantKCache at the end.
     """
-    from mlx_lm.models.cache import make_prompt_cache
     from mlx_lm.generate import generate_step
+    from mlx_lm.models.cache import make_prompt_cache
 
     _model_id = os.environ.get("TQ_TEST_LLAMA_MODEL", "")
     if _model_id:

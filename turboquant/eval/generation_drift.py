@@ -26,6 +26,7 @@ Typical usage
 
 from __future__ import annotations
 
+
 def logit_kl_divergence(
     logits_p,
     logits_q,
@@ -97,6 +98,7 @@ def drift_report(
         and ``kl_per_token`` (list of floats).
     """
     import mlx.core as mx
+
     from mlx_lm.models.cache import make_prompt_cache
 
     feed = input_ids[:, :-1]  # [1, T-1]

@@ -27,7 +27,6 @@ mx = pytest.importorskip("mlx.core")
 
 from turboquant.core.qjl import QJLProjector
 
-
 # ── estimate_inner_product is an alias of dot_estimate ────────────────────────
 
 

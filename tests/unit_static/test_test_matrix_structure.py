@@ -1,5 +1,5 @@
 import os
-import pytest
+
 
 def get_repo_root():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -7,12 +7,12 @@ def get_repo_root():
 def test_test_matrix_structure():
     """Ensure that the test suite is structured correctly by environment."""
     root = get_repo_root()
-    
+
     # Check for presence of required directories
     assert os.path.exists(os.path.join(root, "tests/unit_static"))
     assert os.path.exists(os.path.join(root, "tests/unit_mlx"))
     assert os.path.exists(os.path.join(root, "tests/integration_mlx"))
-    
+
     # Check for absence of old directories
     assert not os.path.exists(os.path.join(root, "tests/unit"))
 

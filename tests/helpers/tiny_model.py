@@ -23,8 +23,8 @@ from __future__ import annotations
 import mlx.core as mx
 import mlx.nn as nn
 
-from turboquant.runtime.kv_interface import TurboQuantKeysView
 from turboquant.runtime.attention import turboquant_streaming_attention
+from turboquant.runtime.kv_interface import TurboQuantKeysView
 
 # ---------------------------------------------------------------------------
 # Hyper-parameters (do NOT change — tests may depend on these values)

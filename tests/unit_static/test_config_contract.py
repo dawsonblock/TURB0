@@ -9,7 +9,6 @@ import pytest
 
 from turboquant.config import TurboQuantConfig
 
-
 # ── Preset helpers ────────────────────────────────────────────────────────────
 
 

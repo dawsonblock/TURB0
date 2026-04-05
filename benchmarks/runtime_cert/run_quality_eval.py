@@ -81,6 +81,7 @@ def _eval_one_prompt(
     persist runtime upgrade decisions as ``events.jsonl`` artifacts.
     """
     import mlx.core as mx
+
     from mlx_lm.models.cache import make_prompt_cache
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
     from turboquant.runtime.events import record_runtime_upgrade_events

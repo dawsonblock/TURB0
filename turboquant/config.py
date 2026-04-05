@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 _CANONICAL_ALGORITHMS = frozenset(
     {"paper_mse", "paper_prod_qjl", "legacy_topk", "polarquant_exp"}
 )
@@ -186,7 +185,7 @@ class TurboQuantConfig:
                 )
 
     @classmethod
-    def paper_mse(cls, **kwargs) -> "TurboQuantConfig":
+    def paper_mse(cls, **kwargs) -> TurboQuantConfig:
         return cls(
             algorithm="paper_mse",
             quantizer_mode="scalar",
@@ -195,7 +194,7 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def paper_prod_qjl(cls, **kwargs) -> "TurboQuantConfig":
+    def paper_prod_qjl(cls, **kwargs) -> TurboQuantConfig:
         return cls(
             algorithm="paper_prod_qjl",
             quantizer_mode="scalar",
@@ -205,7 +204,7 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def legacy_topk(cls, **kwargs) -> "TurboQuantConfig":
+    def legacy_topk(cls, **kwargs) -> TurboQuantConfig:
         return cls(
             algorithm="legacy_topk",
             quantizer_mode="scalar",
@@ -215,7 +214,7 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def polarquant_exp(cls, **kwargs) -> "TurboQuantConfig":
+    def polarquant_exp(cls, **kwargs) -> TurboQuantConfig:
         return cls(
             algorithm="polarquant_exp",
             quantizer_mode="polar",
@@ -224,7 +223,7 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def from_preset(cls, name: str) -> "TurboQuantConfig":
+    def from_preset(cls, name: str) -> TurboQuantConfig:
         presets = {
             "paper_mse": cls.paper_mse(
                 k_bits=3,
@@ -296,7 +295,7 @@ class TurboQuantConfig:
         return presets[name]
 
     @classmethod
-    def from_legacy_kwargs(cls, **kwargs) -> "TurboQuantConfig":
+    def from_legacy_kwargs(cls, **kwargs) -> TurboQuantConfig:
         residual_mode_kw = kwargs.get("residual_mode")
         residual_topk = kwargs.get("residual_topk", kwargs.get("residual", 0))
         if residual_mode_kw is None:

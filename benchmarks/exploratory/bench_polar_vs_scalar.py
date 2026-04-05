@@ -24,8 +24,8 @@ sys.path.insert(0, _ROOT)
 import mlx.core as mx
 import numpy as np
 
-from turboquant.core.quantizer import GroupScalarQuantizer
 from turboquant.core.polar_quant import PolarQuantizer
+from turboquant.core.quantizer import GroupScalarQuantizer
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -142,7 +142,6 @@ def run(head_dim: int, seq_len: int) -> dict:
     # for d/2^L final radii → formula from paper §4
     n_l = pq.n_levels
     d_pad = (-(-head_dim // (1 << n_l))) * (1 << n_l)
-    angle_bits = (1 << pq.bits_l1) == 16  # just use the formula
     total_angle_bits = (
         pq.bits_l1 * (d_pad // 2)
         + pq.bits_le * sum(d_pad // (2 ** lv) for lv in range(2, n_l + 1))
@@ -167,7 +166,7 @@ def run(head_dim: int, seq_len: int) -> dict:
 
 def main():
     print(f"\n{'='*90}")
-    print("  PolarQuant vs GroupScalarQuantizer({0}-bit, g={1})".format(SCALAR_BITS, SCALAR_GRP))
+    print(f"  PolarQuant vs GroupScalarQuantizer({SCALAR_BITS}-bit, g={SCALAR_GRP})")
     print(f"  batch={BATCH}  n_heads={N_HEADS}  reps={REPS}  warmup={WARMUP}")
     print(f"{'='*90}")
 

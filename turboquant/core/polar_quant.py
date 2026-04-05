@@ -339,7 +339,7 @@ class PolarQuantPayload:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, object]) -> "PolarQuantPayload":
+    def from_dict(cls, data: dict[str, object]) -> PolarQuantPayload:
         def _b64_to_arr(b64: str) -> mx.array:
             raw = base64.b64decode(b64.encode("ascii"))
             arr = np.load(io.BytesIO(raw))

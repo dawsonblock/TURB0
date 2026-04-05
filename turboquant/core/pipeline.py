@@ -70,7 +70,7 @@ class EncodedKeyBlock:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "EncodedKeyBlock":
+    def from_dict(cls, data: dict) -> EncodedKeyBlock:
         """Restore from a dict produced by to_dict()."""
         import base64
         import io

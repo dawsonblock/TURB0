@@ -1,7 +1,6 @@
-import os
 import pytest
-import turboquant
 
+import turboquant
 
 # MLX-dependent symbols: accessing these raises ImportError when MLX is absent.
 # Test their presence via __all__ (a static list) rather than hasattr(), which
