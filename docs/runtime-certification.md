@@ -45,9 +45,10 @@ export TQ_TEST_GEMMA_MODEL="mlx-community/gemma-2-2b-it-4bit"
 ./scripts/certify_apple_runtime.sh
 ```
 
-Artifacts are written under `artifacts/runtime-cert/<timestamp>/` during the run. Source archives do not
-embed those generated directories. A release claim is only addressable when the workflow publishes or pins
-that evidence as a workflow artifact, release evidence bundle, or manifest digest.
+Artifacts are written under `artifacts/runtime-cert/<timestamp>/` during the run. This working tree may retain
+previously generated bundles for archaeology, but built wheels and source distributions do not ship those
+generated directories. A release claim is only addressable when the workflow publishes or pins that evidence
+as a workflow artifact, release evidence bundle, or manifest digest.
 
 ## Stage layout
 

@@ -3,7 +3,9 @@
 
 This document defines the narrow supported surface TurboQuant can honestly claim today.
 
-TurboQuant supports one canonical runtime path via `upgrade_cache_list(...)`. A source archive documents that workflow, but it does not prove a current PASS without an addressable workflow artifact, release evidence bundle, or pinned manifest digest.
+TurboQuant supports one canonical runtime path via `upgrade_cache_list(...)`.
+
+Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeology, but built wheels and source distributions do not ship those directories. No source or built snapshot proves a current PASS unless it is accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.
 
 ## 1. Supported hardware and runtime
 
@@ -39,7 +41,7 @@ Paper-facing presets are `paper_mse` and `paper_prod`/`paper_prod_qjl`. Legacy t
 
 ## 5. Release evidence and benchmarks
 
-Source archives document the certification workflow but do not prove a current PASS unless they are accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.
+Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeology, but built wheels and source distributions do not ship those directories. No source or built snapshot proves a current PASS unless it is accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.
 
 Primary docs may publish benchmark numbers only when each published number maps to an addressable evidence bundle or manifest digest plus exact commit, model ids, MLX version, hardware, script, and invocation arguments.
 

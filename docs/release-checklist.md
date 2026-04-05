@@ -9,6 +9,7 @@ This checklist is the minimum bar for calling a tagged snapshot technically cred
 - `python tools/audit_vendored_surface.py` passes
 - `python -m compileall turboquant mlx_lm tests` passes
 - `python -m build` produces both sdist and wheel
+- `python tools/verify_dist_contents.py` passes
 - `python -m pytest tests/unit_static -q` passes
 - the generated support docs still match `turboquant/contract.json`
 
@@ -33,12 +34,19 @@ Required release evidence includes:
 - `junit_cache_roundtrip.xml`
 - `junit_attention_equiv.xml`
 - `junit_llama_smoke.xml`
+- `junit_polar_llama_runtime.xml`
+- `quality_eval_polar_short_summary.json`
+- `quality_eval_polar_medium_summary.json`
 - `junit_gemma_smoke.xml`
+- `junit_polar_gemma_runtime.xml`
+- `quality_eval_polar_gemma_short_summary.json`
+- `quality_eval_polar_gemma_medium_summary.json`
 - `junit_long_context.xml`
 - `aggregate_runs.csv`
 - `certification_summary.json`
 
-Source archives do not embed those generated artifact directories. Release claims must point at a workflow artifact,
+This checkout may retain `artifacts/runtime-cert/` bundles for archaeology, but built wheels and source
+distributions do not ship those generated directories. Release claims must point at a workflow artifact,
 release evidence bundle, or pinned manifest digest.
 
 Final tagged publish is stricter than a family-scoped local run:

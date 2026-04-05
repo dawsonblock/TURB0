@@ -21,15 +21,37 @@ tagged release workflow all consume or validate against that same contract.
 - Supported non-paper-facing branch: `polarquant_exp`, exercised through the
   same `upgrade_cache_list(...)` path with `TurboQuantConfig.polarquant_exp(...)`
   and the same `llama` / `gemma` allowlist gate.
-- Published package boundary: the wheel intentionally ships the bounded
-  `turboquant` package together with the vendored `mlx_lm` tree,
-  `turboquant/contract.json`, and `mlx_lm/py.typed`; `docs/*.md` remain
-  source-distribution-only for review.
 - Release workflow checks both `cert_manifest.json` and the retained
   `contract.json` snapshot, and for tagged releases it also requires both
   allowlisted families in `certification_scope.families`.
 
-## Retained release evidence
+## What ships in built distributions
+
+- The wheel intentionally ships the bounded `turboquant` package together with
+  the vendored `mlx_lm` tree, `turboquant/contract.json`, and
+  `mlx_lm/py.typed`.
+- The source distribution additionally ships `docs/*.md` for contract and
+  release review.
+- Built wheels and source distributions do not ship generated
+  `artifacts/runtime-cert/` bundles.
+
+## What this checkout proves statically
+
+- Package buildability, vendored-boundary auditing, contract/doc alignment,
+  import safety, and release-workflow policy can all be checked from the source
+  tree on generic CI.
+- Those checks prove a bounded package and a mechanically enforced support
+  story; they do not prove real-model Apple runtime behavior by themselves.
+
+## What only Apple certification proves
+
+- Real-model Llama and Gemma smoke stages on Apple Silicon.
+- PolarQuant runtime smoke and family-scoped quality guardrails.
+- Long-context stability and the contract-complete release artifact set.
+- A `PASS` `cert_manifest.json` whose `certification_scope.families` contains
+  both `llama` and `gemma`.
+
+## Retained local evidence in this checkout
 
 - `artifacts/runtime-cert/20260404_201202` — full promoted-contract `PASS` on
   `darwin-arm64` with `23/23` stages passed and
@@ -45,6 +67,10 @@ tagged release workflow all consume or validate against that same contract.
   `artifacts/runtime-cert/20260404_013136` (`llama`),
   `artifacts/runtime-cert/20260404_013527` (`gemma`), and
   `artifacts/runtime-cert/20260404_015658` (earlier combined `PASS`).
+
+These retained directories are local evidence for this working tree only. A
+different extracted source or built snapshot without them does not prove a
+current `PASS` release.
 
 ## Compatibility-only or secondary surfaces
 
@@ -67,6 +93,8 @@ Validation for this boundary-hardening pass was run in `.venv-cert311` on
 already-retained Apple runtime evidence.
 
 - `python scripts/render_support_contract.py --check` — passed
+- `python scripts/preflight.py` — passed
+- `python tools/audit_vendored_surface.py` — passed
 - `python -m build` — passed
 - `python tools/verify_dist_contents.py` — passed
 - `python -m compileall turboquant mlx_lm tests` — passed

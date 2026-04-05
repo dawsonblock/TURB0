@@ -31,9 +31,11 @@ formal support claim is intentionally narrower than the codebase footprint.
 > **Accuracy rule**
 >
 > The machine-readable source of truth is `turboquant/contract.json`. The
-> generated contract docs summarize it. A source archive alone does not prove a
-> current PASS; use an addressable certification artifact, release evidence
-> bundle, or pinned manifest digest when making support or benchmark claims.
+> generated contract docs summarize it. This checkout may retain local
+> `artifacts/runtime-cert/` bundles for archaeology, but built wheels and source
+> distributions do not ship those generated directories. Neither a source
+> archive nor a built distribution proves a current PASS without an addressable
+> certification artifact, release evidence bundle, or pinned manifest digest.
 
 ## Current Slice
 
@@ -193,6 +195,9 @@ bash scripts/certify_apple_runtime.sh
 
 Important release-evidence rules:
 
+- This checkout may retain `artifacts/runtime-cert/` bundles for archaeology,
+  but built wheels and source distributions do not ship those generated
+  directories.
 - `scripts/certify_apple_runtime.sh` snapshots `contract.json` into the artifact directory so the evidence bundle carries both the run result and the exact contract it satisfied.
 - Primary docs should not publish timeless benchmark tables without addressable provenance.
 - Benchmark claims require an artifact or manifest plus commit, model ids, MLX version, hardware, script, and invocation arguments.

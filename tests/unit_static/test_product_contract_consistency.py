@@ -70,6 +70,8 @@ def test_readme_tracks_primary_contract_story() -> None:
     assert "paper_prod" in content and "paper_mse" in content
     assert "legacy_topk" in content
     assert "compatibility-only" in lowered or "compatibility only" in lowered
+    assert "artifacts/runtime-cert/" in content
+    assert "built wheels and source distributions do not ship" in lowered
     assert "encode_topk_residual" not in content
     assert "top-k sparse residual" not in lowered
 
@@ -112,6 +114,7 @@ def test_runtime_certification_doc_tracks_scope_and_artifacts() -> None:
     assert "python3.9" in content
     assert "llama" in lowered and "gemma" in lowered
     assert "stronger" in lowered and "narrower" in lowered
+    assert "built wheels and source distributions do not ship" in lowered
 
 
 def test_evaluation_and_benchmark_docs_are_non_certification_guides() -> None:

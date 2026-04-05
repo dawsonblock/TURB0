@@ -20,7 +20,7 @@
       "min": "0.30.0",
       "max_exclusive": "1.0.0"
     },
-    "source_archive_evidence_rule": "Source archives document the certification workflow but do not prove a current PASS unless they are accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.",
+    "source_archive_evidence_rule": "Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeology, but built wheels and source distributions do not ship those directories. No source or built snapshot proves a current PASS unless it is accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.",
     "benchmark_publication_rule": "Primary docs may publish benchmark numbers only when each published number maps to an addressable evidence bundle or manifest digest plus exact commit, model ids, MLX version, hardware, script, and invocation arguments.",
     "artifact_provenance_fields": [
       "artifact_uri_or_manifest_digest",

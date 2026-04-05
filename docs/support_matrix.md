@@ -2,7 +2,7 @@
 # TurboQuant Support Matrix
 
 TurboQuant's narrow support boundary is generated from `turboquant/contract.json`.
-A source archive alone does not prove a current PASS run; use an addressable workflow artifact, release evidence bundle, or pinned manifest digest when making evidence claims.
+Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeology, but built wheels and source distributions do not ship those directories. No source or built snapshot proves a current PASS unless it is accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.
 
 ## Algorithm Presets
 

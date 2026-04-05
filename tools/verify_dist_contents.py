@@ -4,9 +4,9 @@ tools/verify_dist_contents.py — fail-closed audit for built wheel/sdist output
 
 The wheel intentionally ships the bounded ``turboquant`` package together with
 the vendored ``mlx_lm`` tree, ``turboquant/contract.json``, and
-``mlx_lm/py.typed``. Top-level ``tests/`` and ``benchmarks/`` remain outside
-the published artifact boundary, while ``docs/*.md`` remain source-distribution
-only for human review.
+``mlx_lm/py.typed``. Top-level ``tests/``, ``benchmarks/``, and retained
+runtime evidence under ``artifacts/`` remain outside the published artifact
+boundary, while ``docs/*.md`` remain source-distribution-only for human review.
 
 Usage
 -----
@@ -48,6 +48,7 @@ REQUIRED_SDIST_ONLY_MEMBERS: tuple[str, ...] = (
 FORBIDDEN_TOP_LEVEL_PREFIXES: tuple[str, ...] = (
     "tests/",
     "benchmarks/",
+    "artifacts/",
 )
 
 

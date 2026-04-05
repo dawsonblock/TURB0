@@ -9,7 +9,8 @@
 # and writes structured JSON/XML artifacts to artifacts/runtime-cert/. This workflow
 # now validates the resulting cert_manifest.json before treating the job as successful.
 #
-# Trigger: push to main, PRs that touch turboquant/ or mlx_lm/, and manual dispatch.
+# Trigger: PRs that touch turboquant/ or mlx_lm/ run only the structural tier.
+# Full certification runs only on push to main or explicit manual dispatch.
 
 name: apple-runtime-cert
 
@@ -130,6 +131,13 @@ jobs:
           rm -rf artifacts/runtime-cert
           mkdir -p artifacts/runtime-cert
 
+      - name: Require both release model secrets
+        run: |
+          if [ -z "${TQ_TEST_LLAMA_MODEL:-}" ] || [ -z "${TQ_TEST_GEMMA_MODEL:-}" ]; then
+            echo "Full certification requires both TQ_TEST_LLAMA_MODEL and TQ_TEST_GEMMA_MODEL."
+            exit 1
+          fi
+
       - name: Run full certification
         id: cert
         continue-on-error: true
@@ -194,6 +202,7 @@ jobs:
           manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
           contract_path = contracts[0]
           contract = json.loads(contract_path.read_text(encoding="utf-8"))
+          artifact_dir = Path(manifest["artifact_dir"])
           if manifest.get("result") != "PASS":
               raise SystemExit(
                   f"certification manifest result must be PASS, got {manifest.get('result')!r}"
@@ -202,9 +211,26 @@ jobs:
               raise SystemExit(
                   f"certification manifest platform must be darwin-arm64, got {manifest.get('platform')!r}"
               )
+          families = set(manifest.get("certification_scope", {}).get("families", []))
+          if families != {"llama", "gemma"}:
+              raise SystemExit(
+                  "full certification manifest must include both 'llama' and 'gemma' in scope, "
+                  f"got {sorted(families)!r}"
+              )
           if contract != repo_contract:
               raise SystemExit(
                 f"artifact contract {contract_path} does not match repo contract {repo_contract_path}"
+              )
+
+          missing = [
+              name
+              for name in repo_contract["canonical_runtime"]["required_release_artifacts"]
+              if not (artifact_dir / name).exists()
+          ]
+          if missing:
+              raise SystemExit(
+                  "full certification artifact directory is missing required files: "
+                  + ", ".join(missing)
               )
 
           print(f"Validated certification manifest: {manifest_path}")

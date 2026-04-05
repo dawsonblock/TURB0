@@ -7,6 +7,8 @@ recursive-include mlx_lm py.typed
 recursive-include docs *.md
 prune tests
 prune benchmarks
+# Retained runtime-cert bundles are local evidence, not shipped package data.
+prune artifacts
 
 # Exclude caches and scratch files
 global-exclude __pycache__

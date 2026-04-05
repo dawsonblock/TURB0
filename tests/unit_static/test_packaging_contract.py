@@ -74,6 +74,7 @@ def test_manifest_explicitly_prunes_non_shipped_top_level_dirs() -> None:
     assert "recursive-include docs *.md" in content
     assert "prune tests" in content
     assert "prune benchmarks" in content
+    assert "prune artifacts" in content
 
 
 def test_dist_verifier_tracks_the_same_boundary() -> None:
@@ -94,4 +95,5 @@ def test_dist_verifier_tracks_the_same_boundary() -> None:
     assert set(verifier.FORBIDDEN_TOP_LEVEL_PREFIXES) == {
         "tests/",
         "benchmarks/",
+        "artifacts/",
     }

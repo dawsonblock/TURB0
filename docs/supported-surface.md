@@ -2,7 +2,7 @@
 # Supported surface
 
 TurboQuant's supported surface is generated from `turboquant/contract.json`.
-Source archives document the certification workflow but do not prove a current PASS unless they are accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.
+Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeology, but built wheels and source distributions do not ship those directories. No source or built snapshot proves a current PASS unless it is accompanied by an addressable workflow artifact, release evidence bundle, or pinned manifest digest.
 
 ## Supported slice
 

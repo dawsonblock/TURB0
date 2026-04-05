@@ -1,6 +1,9 @@
 """Compatibility shim for the historical public cache-adapter import path.
 
-Internal callers should import from ``turboquant.integrations.mlx._cache_adapter``.
+Public runtime callers should use
+``turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)``.
+Internal callers should import from
+``turboquant.integrations.mlx._cache_adapter``.
 This module remains only so legacy eval helpers and tests do not break.
 """
 

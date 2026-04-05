@@ -61,15 +61,14 @@ def _format_deviation(deviation: JsonDict) -> str:
 
 
 def render_support_matrix(contract: JsonDict) -> str:
+    runtime = contract["canonical_runtime"]
     lines = [
         GENERATED_HEADER,
         "# TurboQuant Support Matrix",
         "",
         "TurboQuant's narrow support boundary is generated from "
         "`turboquant/contract.json`.",
-        "A source archive alone does not prove a current PASS run; use an "
-        "addressable workflow artifact, release evidence bundle, or pinned "
-        "manifest digest when making evidence claims.",
+        runtime["source_archive_evidence_rule"],
         "",
         "## Algorithm Presets",
         "",
@@ -223,10 +222,9 @@ def render_product_contract(contract: JsonDict) -> str:
         "honestly claim today.",
         "",
         f"TurboQuant supports one canonical runtime path via "
-        f"`{runtime['entrypoint']}(...)`. A source archive documents that "
-        "workflow, but it does not prove a current PASS without an "
-        "addressable workflow artifact, release evidence bundle, or pinned "
-        "manifest digest.",
+        f"`{runtime['entrypoint']}(...)`.",
+        "",
+        runtime["source_archive_evidence_rule"],
         "",
         "## 1. Supported hardware and runtime",
         "",

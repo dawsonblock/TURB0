@@ -190,7 +190,34 @@ def test_static_ci_runs_vendored_surface_audit() -> None:
 
 def test_apple_runtime_workflow_validates_manifest() -> None:
     content = _read(".github/workflows/apple-runtime-cert.yml")
+    full_cert = _extract_job_block(
+        ".github/workflows/apple-runtime-cert.yml",
+        "full-certification",
+    )
+    blocks = _extract_inline_python_blocks(
+        ".github/workflows/apple-runtime-cert.yml"
+    )
+    manifest_block = next(
+        (
+            block
+            for block in blocks
+            if "required_release_artifacts" in block
+            and "certification_scope" in block
+        ),
+        "",
+    )
 
+    assert "run only the structural tier" in content, (
+        "apple-runtime-cert.yml comments must say PRs only exercise the "
+        "structural tier."
+    )
+    assert (
+        "Full certification runs only on push to main or explicit "
+        "manual dispatch." in content
+    ), (
+        "apple-runtime-cert.yml comments must not imply full certification "
+        "runs on PRs."
+    )
     assert "Validate certification manifest" in content, (
         "apple-runtime-cert.yml must validate the generated "
         "cert_manifest.json."
@@ -210,6 +237,29 @@ def test_apple_runtime_workflow_validates_manifest() -> None:
     assert "Select Apple runner Python" in content, (
         "apple-runtime-cert.yml self-hosted jobs must bootstrap a system "
         "Python instead of relying on setup-python."
+    )
+    assert "Require both release model secrets" in full_cert, (
+        "full-certification must fail closed unless both release-model "
+        "secrets are set."
+    )
+    assert (
+        "github.event_name == 'push'" in full_cert
+        and "inputs.run_model_stages" in full_cert
+    ), (
+        "full-certification must remain limited to push-to-main or manual "
+        "dispatch."
+    )
+    assert manifest_block, (
+        "apple-runtime-cert.yml must include an inline manifest validator "
+        "with family and artifact checks."
+    )
+    assert '{"llama", "gemma"}' in manifest_block, (
+        "apple-runtime-cert.yml must require both allowlisted families in "
+        "the certification manifest scope."
+    )
+    assert "required_release_artifacts" in manifest_block, (
+        "apple-runtime-cert.yml must validate the contract-driven required "
+        "artifact set."
     )
 
 
