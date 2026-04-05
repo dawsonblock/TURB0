@@ -54,6 +54,8 @@ Repository = "https://github.com/dawsonblock/TURB0"
 Issues = "https://github.com/dawsonblock/TURB0/issues"
 
 [tool.setuptools]
+# Wheels intentionally ship both the bounded turboquant package and the
+# vendored mlx_lm tree. Docs remain sdist-only via MANIFEST.in.
 include-package-data = true
 
 [tool.setuptools.packages.find]
@@ -61,6 +63,7 @@ include = ["turboquant*", "mlx_lm*"]
 exclude = ["tests*", "benchmarks*"]
 
 [tool.setuptools.package-data]
+# Non-Python files that must survive in built artifacts.
 mlx_lm = ["py.typed"]
 turboquant = ["contract.json"]
 

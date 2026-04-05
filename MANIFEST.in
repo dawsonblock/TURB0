@@ -1,8 +1,12 @@
 include README.md
 include LICENSE
 include turboquant/contract.json
+# Python package sources ship via setuptools package discovery; the sdist also
+# carries docs/*.md for contract and release review.
 recursive-include mlx_lm py.typed
 recursive-include docs *.md
+prune tests
+prune benchmarks
 
 # Exclude caches and scratch files
 global-exclude __pycache__

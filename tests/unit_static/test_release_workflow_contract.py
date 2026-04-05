@@ -31,9 +31,43 @@ def _extract_inline_python_blocks(rel_path: str) -> list[str]:
     return blocks
 
 
-def test_release_workflow_requires_apple_cert_and_vendored_audit() -> None:
-    content = _read(".github/workflows/release.yml")
+def _extract_job_block(rel_path: str, job_name: str) -> str:
+    lines = _read(rel_path).splitlines()
+    marker = f"  {job_name}:"
+    start_index: int | None = None
 
+    for index, line in enumerate(lines):
+        if line == marker:
+            start_index = index + 1
+            break
+
+    assert start_index is not None, (
+        f"could not find job {job_name!r} in {rel_path}"
+    )
+
+    block: list[str] = []
+    for line in lines[start_index:]:
+        if line.startswith("  ") and not line.startswith("    "):
+            break
+        block.append(line)
+
+    return "\n".join(block)
+
+
+def test_release_workflow_requires_single_verified_publish_path() -> None:
+    content = _read(".github/workflows/release.yml")
+    verify_static = _extract_job_block(
+        ".github/workflows/release.yml",
+        "verify-static",
+    )
+    publish = _extract_job_block(
+        ".github/workflows/release.yml",
+        "publish",
+    )
+
+    assert not (REPO_ROOT / ".github/workflows/python-publish.yml").exists(), (
+        "release.yml must be the only publish workflow."
+    )
     assert "verify-vendored-surface:" in content, (
         "release.yml must contain a dedicated vendored-surface "
         "verification job."
@@ -43,16 +77,16 @@ def test_release_workflow_requires_apple_cert_and_vendored_audit() -> None:
     )
     assert (
         "needs: [verify-static, verify-vendored-surface, "
-        "certify-apple-runtime]" in content
+        "certify-apple-runtime]" in publish
     ), (
         "release.yml publish job must depend on static checks, "
         "vendored audit, and Apple certification."
     )
-    assert "if: ${{ !contains(github.ref_name, '-rc') }}" in content, (
+    assert "if: ${{ !contains(github.ref_name, '-rc') }}" in publish, (
         "release.yml publish job must skip RC tags so release-candidate tags "
         "exercise gates without publishing."
     )
-    assert "environment: pypi" in content, (
+    assert "environment: pypi" in publish, (
         "release.yml publish job must declare the pypi environment so "
         "trusted publishing emits the expected environment claim."
     )
@@ -74,18 +108,69 @@ def test_release_workflow_requires_apple_cert_and_vendored_audit() -> None:
         "release.yml must fail closed unless both Llama and Gemma "
         "release-model secrets are set."
     )
-    assert 'families != {"llama", "gemma"}' in content, (
-        "release.yml must require both allowlisted families in the "
-        "release manifest scope."
-    )
     assert "Select Apple runner Python" in content, (
         "release.yml self-hosted Apple jobs must bootstrap a system Python "
         "instead of relying on setup-python."
+    )
+    assert "python tools/verify_dist_contents.py" in verify_static, (
+        "verify-static must validate the built wheel/sdist boundary before "
+        "publishing or releasing them."
+    )
+    assert (
+        "actions/upload-artifact@v4" in verify_static
+        and "name: turboquant-dist" in verify_static
+    ), (
+        "verify-static must upload the verified distributions for the "
+        "publish job."
+    )
+    assert (
+        "actions/download-artifact@v4" in publish
+        and "name: turboquant-dist" in publish
+    ), (
+        "publish must reuse the verified dist/* artifact instead of "
+        "rebuilding."
+    )
+    assert "python -m build" not in publish, (
+        "publish must not rebuild distributions after verification."
+    )
+
+
+def test_release_workflow_manifest_validation_is_contract_driven() -> None:
+    blocks = _extract_inline_python_blocks(".github/workflows/release.yml")
+    manifest_block = next(
+        (
+            block
+            for block in blocks
+            if "certification_scope" in block
+            and "required_release_artifacts" in block
+        ),
+        "",
+    )
+
+    assert manifest_block, (
+        "release.yml must include an inline manifest validator that checks "
+        "scope and required artifact files."
+    )
+    assert '{"llama", "gemma"}' in manifest_block, (
+        "release.yml manifest validation must require both allowlisted "
+        "families."
+    )
+    assert "contract != repo_contract" in manifest_block, (
+        "release.yml must compare the retained contract snapshot against "
+        "the repo contract."
+    )
+    assert "required_release_artifacts" in manifest_block, (
+        "release.yml must validate the contract-driven required release "
+        "artifact set."
     )
 
 
 def test_static_ci_runs_vendored_surface_audit() -> None:
     content = _read(".github/workflows/static-ci.yml")
+    package_job = _extract_job_block(
+        ".github/workflows/static-ci.yml",
+        "package-and-syntax",
+    )
 
     assert "vendored-surface-audit:" in content, (
         "static-ci.yml must contain a dedicated vendored surface audit job."
@@ -93,6 +178,13 @@ def test_static_ci_runs_vendored_surface_audit() -> None:
     assert "python tools/audit_vendored_surface.py" in content, (
         "static-ci.yml must fail on undocumented TurboQuant markers "
         "inside mlx_lm/."
+    )
+    assert "python tools/verify_dist_contents.py" in package_job, (
+        "static-ci.yml must verify the built wheel/sdist boundary after build."
+    )
+    assert "turboquant-dist-py${{ matrix.python-version }}" in package_job, (
+        "static-ci.yml should archive matrix builds under distinct artifact "
+        "names."
     )
 
 

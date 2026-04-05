@@ -1,50 +1,78 @@
 # Contract Status
 
-## Current status
+## Current authority
 
-The paper contract is now unified around a single authority file: `turboquant/contract.json`.
+The supported TurboQuant boundary is unified around a single machine-readable
+authority file: `turboquant/contract.json`.
 
-The checked-in generated docs, the runtime support gate, the certification script, the Apple certification workflow, and the tagged release workflow all consume or validate against that same contract.
+The checked-in generated docs, the runtime support gate, the packaging
+verifier, the certification scripts, the Apple certification workflow, and the
+tagged release workflow all consume or validate against that same contract.
 
-## Proven in the current tree
+## Supported public runtime surface
 
 - Canonical runtime path: `turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)`
+- Package-root MLX surface remains lazy and fail-closed; callers without MLX on
+  Apple Silicon get an `ImportError` instead of a silent fallback.
 - Supported platform slice: Apple Silicon `darwin-arm64`
 - Supported runtime slice: Python 3.9 through 3.11, MLX `>= 0.30.0` and `< 1.0.0`
 - Supported families: `llama` and `gemma` only
 - Paper-facing presets: `paper_mse` and `paper_prod` / `paper_prod_qjl`
-- Release workflow checks both `cert_manifest.json` and the retained `contract.json` snapshot, and for tagged releases it also requires both allowlisted families in `certification_scope.families`
+- Supported non-paper-facing branch: `polarquant_exp`, exercised through the
+  same `upgrade_cache_list(...)` path with `TurboQuantConfig.polarquant_exp(...)`
+  and the same `llama` / `gemma` allowlist gate.
+- Published package boundary: the wheel intentionally ships the bounded
+  `turboquant` package together with the vendored `mlx_lm` tree,
+  `turboquant/contract.json`, and `mlx_lm/py.typed`; `docs/*.md` remain
+  source-distribution-only for review.
+- Release workflow checks both `cert_manifest.json` and the retained
+  `contract.json` snapshot, and for tagged releases it also requires both
+  allowlisted families in `certification_scope.families`.
 
-Retained evidence already present in this workspace:
+## Retained release evidence
 
-- `artifacts/runtime-cert/20260404_013136` — `PASS` for `llama`
-- `artifacts/runtime-cert/20260404_013527` — `PASS` for `gemma`
-- `artifacts/runtime-cert/20260404_015658` — combined `PASS` with `certification_scope.families=["gemma", "llama"]`
+- `artifacts/runtime-cert/20260404_201202` — full promoted-contract `PASS` on
+  `darwin-arm64` with `23/23` stages passed and
+  `certification_scope.families=["gemma", "llama"]`.
+- That retained bundle includes the required release evidence for both
+  paper-facing presets and the supported non-paper-facing `polarquant_exp`
+  branch, including `junit_polar_llama_runtime.xml`,
+  `junit_polar_gemma_runtime.xml`, `quality_eval_polar_short_summary.json`,
+  `quality_eval_polar_medium_summary.json`,
+  `quality_eval_polar_gemma_short_summary.json`, and
+  `quality_eval_polar_gemma_medium_summary.json`.
+- Earlier retained checkpoints remain useful for archaeology, including
+  `artifacts/runtime-cert/20260404_013136` (`llama`),
+  `artifacts/runtime-cert/20260404_013527` (`gemma`), and
+  `artifacts/runtime-cert/20260404_015658` (earlier combined `PASS`).
 
-## Compatibility-only or experimental
+## Compatibility-only or secondary surfaces
 
 - `turboquant.integrations.mlx._cache_adapter.TurboQuantKCache`
 - `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache`
 - `mlx_lm.models.cache.KVCache._to_turboquant()`
 - `mlx_lm.models.cache.KVCache.to_turboquant()`
 - `turboquant.eval.compare._collect_logits_compressed()`
-- Legacy compatibility branches such as `legacy_topk` and `polarquant_exp`
+- Legacy compatibility branches such as `legacy_topk`
 - Exploratory real-model `paper_mse` quality tests under `tests/integration_mlx/test_dense_vs_paper_mse_275bpc.py` and `tests/integration_mlx/test_dense_vs_paper_mse_375bpc.py`
 
-Those surfaces remain available for compatibility or investigation, but they are outside the supported contract.
-
-`polarquant_exp` now survives the allowlisted `upgrade_cache_list(...)` runtime
-path and cache state round-trip, but it still lacks certification coverage and
-remains outside the supported product contract.
+Those surfaces remain available for compatibility or investigation, but they
+are not the canonical support-gated public runtime path and should not be
+treated as release-facing entry points.
 
 ## Validation executed for this cleanup
 
-Validation was run in `.venv-cert311` on Apple Silicon with Python 3.11.13 and MLX 0.31.1.
+Validation for this boundary-hardening pass was run in `.venv-cert311` on
+2026-04-04 and stayed confined to the packaging/docs/static lane plus the
+already-retained Apple runtime evidence.
 
 - `python scripts/render_support_contract.py --check` — passed
-- `python scripts/preflight.py` — passed
-- `python -m pytest tests/unit_static -q --tb=short` — `92 passed`
-- `python -m pytest tests/integration_mlx -q -k "not llama and not gemma" --tb=short` — `15 passed, 4 deselected`
-- `python -m build` — passed after installing the missing `build` frontend into `.venv-cert311`
+- `python -m build` — passed
+- `python tools/verify_dist_contents.py` — passed
+- `python -m compileall turboquant mlx_lm tests` — passed
+- `pytest tests/unit_static -q` — `99 passed`
 
-The long-running real-model certification workflow was not rerun as part of this doc-and-contract cleanup because retained PASS evidence already exists under `artifacts/runtime-cert/` and the current changes did not alter the underlying certification stages.
+The long-running real-model certification workflow does not need to be rerun
+for packaging/docs-only changes so long as the retained `PASS` bundle under
+`artifacts/runtime-cert/20260404_201202` remains the current evidence source
+and the runtime contract itself is unchanged.

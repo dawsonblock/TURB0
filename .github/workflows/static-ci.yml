@@ -37,6 +37,8 @@ jobs:
         run: python -m compileall turboquant mlx_lm tests
       - name: Check Distributions
         run: twine check dist/*
+      - name: Verify distribution boundary
+        run: python tools/verify_dist_contents.py
       - name: Run Static and Import Smoke Tests
         run: nox -s tests_static --python ${{ matrix.python-version }}
       - name: Verify packaging metadata
@@ -54,5 +56,5 @@ jobs:
       - name: Archive distributions
         uses: actions/upload-artifact@v4
         with:
-          name: turboquant-dist
+          name: turboquant-dist-py${{ matrix.python-version }}
           path: dist/*

@@ -19,7 +19,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[test]"
-          python -m pip install build
+          python -m pip install build twine
 
       - name: Source-checkout preflight
         run: python scripts/preflight.py
@@ -32,6 +32,18 @@ jobs:
 
       - name: Build artifacts
         run: python -m build
+
+      - name: Check distributions
+        run: twine check dist/*
+
+      - name: Verify distribution boundary
+        run: python tools/verify_dist_contents.py
+
+      - name: Upload verified distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: turboquant-dist
+          path: dist/*
 
   verify-vendored-surface:
     runs-on: ubuntu-latest
@@ -190,22 +202,16 @@ jobs:
       contents: write
     environment: pypi
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - name: Download verified distributions
+        uses: actions/download-artifact@v4
         with:
-          python-version: "3.11"
-
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build
-
-      - name: Build
-        run: python -m build
+          name: turboquant-dist
+          path: dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
