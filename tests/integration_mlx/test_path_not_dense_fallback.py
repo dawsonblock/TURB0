@@ -49,9 +49,7 @@ def test_path_not_dense_fallback():
         "Key output must not be a plain mx.array (dense fallback detected)."
     )
     # Values are returned dense by design (V-compression is optional).
-    assert isinstance(v_out, mx.array), (
-        "Values must be returned as a plain mx.array."
-    )
+    assert isinstance(v_out, mx.array), "Values must be returned as a plain mx.array."
     # Offset bookkeeping: 4 tokens were appended starting at position 0.
     assert k_out.start == 0, f"Expected start=0, got {k_out.start}"
     assert k_out.end == 4, f"Expected end=4, got {k_out.end}"

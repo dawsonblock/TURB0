@@ -144,8 +144,7 @@ def strict_failures(results: dict[str, Any]) -> list[str]:
 
     if not results["apple_silicon"]:
         failures.append(
-            "TurboQuant runtime certification requires Apple Silicon "
-            "(darwin-arm64)."
+            "TurboQuant runtime certification requires Apple Silicon (darwin-arm64)."
         )
     if not results["python_supported"]:
         failures.append(
@@ -173,16 +172,11 @@ def strict_failures(results: dict[str, Any]) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="TurboQuant environment preflight"
-    )
+    parser = argparse.ArgumentParser(description="TurboQuant environment preflight")
     parser.add_argument(
         "--strict",
         action="store_true",
-        help=(
-            "Fail closed unless the Apple-Silicon runtime contract is "
-            "satisfied"
-        ),
+        help=("Fail closed unless the Apple-Silicon runtime contract is satisfied"),
     )
     parser.add_argument(
         "--json",

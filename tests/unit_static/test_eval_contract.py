@@ -108,9 +108,7 @@ def test_memory_report_has_model_family() -> None:
 def test_eval_one_prompt_has_model_family() -> None:
     """_eval_one_prompt in run_quality_eval.py must accept model_family."""
     script_path = REPO_ROOT / "benchmarks" / "runtime_cert" / "run_quality_eval.py"
-    assert script_path.exists(), (
-        "benchmarks/runtime_cert/run_quality_eval.py not found"
-    )
+    assert script_path.exists(), "benchmarks/runtime_cert/run_quality_eval.py not found"
     tree = ast.parse(script_path.read_text(encoding="utf-8"))
 
     fn_node: ast.FunctionDef | None = None
@@ -214,10 +212,7 @@ def test_infer_model_family_checks_model_type_attr() -> None:
 
     fn_node: ast.FunctionDef | None = None
     for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.FunctionDef)
-            and node.name == "_infer_model_family"
-        ):
+        if isinstance(node, ast.FunctionDef) and node.name == "_infer_model_family":
             fn_node = node
             break
 
@@ -290,9 +285,7 @@ def test_to_turboquant_documents_gate_bypass() -> None:
             fn_node = node
             break
 
-    assert fn_node is not None, (
-        "to_turboquant not found in mlx_lm/models/cache.py"
-    )
+    assert fn_node is not None, "to_turboquant not found in mlx_lm/models/cache.py"
 
     docstring = ast.get_docstring(fn_node) or ""
     assert "bypass" in docstring.lower(), (
@@ -456,13 +449,15 @@ def test_runtime_events_module_marks_persistence_optional() -> None:
 
     text = events_py.read_text(encoding="utf-8")
     lowered = text.lower()
-    assert 'does **not** automatically' in text or 'does not automatically' in lowered, (
+    assert (
+        "does **not** automatically" in text or "does not automatically" in lowered
+    ), (
         "runtime/events.py must state that canonical runtime execution does not automatically persist events."
     )
-    assert 'optional persistence' in lowered, (
+    assert "optional persistence" in lowered, (
         "runtime/events.py must describe itself as the optional persistence-side layer."
     )
-    assert 'record_runtime_upgrade_events' in text, (
+    assert "record_runtime_upgrade_events" in text, (
         "runtime/events.py must expose the explicit runtime-to-persistence adapter."
     )
 
@@ -474,10 +469,10 @@ def test_upgrade_module_marks_runtime_events_as_non_persistent() -> None:
 
     text = upgrade_py.read_text(encoding="utf-8")
     lowered = text.lower()
-    assert 'lightweight' in lowered and 'does not automatically persist' in lowered, (
+    assert "lightweight" in lowered and "does not automatically persist" in lowered, (
         "upgrade.py must state that its returned CacheUpgradeEvent objects are lightweight runtime results that are not automatically persisted."
     )
-    assert 'record_runtime_upgrade_events' in text, (
+    assert "record_runtime_upgrade_events" in text, (
         "upgrade.py must point persistence-oriented callers at record_runtime_upgrade_events(...)."
     )
 
@@ -488,41 +483,37 @@ def test_benchmark_script_uses_explicit_event_adapter() -> None:
     assert script_path.exists(), "scripts/benchmark.py not found"
 
     text = script_path.read_text(encoding="utf-8")
-    assert 'record_runtime_upgrade_events' in text, (
+    assert "record_runtime_upgrade_events" in text, (
         "scripts/benchmark.py must use record_runtime_upgrade_events(...) instead of implying automatic event persistence."
     )
-    assert 'EventLog' in text, (
+    assert "EventLog" in text, (
         "scripts/benchmark.py must construct an EventLog explicitly when it wants persisted events."
     )
-    assert 'tracker.write(event_log=event_log)' in text, (
+    assert "tracker.write(event_log=event_log)" in text, (
         "scripts/benchmark.py must pass an explicit event_log to tracker.write()."
     )
 
 
 def test_quality_eval_script_uses_explicit_event_adapter() -> None:
     """run_quality_eval.py must persist runtime events explicitly."""
-    script_path = (
-        REPO_ROOT / "benchmarks" / "runtime_cert" / "run_quality_eval.py"
-    )
-    assert script_path.exists(), (
-        "benchmarks/runtime_cert/run_quality_eval.py not found"
-    )
+    script_path = REPO_ROOT / "benchmarks" / "runtime_cert" / "run_quality_eval.py"
+    assert script_path.exists(), "benchmarks/runtime_cert/run_quality_eval.py not found"
 
     text = script_path.read_text(encoding="utf-8")
-    assert 'EventLog' in text, (
+    assert "EventLog" in text, (
         "run_quality_eval.py must construct an EventLog explicitly when "
         "certification wants persisted events."
     )
-    assert 'record_runtime_upgrade_events' in text, (
+    assert "record_runtime_upgrade_events" in text, (
         "run_quality_eval.py must use "
         "record_runtime_upgrade_events(...) instead of implying automatic "
         "event persistence."
     )
-    assert 'event_log.flush()' in text, (
+    assert "event_log.flush()" in text, (
         "run_quality_eval.py must flush the explicit EventLog so "
         "events.jsonl is written when upgrades were recorded."
     )
-    assert 'event_log.summary()' in text, (
+    assert "event_log.summary()" in text, (
         "run_quality_eval.py must surface the explicit event summary in its "
         "JSON artifact."
     )

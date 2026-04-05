@@ -90,15 +90,17 @@ def test_paper_prod_validate_passes():
 
 def test_effective_bits_k_mse_formula():
     # MSE: b + 16/g (paper §3)
-    cfg = TurboQuantConfig.from_preset("paper_mse")   # k_bits=3, k_group_size=64
+    cfg = TurboQuantConfig.from_preset("paper_mse")  # k_bits=3, k_group_size=64
     d = 128
-    expected = cfg.k_bits + 16.0 / cfg.k_group_size   # 3 + 0.25 = 3.25
+    expected = cfg.k_bits + 16.0 / cfg.k_group_size  # 3 + 0.25 = 3.25
     assert abs(cfg.effective_bits_per_channel_k(d) - expected) < 1e-9
 
 
 def test_effective_bits_k_prod_formula():
     # Prod: (b-1) + 16/g + (p+16)/d (paper §3)
-    cfg = TurboQuantConfig.from_preset("paper_prod")   # k_bits=3, k_group_size=64, qjl_proj_dim=64
+    cfg = TurboQuantConfig.from_preset(
+        "paper_prod"
+    )  # k_bits=3, k_group_size=64, qjl_proj_dim=64
     d = 128
     b, g, p = cfg.k_bits, cfg.k_group_size, cfg.qjl_proj_dim
     expected = (b - 1) + 16.0 / g + (p + 16.0) / d
@@ -106,16 +108,18 @@ def test_effective_bits_k_prod_formula():
 
 
 def test_effective_bits_v_formula():
-    cfg = TurboQuantConfig.from_preset("paper_prod")   # v_bits=4, v_group_size=64
+    cfg = TurboQuantConfig.from_preset("paper_prod")  # v_bits=4, v_group_size=64
     d = 128
-    expected = cfg.v_bits + 16.0 / cfg.v_group_size   # 4 + 0.25 = 4.25
+    expected = cfg.v_bits + 16.0 / cfg.v_group_size  # 4 + 0.25 = 4.25
     assert abs(cfg.effective_bits_per_channel_v(d) - expected) < 1e-9
 
 
 def test_effective_bits_total_is_average():
     cfg = TurboQuantConfig.from_preset("paper_prod")
     d = 128
-    expected = (cfg.effective_bits_per_channel_k(d) + cfg.effective_bits_per_channel_v(d)) / 2
+    expected = (
+        cfg.effective_bits_per_channel_k(d) + cfg.effective_bits_per_channel_v(d)
+    ) / 2
     assert abs(cfg.effective_bits_per_channel_total(d) - expected) < 1e-9
 
 
@@ -123,7 +127,7 @@ def test_prod_is_smaller_bpc_than_naive():
     # Prod uses one fewer quant bit, so (b-1) < b for the main quantizer
     cfg_mse = TurboQuantConfig.from_preset("paper_mse")
     cfg_prod = TurboQuantConfig.from_preset("paper_prod")
-    d = 4096   # large head dim → QJL overhead per-dim is small
+    d = 4096  # large head dim → QJL overhead per-dim is small
     # At large d the prod cost is dominated by (b-1), which is < b
     bpc_mse = cfg_mse.effective_bits_per_channel_k(d)
     bpc_prod = cfg_prod.effective_bits_per_channel_k(d)

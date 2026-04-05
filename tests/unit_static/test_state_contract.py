@@ -166,4 +166,3 @@ def test_validate_state_rejects_polar_v4_without_payload() -> None:
 
     with pytest.raises(TurboQuantStateError, match="must include 'polar_payload'"):
         validate_state(state, config)
-

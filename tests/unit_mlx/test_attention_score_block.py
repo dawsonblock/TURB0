@@ -12,7 +12,9 @@ from turboquant.runtime.attention import score_block
 
 
 def fake_quantize_main(x, *, config):
-    return x, mx.ones((*x.shape[:-1], x.shape[-1] // config.k_group_size), dtype=mx.float32)
+    return x, mx.ones(
+        (*x.shape[:-1], x.shape[-1] // config.k_group_size), dtype=mx.float32
+    )
 
 
 def fake_dequantize_main(packed, scales, *, config):
@@ -23,7 +25,8 @@ def test_score_block_none_mode_shape():
     cfg = TurboQuantConfig(
         algorithm="turboquant_mse",
         k_bits=3,
-        k_group_size=32, v_group_size=32,
+        k_group_size=32,
+        v_group_size=32,
         residual_mode="none",
         rotation_pad_to_pow2=True,
     )

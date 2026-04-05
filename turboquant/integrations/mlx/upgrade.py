@@ -142,6 +142,7 @@ def upgrade_cache_list(
     # rather than passing None here.
     if model_family is None:
         from turboquant.errors import UnsupportedModelError
+
         raise UnsupportedModelError(
             "model_family must be specified; pass 'llama' or 'gemma'. "
             "Got None — unknown or unsupported model architecture."
@@ -187,11 +188,7 @@ def upgrade_cache_list(
 
         # Threshold not yet reached or missing required properties to extract
         # keys/values.
-        if (
-            cur_offset < k_start
-            or not hasattr(c, "keys")
-            or not hasattr(c, "values")
-        ):
+        if cur_offset < k_start or not hasattr(c, "keys") or not hasattr(c, "values"):
             events.append(
                 CacheUpgradeEvent(
                     upgraded=False,
@@ -214,9 +211,7 @@ def upgrade_cache_list(
         keys = getattr(c, "keys", None)
         values = getattr(c, "values", None)
         if keys is not None and values is not None:
-            tq.update_and_fetch(
-                keys[..., :cur_offset, :], values[..., :cur_offset, :]
-            )
+            tq.update_and_fetch(keys[..., :cur_offset, :], values[..., :cur_offset, :])
 
         prompt_cache[i] = tq
 

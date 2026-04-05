@@ -40,9 +40,7 @@ def _extract_job_block(rel_path: str, job_name: str) -> str:
             start_index = index + 1
             break
 
-    assert start_index is not None, (
-        f"could not find job {job_name!r} in {rel_path}"
-    )
+    assert start_index is not None, f"could not find job {job_name!r} in {rel_path}"
 
     block: list[str] = []
     for line in lines[start_index:]:
@@ -68,8 +66,7 @@ def test_release_workflow_requires_single_verified_publish_path() -> None:
         "release.yml must be the only publish workflow."
     )
     assert "verify-vendored-surface:" in content, (
-        "release.yml must contain a dedicated vendored-surface "
-        "verification job."
+        "release.yml must contain a dedicated vendored-surface verification job."
     )
     assert "certify-apple-runtime:" in content, (
         "release.yml must contain a self-hosted Apple certification job."
@@ -90,18 +87,13 @@ def test_release_workflow_requires_single_verified_publish_path() -> None:
         "trusted publishing emits the expected environment claim."
     )
     assert "python tools/audit_vendored_surface.py" in content, (
-        "release.yml must run the vendored mlx_lm surface audit "
-        "before publish."
+        "release.yml must run the vendored mlx_lm surface audit before publish."
     )
     assert (
-        "Validate certification manifest" in content
-        and "cert_manifest.json" in content
-    ), (
-        "release.yml must validate a real cert_manifest.json before publish."
-    )
+        "Validate certification manifest" in content and "cert_manifest.json" in content
+    ), "release.yml must validate a real cert_manifest.json before publish."
     assert "Clear stale certification artifacts" in content, (
-        "release.yml must clear stale runtime-cert artifacts on the "
-        "self-hosted runner."
+        "release.yml must clear stale runtime-cert artifacts on the self-hosted runner."
     )
     assert "Require both release model secrets" in content, (
         "release.yml must fail closed unless both Llama and Gemma "
@@ -118,17 +110,10 @@ def test_release_workflow_requires_single_verified_publish_path() -> None:
     assert (
         "actions/upload-artifact@v4" in verify_static
         and "name: turboquant-dist" in verify_static
-    ), (
-        "verify-static must upload the verified distributions for the "
-        "publish job."
-    )
+    ), "verify-static must upload the verified distributions for the publish job."
     assert (
-        "actions/download-artifact@v4" in publish
-        and "name: turboquant-dist" in publish
-    ), (
-        "publish must reuse the verified dist/* artifact instead of "
-        "rebuilding."
-    )
+        "actions/download-artifact@v4" in publish and "name: turboquant-dist" in publish
+    ), "publish must reuse the verified dist/* artifact instead of rebuilding."
     assert "python -m build" not in publish, (
         "publish must not rebuild distributions after verification."
     )
@@ -140,8 +125,7 @@ def test_release_workflow_manifest_validation_is_contract_driven() -> None:
         (
             block
             for block in blocks
-            if "certification_scope" in block
-            and "required_release_artifacts" in block
+            if "certification_scope" in block and "required_release_artifacts" in block
         ),
         "",
     )
@@ -151,16 +135,14 @@ def test_release_workflow_manifest_validation_is_contract_driven() -> None:
         "scope and required artifact files."
     )
     assert '{"llama", "gemma"}' in manifest_block, (
-        "release.yml manifest validation must require both allowlisted "
-        "families."
+        "release.yml manifest validation must require both allowlisted families."
     )
     assert "contract != repo_contract" in manifest_block, (
         "release.yml must compare the retained contract snapshot against "
         "the repo contract."
     )
     assert "required_release_artifacts" in manifest_block, (
-        "release.yml must validate the contract-driven required release "
-        "artifact set."
+        "release.yml must validate the contract-driven required release artifact set."
     )
 
 
@@ -175,15 +157,13 @@ def test_static_ci_runs_vendored_surface_audit() -> None:
         "static-ci.yml must contain a dedicated vendored surface audit job."
     )
     assert "python tools/audit_vendored_surface.py" in content, (
-        "static-ci.yml must fail on undocumented TurboQuant markers "
-        "inside mlx_lm/."
+        "static-ci.yml must fail on undocumented TurboQuant markers inside mlx_lm/."
     )
     assert "python tools/verify_dist_contents.py" in package_job, (
         "static-ci.yml must verify the built wheel/sdist boundary after build."
     )
     assert "turboquant-dist-py${{ matrix.python-version }}" in package_job, (
-        "static-ci.yml should archive matrix builds under distinct artifact "
-        "names."
+        "static-ci.yml should archive matrix builds under distinct artifact names."
     )
 
 
@@ -193,15 +173,12 @@ def test_apple_runtime_workflow_validates_manifest() -> None:
         ".github/workflows/apple-runtime-cert.yml",
         "full-certification",
     )
-    blocks = _extract_inline_python_blocks(
-        ".github/workflows/apple-runtime-cert.yml"
-    )
+    blocks = _extract_inline_python_blocks(".github/workflows/apple-runtime-cert.yml")
     manifest_block = next(
         (
             block
             for block in blocks
-            if "required_release_artifacts" in block
-            and "certification_scope" in block
+            if "required_release_artifacts" in block and "certification_scope" in block
         ),
         "",
     )
@@ -213,21 +190,16 @@ def test_apple_runtime_workflow_validates_manifest() -> None:
     assert (
         "Full certification runs only on push to main or explicit "
         "manual dispatch." in content
-    ), (
-        "apple-runtime-cert.yml comments must not imply full certification "
-        "runs on PRs."
-    )
+    ), "apple-runtime-cert.yml comments must not imply full certification runs on PRs."
     assert "Validate certification manifest" in content, (
-        "apple-runtime-cert.yml must validate the generated "
-        "cert_manifest.json."
+        "apple-runtime-cert.yml must validate the generated cert_manifest.json."
     )
     assert "Clear stale certification artifacts" in content, (
         "apple-runtime-cert.yml must clear stale runtime-cert artifacts on "
         "the self-hosted runner."
     )
     assert "runtime-cert-${{ github.sha }}" in content, (
-        "apple-runtime-cert.yml must retain a SHA-scoped "
-        "certification artifact upload."
+        "apple-runtime-cert.yml must retain a SHA-scoped certification artifact upload."
     )
     assert "cert_manifest.json" in content and "darwin-arm64" in content, (
         "apple-runtime-cert.yml must fail closed unless the manifest "
@@ -238,16 +210,12 @@ def test_apple_runtime_workflow_validates_manifest() -> None:
         "Python instead of relying on setup-python."
     )
     assert "Require both release model secrets" in full_cert, (
-        "full-certification must fail closed unless both release-model "
-        "secrets are set."
+        "full-certification must fail closed unless both release-model secrets are set."
     )
     assert (
         "github.event_name == 'push'" in full_cert
         and "inputs.run_model_stages" in full_cert
-    ), (
-        "full-certification must remain limited to push-to-main or manual "
-        "dispatch."
-    )
+    ), "full-certification must remain limited to push-to-main or manual dispatch."
     assert manifest_block, (
         "apple-runtime-cert.yml must include an inline manifest validator "
         "with family and artifact checks."

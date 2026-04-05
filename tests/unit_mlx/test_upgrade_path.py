@@ -59,8 +59,7 @@ def test_upgrade_cache_list_idempotence():
     )
 
     assert all(isinstance(c, TurboQuantKCache) for c in cache_list), (
-        "Cache entries must remain TurboQuantKCache "
-        "after second (no-op) upgrade"
+        "Cache entries must remain TurboQuantKCache after second (no-op) upgrade"
     )
 
 

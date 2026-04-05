@@ -48,7 +48,7 @@ def test_streaming_attention_equivalence():
     cache, keys_view = _build_cache_with_keys(cfg, batch, kv_heads, kv_seq, d_head)
 
     queries = mx.random.normal([batch, q_heads, 1, d_head])
-    scale = 1.0 / (d_head ** 0.5)
+    scale = 1.0 / (d_head**0.5)
 
     out = turboquant_streaming_attention(queries, keys_view, scale=scale)
     mx.eval(out)
@@ -89,7 +89,7 @@ def test_streaming_attention_multi_block():
     keys_view, _ = cache.update_and_fetch(k2, v2)
 
     queries = mx.random.normal([batch, kv_heads, 1, d_head])
-    scale = 1.0 / (d_head ** 0.5)
+    scale = 1.0 / (d_head**0.5)
 
     out = turboquant_streaming_attention(queries, keys_view, scale=scale)
     mx.eval(out)

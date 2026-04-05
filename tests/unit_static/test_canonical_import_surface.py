@@ -7,6 +7,7 @@ import pytest
 def get_repo_root():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
+
 def test_canonical_import_surface():
     """Ensure all internal code and docs use the turboquant.integrations.mlx namespace."""
     root = get_repo_root()
@@ -25,7 +26,7 @@ def test_canonical_import_surface():
     allowed_files = [
         "integrations/mlx/cache_adapter.py",
         "integrations/mlx/upgrade.py",
-        "test_canonical_import_surface.py" # self
+        "test_canonical_import_surface.py",  # self
     ]
 
     found_violations = []
@@ -51,9 +52,13 @@ def test_canonical_import_surface():
                         content = f_handle.read()
                         for pattern in forbidden_patterns:
                             if pattern.search(content):
-                                found_violations.append(f"{rel_path}: matches {pattern.pattern}")
+                                found_violations.append(
+                                    f"{rel_path}: matches {pattern.pattern}"
+                                )
                     except UnicodeDecodeError:
                         continue
 
     if found_violations:
-        pytest.fail("Found canonical import violations:\n" + "\n".join(found_violations))
+        pytest.fail(
+            "Found canonical import violations:\n" + "\n".join(found_violations)
+        )

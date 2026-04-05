@@ -129,11 +129,15 @@ def test_cache_upgrade_idempotent():
     prompt_cache = [_MinimalKVCache(k0, v0)]
 
     # First call — should upgrade
-    events1 = upgrade_cache_list(prompt_cache, k_start=4, config=cfg, model_family="llama")
+    events1 = upgrade_cache_list(
+        prompt_cache, k_start=4, config=cfg, model_family="llama"
+    )
     assert events1[0].upgraded
 
     # Second call — already TurboQuantKCache, must be a no-op
-    events2 = upgrade_cache_list(prompt_cache, k_start=4, config=cfg, model_family="llama")
+    events2 = upgrade_cache_list(
+        prompt_cache, k_start=4, config=cfg, model_family="llama"
+    )
     assert not events2[0].upgraded, (
         "Second upgrade_cache_list call must not re-upgrade an already-upgraded layer."
     )

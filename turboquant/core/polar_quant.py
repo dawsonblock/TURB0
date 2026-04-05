@@ -41,17 +41,15 @@ import numpy.typing as npt
 # ─────────────────────────────────────────────────────────────────────────────
 
 _N_LEVELS: int = 4  # L: recursive depth
-_BITS_L1: int = 4   # bits for level-1 angles  (range [0, 2π))
-_BITS_LE: int = 2   # bits for level-2+ angles (range [0, π/2))
+_BITS_L1: int = 4  # bits for level-1 angles  (range [0, 2π))
+_BITS_LE: int = 2  # bits for level-2+ angles (range [0, π/2))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Codebook construction
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _lloyd_1d(
-    samples: np.ndarray, n_centroids: int, n_iter: int = 200
-) -> np.ndarray:
+def _lloyd_1d(samples: np.ndarray, n_centroids: int, n_iter: int = 200) -> np.ndarray:
     """1-D Lloyd's algorithm (k-means) → sorted optimal centroids.
 
     Converges to locally optimal quantisation centroids for the empirical
@@ -66,11 +64,7 @@ def _lloyd_1d(
         labels = np.argmin(dists, axis=1)
         new = np.array(
             [
-                (
-                    samples[labels == k].mean()
-                    if (labels == k).any()
-                    else centroids[k]
-                )
+                (samples[labels == k].mean() if (labels == k).any() else centroids[k])
                 for k in range(n_centroids)
             ],
             dtype=np.float64,
@@ -90,9 +84,7 @@ def _sample_level1_angles(n: int = 400_000) -> npt.NDArray[np.float32]:
     )
 
 
-def _sample_level_ell_angles(
-    level: int, n: int = 400_000
-) -> npt.NDArray[np.float32]:
+def _sample_level_ell_angles(level: int, n: int = 400_000) -> npt.NDArray[np.float32]:
     """Draw samples from f(ψ) ∝ sin^{2^{ℓ-1}-1}(2ψ) on [0, π/2].
 
     Equivalent construction: ψ = atan2(‖y‖₂, ‖x‖₂) where x, y are
@@ -164,8 +156,8 @@ def _quantize_angles(angles: mx.array, codebook: np.ndarray) -> mx.array:
     -------
     codes : [..., m] uint8 codebook indices
     """
-    cb = mx.array(codebook)                    # [K]
-    diffs = mx.abs(angles[..., None] - cb)     # [..., m, K]
+    cb = mx.array(codebook)  # [K]
+    diffs = mx.abs(angles[..., None] - cb)  # [..., m, K]
     return mx.argmin(diffs, axis=-1).astype(mx.uint8)
 
 
@@ -206,7 +198,7 @@ def _polar_step_l1(x: mx.array) -> tuple[mx.array, mx.array]:
     odd = x[..., 1::2]  # "y" (sine) coordinate of each pair
     angles = mx.arctan2(odd, even)  # (-π, π]
     angles = mx.where(angles < 0.0, angles + 2.0 * math.pi, angles)  # [0, 2π)
-    radii = mx.sqrt(even ** 2 + odd ** 2)
+    radii = mx.sqrt(even**2 + odd**2)
     return angles, radii
 
 
@@ -226,7 +218,7 @@ def _polar_step_ell(radii: mx.array) -> tuple[mx.array, mx.array]:
     r_right = radii[..., 1::2]
     # Both r_left, r_right ≥ 0 → atan2 result ∈ [0, π/2]
     angles = mx.arctan2(r_right, r_left)
-    new_radii = mx.sqrt(r_left ** 2 + r_right ** 2)
+    new_radii = mx.sqrt(r_left**2 + r_right**2)
     return angles, new_radii
 
 
@@ -248,11 +240,11 @@ def polar_forward(
     """
     angles_list: list[mx.array] = []
     a, r = _polar_step_l1(x)
-    angles_list.append(a)                         # level 1
+    angles_list.append(a)  # level 1
 
     for _ in range(n_levels - 1):
         a, r = _polar_step_ell(r)
-        angles_list.append(a)                     # levels 2 .. n_levels
+        angles_list.append(a)  # levels 2 .. n_levels
 
     return angles_list, r
 
@@ -308,17 +300,15 @@ def polar_inverse(
 class PolarQuantPayload:
     """Compressed key-block representation from PolarQuantizer.encode()."""
 
-    angle_codes: list       # n_levels items; codes[ℓ]: [..., d//2^{ℓ+1}] uint8
-    final_radii: mx.array   # [..., d//2^n_levels] float16
-    d_orig:   int           # original d before padding
-    d_pad:    int           # padded d (divisible by 2^n_levels)
+    angle_codes: list  # n_levels items; codes[ℓ]: [..., d//2^{ℓ+1}] uint8
+    final_radii: mx.array  # [..., d//2^n_levels] float16
+    d_orig: int  # original d before padding
+    d_pad: int  # padded d (divisible by 2^n_levels)
     n_levels: int
 
     def byte_size(self) -> int:
         total = sum(
-            int(code.nbytes)
-            for code in self.angle_codes
-            if hasattr(code, "nbytes")
+            int(code.nbytes) for code in self.angle_codes if hasattr(code, "nbytes")
         )
         if hasattr(self.final_radii, "nbytes"):
             total += int(self.final_radii.nbytes)
@@ -358,9 +348,7 @@ class PolarQuantPayload:
         if not isinstance(raw_final_radii, str):
             raise TypeError("final_radii must be a base64 string")
 
-        angle_codes = [
-            _b64_to_arr(code) for code in cast(list[str], raw_angle_codes)
-        ]
+        angle_codes = [_b64_to_arr(code) for code in cast(list[str], raw_angle_codes)]
         final_radii = _b64_to_arr(raw_final_radii)
         return cls(
             angle_codes=angle_codes,
@@ -455,9 +443,7 @@ class PolarQuantizer:
 
     # ── pipeline adapter (compatible with GroupScalarQuantizer) ──────────────
 
-    def quantize(
-        self, x: mx.array, *, config=None
-    ) -> tuple[PolarQuantPayload, None]:
+    def quantize(self, x: mx.array, *, config=None) -> tuple[PolarQuantPayload, None]:
         """Adapter for the pipeline's `quantize_main(x, *, config)` shape.
 
         Returns ``(payload, None)`` — the ``None`` signals to pipeline.py that

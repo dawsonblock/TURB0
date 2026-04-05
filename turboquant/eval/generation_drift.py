@@ -121,7 +121,9 @@ def drift_report(
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 
     tq_cache = make_prompt_cache(model)
-    upgrade_cache_list(tq_cache, k_start=k_start, config=turboquant_config, model_family=model_family)
+    upgrade_cache_list(
+        tq_cache, k_start=k_start, config=turboquant_config, model_family=model_family
+    )
     tq_logits = _collect_logits(model, feed, cache=tq_cache)
     mx.eval(tq_logits)
 

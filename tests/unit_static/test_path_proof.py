@@ -74,5 +74,7 @@ def test_canonical_import_lock():
         content = f.read()
 
     # Check that maybe_turboquant_k_cache delegates to upgrade_cache_list
-    assert "from turboquant.integrations.mlx.upgrade import upgrade_cache_list" in content
+    assert (
+        "from turboquant.integrations.mlx.upgrade import upgrade_cache_list" in content
+    )
     assert "upgrade_cache_list(prompt_cache" in content

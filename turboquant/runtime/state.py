@@ -110,14 +110,10 @@ def _expect_config_match(
     }
     for key, expected in checks.items():
         if key in state and state[key] != expected:
-            mismatches.append(
-                f"{key}: state={state[key]!r}, config={expected!r}"
-            )
+            mismatches.append(f"{key}: state={state[key]!r}, config={expected!r}")
 
     if "eps" in state and abs(float(state["eps"]) - float(config.eps)) > 1e-12:
-        mismatches.append(
-            f"eps: state={state['eps']!r}, config={config.eps!r}"
-        )
+        mismatches.append(f"eps: state={state['eps']!r}, config={config.eps!r}")
 
     if state.get("schema_version", 0) >= 4:
         algo = config.algorithm_family()
@@ -137,35 +133,26 @@ def _expect_config_match(
                 f"state={state.get('residual_kind')!r}, "
                 f"config={config.residual_mode!r}"
             )
-        expected_qjl_dim = (
-            config.qjl_proj_dim if config.residual_mode == "qjl" else 0
-        )
+        expected_qjl_dim = config.qjl_proj_dim if config.residual_mode == "qjl" else 0
         if state.get("qjl_dim") != expected_qjl_dim:
             mismatches.append(
-                f"qjl_dim: state={state.get('qjl_dim')!r}, "
-                f"config={expected_qjl_dim!r}"
+                f"qjl_dim: state={state.get('qjl_dim')!r}, config={expected_qjl_dim!r}"
             )
-        expected_qjl_seed = (
-            config.qjl_seed if config.residual_mode == "qjl" else 0
-        )
+        expected_qjl_seed = config.qjl_seed if config.residual_mode == "qjl" else 0
         if state.get("qjl_seed") != expected_qjl_seed:
             mismatches.append(
                 f"qjl_seed: state={state.get('qjl_seed')!r}, "
                 f"config={expected_qjl_seed!r}"
             )
         expected_main_bits = (
-            max(1, config.k_bits - 1)
-            if config.is_prod_mode()
-            else config.k_bits
+            max(1, config.k_bits - 1) if config.is_prod_mode() else config.k_bits
         )
         if state.get("main_bits") != expected_main_bits:
             mismatches.append(
                 f"main_bits: state={state.get('main_bits')!r}, "
                 f"config={expected_main_bits!r}"
             )
-        expected_residual_bits = (
-            config.qjl_bits if config.residual_mode == "qjl" else 0
-        )
+        expected_residual_bits = config.qjl_bits if config.residual_mode == "qjl" else 0
         if state.get("residual_bits") != expected_residual_bits:
             mismatches.append(
                 "residual_bits: "
@@ -189,8 +176,7 @@ def _validate_block_payload(blocks: Any, *, offset: int) -> None:
 
     if offset > 0 and not blocks:
         raise TurboQuantStateError(
-            "State has offset="
-            f"{offset} but 'blocks' is empty. State is corrupt."
+            f"State has offset={offset} but 'blocks' is empty. State is corrupt."
         )
 
     for index, block in enumerate(blocks):
@@ -224,9 +210,7 @@ def _validate_block_payload(blocks: Any, *, offset: int) -> None:
             isinstance(item, str) for item in residual_keys
         ):
             raise TurboQuantStateError(
-                "Block "
-                f"{index} field 'residual_data_keys' must be a list "
-                "of strings."
+                f"Block {index} field 'residual_data_keys' must be a list of strings."
             )
 
         if not isinstance(block.get("algorithm"), str):
@@ -242,28 +226,21 @@ def _validate_block_payload(blocks: Any, *, offset: int) -> None:
                     f"got {value!r}."
                 )
 
-        algorithm = TurboQuantConfig.normalize_algorithm(
-            block.get("algorithm", "")
-        )
+        algorithm = TurboQuantConfig.normalize_algorithm(block.get("algorithm", ""))
         polar_payload = block.get("polar_payload")
         if algorithm == "polarquant_exp":
             if polar_payload is None:
                 raise TurboQuantStateError(
-                    f"Block {index} for polarquant_exp must include "
-                    "'polar_payload'."
+                    f"Block {index} for polarquant_exp must include 'polar_payload'."
                 )
-            if (
-                block.get("packed_main") is not None
-                or block.get("scales") is not None
-            ):
+            if block.get("packed_main") is not None or block.get("scales") is not None:
                 raise TurboQuantStateError(
                     f"Block {index} for polarquant_exp must not carry "
                     "scalar packed_main/scales tensors."
                 )
             if block.get("residual_mode") != "none":
                 raise TurboQuantStateError(
-                    f"Block {index} for polarquant_exp must use "
-                    "residual_mode='none'."
+                    f"Block {index} for polarquant_exp must use residual_mode='none'."
                 )
             if not isinstance(polar_payload, dict):
                 raise TurboQuantStateError(
@@ -276,8 +253,10 @@ def _validate_block_payload(blocks: Any, *, offset: int) -> None:
                     f"{sorted(missing_polar)}."
                 )
             angle_codes = polar_payload.get("angle_codes")
-            if not isinstance(angle_codes, list) or not angle_codes or not all(
-                isinstance(code, str) for code in angle_codes
+            if (
+                not isinstance(angle_codes, list)
+                or not angle_codes
+                or not all(isinstance(code, str) for code in angle_codes)
             ):
                 raise TurboQuantStateError(
                     f"Block {index} polar_payload 'angle_codes' must be "
@@ -339,13 +318,11 @@ def _validate_v4_metadata(state: dict[str, Any]) -> None:
     if residual_kind == "qjl":
         if state["qjl_dim"] <= 0:
             raise TurboQuantStateError(
-                "State schema v4 requires qjl_dim > 0 when "
-                "residual_kind='qjl'."
+                "State schema v4 requires qjl_dim > 0 when residual_kind='qjl'."
             )
         if state["residual_bits"] != 1:
             raise TurboQuantStateError(
-                "State schema v4 requires residual_bits == 1 for QJL "
-                "residuals."
+                "State schema v4 requires residual_bits == 1 for QJL residuals."
             )
 
     if algorithm == "paper_prod_qjl" and residual_kind != "qjl":
@@ -363,13 +340,9 @@ def _validate_v4_metadata(state: dict[str, Any]) -> None:
             "State schema v4 requires residual_kind='topk' for legacy_topk."
         )
 
-    if (
-        algorithm == "polarquant_exp"
-        and state.get("rotation_type") == "identity"
-    ):
+    if algorithm == "polarquant_exp" and state.get("rotation_type") == "identity":
         raise TurboQuantStateError(
-            "State schema v4 requires randomized preconditioning for "
-            "polarquant_exp."
+            "State schema v4 requires randomized preconditioning for polarquant_exp."
         )
 
 
@@ -415,8 +388,7 @@ def validate_state(
         k_packed = state.get("k_packed")
         if k_packed is None:
             raise TurboQuantStateError(
-                "State has offset="
-                f"{offset} but 'k_packed' is None. State is corrupt."
+                f"State has offset={offset} but 'k_packed' is None. State is corrupt."
             )
         token_len = _shape_token_len(k_packed)
         if token_len is not None and token_len < offset:
@@ -448,11 +420,7 @@ def validate_state(
     if version < 3:
         k_scales = state.get("k_scales")
         d_pad = state.get("d_pad")
-        if (
-            k_scales is not None
-            and hasattr(k_scales, "shape")
-            and d_pad is not None
-        ):
+        if k_scales is not None and hasattr(k_scales, "shape") and d_pad is not None:
             ng_stored = k_scales.shape[-1]
             ng_expected = d_pad // config.k_group_size
             if ng_stored != ng_expected:
@@ -483,11 +451,7 @@ def validate_state(
 
         if version >= 2:
             k_cal = state.get("k_calibrated_scales")
-            if (
-                k_cal is not None
-                and hasattr(k_cal, "shape")
-                and d_pad is not None
-            ):
+            if k_cal is not None and hasattr(k_cal, "shape") and d_pad is not None:
                 expected = d_pad // config.k_group_size
                 if k_cal.shape[-1] != expected:
                     raise TurboQuantStateError(
@@ -496,11 +460,7 @@ def validate_state(
                         f"expected group count {expected}."
                     )
             v_cal = state.get("v_calibrated_scales")
-            if (
-                v_cal is not None
-                and hasattr(v_cal, "shape")
-                and v_pad is not None
-            ):
+            if v_cal is not None and hasattr(v_cal, "shape") and v_pad is not None:
                 expected = v_pad // config.v_group_size
                 if v_cal.shape[-1] != expected:
                     raise TurboQuantStateError(

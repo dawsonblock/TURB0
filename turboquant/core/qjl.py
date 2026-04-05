@@ -62,7 +62,7 @@ def pack_sign_bits(signs: mx.array) -> mx.array:
     grouped = signs_u8.reshape(*prefix, n_bytes, 8).astype(mx.uint32)
     shifts = mx.array([0, 1, 2, 3, 4, 5, 6, 7], dtype=mx.uint32)
     packed = mx.sum(mx.left_shift(grouped, shifts), axis=-1).astype(mx.uint8)
-    return packed   # shape [..., ceil(n/8)]
+    return packed  # shape [..., ceil(n/8)]
 
 
 def unpack_sign_bits(packed: mx.array, n: int) -> mx.array:
@@ -179,17 +179,17 @@ class QJLProjector:
         q = _ensure_float(q)
         proj = self._projection(meta.input_dim)
 
-        q_proj = q @ proj                                        # [..., q_len, proj_dim]
-        signed = unpack_sign_bits(bits, meta.proj_dim)           # [..., k_len, proj_dim]
+        q_proj = q @ proj  # [..., q_len, proj_dim]
+        signed = unpack_sign_bits(bits, meta.proj_dim)  # [..., k_len, proj_dim]
 
         if q_proj.shape[-3] != signed.shape[-3]:
             n_rep = q_proj.shape[-3] // signed.shape[-3]
             signed = mx.repeat(signed, n_rep, axis=-3)
 
-        scores = q_proj @ mx.swapaxes(signed, -1, -2)           # [..., q_len, k_len]
+        scores = q_proj @ mx.swapaxes(signed, -1, -2)  # [..., q_len, k_len]
 
-        norm_scale = norms.squeeze(-1)                           # [..., k_len]
-        q_norm = mx.linalg.norm(q, axis=-1)                     # [..., q_len]
+        norm_scale = norms.squeeze(-1)  # [..., k_len]
+        q_norm = mx.linalg.norm(q, axis=-1)  # [..., q_len]
         q_norm = mx.maximum(q_norm, mx.array(1e-8, dtype=q_norm.dtype))
 
         if q_norm.shape[-2] != norm_scale.shape[-2]:
@@ -213,4 +213,3 @@ class QJLProjector:
         Alias of ``dot_estimate``; prefer this name in new code.
         """
         return self.dot_estimate(q, bits, norms, meta)
-

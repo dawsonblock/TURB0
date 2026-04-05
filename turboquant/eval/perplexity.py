@@ -47,6 +47,7 @@ def perplexity_from_logits(logits, targets) -> float:
         return float("nan")
 
     import mlx.core as mx
+
     log_probs = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
     T = targets.shape[0]
     nll_sum = -float(mx.sum(log_probs[mx.arange(T), targets]).item())
@@ -111,7 +112,12 @@ def perplexity_report(
         from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 
         tq_cache = make_prompt_cache(model)
-        upgrade_cache_list(tq_cache, k_start=k_start, config=turboquant_config, model_family=model_family)
+        upgrade_cache_list(
+            tq_cache,
+            k_start=k_start,
+            config=turboquant_config,
+            model_family=model_family,
+        )
         tq_logits = _collect_logits(model, feed, cache=tq_cache)
         mx.eval(tq_logits)
         tq_ppl = perplexity_from_logits(tq_logits, targets)

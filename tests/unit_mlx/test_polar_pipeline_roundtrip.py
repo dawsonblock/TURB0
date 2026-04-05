@@ -42,9 +42,7 @@ def test_polar_encode_decode_shape_and_finite_error() -> None:
 
     assert block.polar is not None
     assert x_hat.shape == x.shape
-    rel_err = float(
-        (mx.mean(mx.abs(x_hat - x)) / (mx.mean(mx.abs(x)) + 1e-6)).item()
-    )
+    rel_err = float((mx.mean(mx.abs(x_hat - x)) / (mx.mean(mx.abs(x)) + 1e-6)).item())
     assert rel_err < 1.25
 
 

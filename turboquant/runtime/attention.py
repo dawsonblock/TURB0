@@ -29,6 +29,7 @@ def score_block(
     config.validate()
 
     from turboquant.core.rotation import FixedRotation
+
     orig_dim = block.orig_dim if block.orig_dim > 0 else block.d_head
     rotation = FixedRotation.from_config(config, orig_dim)
     q_rot = rotation.apply(q.astype(mx.float32)).astype(q.dtype)
@@ -50,15 +51,11 @@ def score_block(
             f"{int(main_rot.shape[-1])}"
         )
 
-
     if q_rot.shape[-3] != main_rot.shape[-3]:
         n_rep = q_rot.shape[-3] // main_rot.shape[-3]
         main_rot = mx.repeat(main_rot, n_rep, axis=-3)
 
     main_scores = q_rot @ mx.swapaxes(main_rot, -1, -2)
-
-
-
 
     codec = build_residual_codec(config)
 
@@ -71,13 +68,12 @@ def score_block(
         resid_rot = resid_hat[..., : block.d_rot]
 
         if q_rot.shape[-3] != resid_rot.shape[-3]:
-            resid_rot = mx.repeat(resid_rot, q_rot.shape[-3] // resid_rot.shape[-3], axis=-3)
+            resid_rot = mx.repeat(
+                resid_rot, q_rot.shape[-3] // resid_rot.shape[-3], axis=-3
+            )
 
         resid_scores = q_rot @ mx.swapaxes(resid_rot, -1, -2)
         return main_scores + resid_scores
-
-
-
 
     if block.residual.mode == "qjl":
         """
@@ -94,6 +90,7 @@ def score_block(
         return main_scores + resid_scores
 
     raise ValueError(f"Unsupported residual mode: {block.residual.mode}")
+
 
 def streaming_scores(
     q: mx.array,
@@ -116,8 +113,11 @@ def streaming_scores(
         out.append(scores)
     return out
 
+
 # Legacy compatibility shim for MLX integrations (llama, gemma, etc.)
-def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None, softcap=None):
+def turboquant_streaming_attention(
+    queries, keys_view, scale=1.0, mask=None, softcap=None
+):
     """Compute streaming attention against a TurboQuantKeysView.
 
     Parameters
@@ -158,12 +158,15 @@ def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None, sof
         if q_len > 1:
             inds = mx.arange(k_len)[None, None, :]
             q_inds = mx.arange(k_len - q_len, k_len)[None, :, None]
-            mask = mx.where(inds > q_inds, mx.array(-1e9, dtype=scores.dtype), mx.array(0.0, dtype=scores.dtype))
+            mask = mx.where(
+                inds > q_inds,
+                mx.array(-1e9, dtype=scores.dtype),
+                mx.array(0.0, dtype=scores.dtype),
+            )
         else:
             mask = None
     if mask is not None:
         scores = scores + mask
-
 
     # Fetch values: paper mode decodes from v_blocks; legacy uses dense v_cache.
     if getattr(impl, "storage_mode", "k_only") == "paper_kv" and impl.v_blocks:
@@ -174,10 +177,8 @@ def turboquant_streaming_attention(queries, keys_view, scale=1.0, mask=None, sof
     else:
         vals = mx.concatenate(cache.v_cache, axis=-2)
 
-
     attn = mx.softmax(scores, axis=-1)
     if queries.shape[-3] != vals.shape[-3]:
         n_rep = queries.shape[-3] // vals.shape[-3]
         vals = mx.repeat(vals, n_rep, axis=-3)
     return attn @ vals
-

@@ -137,8 +137,7 @@ def test_compatibility_conftest_tracks_current_test_layout() -> None:
 
     text = conftest_path.read_text(encoding="utf-8")
     assert "tests/unit/" not in text, (
-        "turboquant/tests/conftest.py still points at the dead "
-        "tests/unit/ path."
+        "turboquant/tests/conftest.py still points at the dead tests/unit/ path."
     )
     assert "tests/unit_static/" in text
     assert "tests/unit_mlx/" in text
@@ -162,8 +161,7 @@ def test_support_module_has_expected_families() -> None:
         if family["status"] == "allowlisted"
     }
     assert expected == {"llama", "gemma"}, (
-        "The machine-readable contract should currently allowlist only "
-        "llama and gemma."
+        "The machine-readable contract should currently allowlist only llama and gemma."
     )
 
     repo_str = str(REPO_ROOT)
@@ -298,10 +296,7 @@ def test_infer_model_family_returns_supported_or_none() -> None:
         # Find the _infer_model_family function and look for string constants
         # used in a for-loop (the family membership list).
         for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.FunctionDef)
-                and node.name == "_infer_model_family"
-            ):
+            if isinstance(node, ast.FunctionDef) and node.name == "_infer_model_family":
                 for child in ast.walk(node):
                     if isinstance(child, ast.For):
                         # Inspect the iterator for string constants.
@@ -340,12 +335,8 @@ def test_infer_model_family_returns_supported_or_none() -> None:
 
 def test_upgrade_cache_list_none_docstring_correct() -> None:
     """upgrade_cache_list docstring must not claim None bypasses the gate."""
-    upgrade_py = (
-        REPO_ROOT / "turboquant" / "integrations" / "mlx" / "upgrade.py"
-    )
-    assert upgrade_py.exists(), (
-        "turboquant/integrations/mlx/upgrade.py not found"
-    )
+    upgrade_py = REPO_ROOT / "turboquant" / "integrations" / "mlx" / "upgrade.py"
+    assert upgrade_py.exists(), "turboquant/integrations/mlx/upgrade.py not found"
 
     text = upgrade_py.read_text(encoding="utf-8")
     assert "intentionally bypass the allowlist" not in text, (

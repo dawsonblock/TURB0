@@ -11,15 +11,14 @@ Or use the boolean helpers for finer-grained control:
 
     from tests.helpers.mlx_env import HAS_MLX, IS_APPLE_SILICON
 """
+
 from __future__ import annotations
 
 import platform
 
 import pytest
 
-IS_APPLE_SILICON: bool = (
-    platform.system() == "Darwin" and platform.machine() == "arm64"
-)
+IS_APPLE_SILICON: bool = platform.system() == "Darwin" and platform.machine() == "arm64"
 
 try:
     import mlx.core  # noqa: F401

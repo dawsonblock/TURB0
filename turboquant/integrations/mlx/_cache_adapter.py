@@ -123,15 +123,12 @@ class TurboQuantKCache(_BaseCache):
     def meta_state(self, v: object) -> None:
         if not isinstance(v, tuple) or len(v) != 2:
             raise ValueError(
-                "TurboQuantKCache.meta_state must be a "
-                "(config_dict, offset) tuple."
+                "TurboQuantKCache.meta_state must be a (config_dict, offset) tuple."
             )
 
         _, offset = v
         if not isinstance(offset, int):
-            raise ValueError(
-                "TurboQuantKCache.meta_state offset must be an int."
-            )
+            raise ValueError("TurboQuantKCache.meta_state offset must be an int.")
 
         self.offset = offset
         if hasattr(self, "_impl"):

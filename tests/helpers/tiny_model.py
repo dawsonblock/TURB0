@@ -40,6 +40,7 @@ N_LAYERS: int = 2
 # Model layers
 # ---------------------------------------------------------------------------
 
+
 class _TinyAttn(nn.Module):
     """Minimal multi-head attention with TurboQuant dispatch."""
 
@@ -49,7 +50,7 @@ class _TinyAttn(nn.Module):
         self.k_proj = nn.Linear(D_MODEL, D_MODEL, bias=False)
         self.v_proj = nn.Linear(D_MODEL, D_MODEL, bias=False)
         self.o_proj = nn.Linear(D_MODEL, D_MODEL, bias=False)
-        self.scale: float = HEAD_DIM ** -0.5
+        self.scale: float = HEAD_DIM**-0.5
 
     def __call__(self, x: mx.array, cache=None) -> mx.array:
         B, T, _ = x.shape
@@ -136,6 +137,7 @@ class TinyModel(nn.Module):
 # ---------------------------------------------------------------------------
 # Tokenizer
 # ---------------------------------------------------------------------------
+
 
 class TinyTokenizer:
     """

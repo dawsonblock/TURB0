@@ -22,7 +22,15 @@ mx = pytest.importorskip("mlx.core")
 from turboquant.config import TurboQuantConfig
 from turboquant.runtime.kv_interface import TurboQuantKVCache
 
-_REQUIRED_BREAKDOWN_KEYS = {"k_main", "k_scales", "k_polar", "k_residual", "v_main", "v_scales", "total"}
+_REQUIRED_BREAKDOWN_KEYS = {
+    "k_main",
+    "k_scales",
+    "k_polar",
+    "k_residual",
+    "v_main",
+    "v_scales",
+    "total",
+}
 
 
 def _make_impl(cfg: TurboQuantConfig) -> TurboQuantKVCache:

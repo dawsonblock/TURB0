@@ -115,9 +115,7 @@ def run_audit() -> dict:
     actual = scan_mlx_lm(MLX_LM_DIR) if MLX_LM_DIR.exists() else set()
 
     # Files documented as modified but not found on disk.
-    missing_files = sorted(
-        p for p in documented if not (REPO_ROOT / p).exists()
-    )
+    missing_files = sorted(p for p in documented if not (REPO_ROOT / p).exists())
 
     # Files documented as modified but no TQ marker detected on disk.
     missing_markers = sorted(
@@ -154,9 +152,7 @@ def _print_human(result: dict) -> None:
         print(f"ERROR: {result['error']}")
         return
 
-    print(
-        f"Documented modified files ({len(result['documented_modified'])}):"
-    )
+    print(f"Documented modified files ({len(result['documented_modified'])}):")
     for p in result["documented_modified"]:
         print(f"  {p}")
 
@@ -166,16 +162,12 @@ def _print_human(result: dict) -> None:
             print(f"  MISSING  {p}")
 
     if result["missing_markers"]:
-        print(
-            "\nMISSING MARKERS (documented as modified, no TQ code found):"
-        )
+        print("\nMISSING MARKERS (documented as modified, no TQ code found):")
         for p in result["missing_markers"]:
             print(f"  NO-TQ    {p}")
 
     if result["undocumented_modifications"]:
-        print(
-            "\nUNDOCUMENTED MODIFICATIONS (TQ markers present, not listed):"
-        )
+        print("\nUNDOCUMENTED MODIFICATIONS (TQ markers present, not listed):")
         for p in result["undocumented_modifications"]:
             print(f"  UNLISTED {p}")
 
@@ -185,16 +177,12 @@ def _print_human(result: dict) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description=(
-            "Audit vendored mlx_lm surface against VENDORED_MLX_LM.md"
-        )
+        description=("Audit vendored mlx_lm surface against VENDORED_MLX_LM.md")
     )
     parser.add_argument(
         "--json",
         action="store_true",
-        help=(
-            "Emit machine-readable JSON instead of human-readable output."
-        ),
+        help=("Emit machine-readable JSON instead of human-readable output."),
     )
     args = parser.parse_args()
 

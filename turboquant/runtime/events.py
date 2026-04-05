@@ -287,15 +287,11 @@ class EventLog:
 
     def upgrade_count(self) -> int:
         """Return number of successful upgrade events recorded."""
-        return sum(
-            1 for e in self._events if isinstance(e, CacheUpgradeEvent)
-        )
+        return sum(1 for e in self._events if isinstance(e, CacheUpgradeEvent))
 
     def failure_count(self) -> int:
         """Return number of upgrade failure events recorded."""
-        return sum(
-            1 for e in self._events if isinstance(e, UpgradeFailureEvent)
-        )
+        return sum(1 for e in self._events if isinstance(e, UpgradeFailureEvent))
 
     def summary(self) -> dict:
         """Return a summary dict for inclusion in ``metrics.json``.

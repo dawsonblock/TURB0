@@ -5,11 +5,7 @@ import pytest
 
 def _block_mlx():
     """Block mlx imports and return the previously cached modules for later restoration."""
-    saved = {
-        key: sys.modules[key]
-        for key in ("mlx", "mlx.core")
-        if key in sys.modules
-    }
+    saved = {key: sys.modules[key] for key in ("mlx", "mlx.core") if key in sys.modules}
     sys.modules["mlx"] = None  # type: ignore[assignment]
     sys.modules["mlx.core"] = None  # type: ignore[assignment]
     return saved

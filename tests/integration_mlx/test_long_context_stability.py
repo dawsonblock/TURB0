@@ -18,6 +18,7 @@ To run with a real model::
 
     export TQ_TEST_LLAMA_MODEL=mlx-community/Llama-3.2-1B-Instruct-4bit
 """
+
 import os
 
 import pytest
@@ -47,6 +48,7 @@ def test_long_context_stability(tmp_path):
     _model_id = os.environ.get("TQ_TEST_LLAMA_MODEL", "")
     if _model_id:
         from mlx_lm import load as _load
+
         model, tokenizer = _load(_model_id)
         # Build a >300-token prompt the same way the original test did.
         seed = "The quick brown fox jumps over the lazy dog. "
@@ -54,6 +56,7 @@ def test_long_context_stability(tmp_path):
         prompt_ids_list = tokenizer.encode(long_text)[:_PROMPT_TOKENS]
     else:
         from tests.helpers.tiny_model import TinyModel, TinyTokenizer
+
         model, tokenizer = TinyModel(), TinyTokenizer()
         mx.eval(model.parameters())
         # With TinyTokenizer one char = one token; repeat a phrase to get 320 tokens.

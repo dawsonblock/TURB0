@@ -101,8 +101,7 @@ def test_certify_script_marks_unselected_families_out_of_scope() -> None:
     )
 
     assert "OUT OF SCOPE" in content, (
-        "certify_apple_runtime.sh must mark unselected families "
-        "as out of scope."
+        "certify_apple_runtime.sh must mark unselected families as out of scope."
     )
     assert "No real-model certification scope selected" in content, (
         "certify_apple_runtime.sh must fail closed when no real-model "
