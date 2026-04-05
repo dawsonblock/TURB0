@@ -15,8 +15,8 @@ TurboQuant supports one canonical runtime path via `upgrade_cache_list(...)`. A 
 
 ## 2. Supported model families
 
-- **Llama** — allowlisted; evidence depth is **stronger**. The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Llama. Source archives alone do not prove a current PASS for Llama; use an addressable evidence bundle or pinned manifest digest. Coverage: real-model smoke, experimental PolarQuant runtime smoke, experimental PolarQuant quality guardrail, batch quality guardrail, long-context stability, dense-vs-TurboQuant benchmark sweeps.
-- **Gemma** — allowlisted; evidence depth is **narrower**. The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Gemma. Gemma coverage is narrower than Llama because the batch quality guardrail remains Llama-scoped; source archives alone do not prove a current PASS. Coverage: real-model smoke, experimental PolarQuant runtime smoke, dense-vs-TurboQuant benchmark sweeps.
+- **Llama** — allowlisted; evidence depth is **stronger**. The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Llama. Source archives alone do not prove a current PASS for Llama; use an addressable evidence bundle or pinned manifest digest. Coverage: real-model smoke, PolarQuant runtime smoke, PolarQuant quality guardrail, batch quality guardrail, long-context stability, dense-vs-TurboQuant benchmark sweeps.
+- **Gemma** — allowlisted; evidence depth is **narrower**. The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Gemma. Gemma coverage remains narrower overall because the conservative paper_mse batch quality guardrail remains Llama-scoped, even though PolarQuant runtime and quality evidence now exist for Gemma; source archives alone do not prove a current PASS. Coverage: real-model smoke, PolarQuant runtime smoke, PolarQuant quality guardrail, dense-vs-TurboQuant benchmark sweeps.
 
 ## 3. Canonical and secondary surfaces
 
@@ -35,7 +35,7 @@ Paper-facing presets are `paper_mse` and `paper_prod`/`paper_prod_qjl`. Legacy t
 - **Non-power-of-two Hadamard handling** — The implementation uses an exact Hadamard transform only for power-of-two head dimensions and a deterministic orthogonal fallback otherwise.
 - **Legacy compatibility knobs** — Legacy aliases, residual_topk, and block_tokens remain for compatibility, but they are not part of the paper-facing preset contract.
 - **Vendored tree wider than support boundary** — The vendored mlx_lm tree contains many model files, but only the allowlisted families in this contract are supported by the canonical upgrade path.
-- **Experimental branches outside paper-facing presets** — legacy_topk remains a compatibility branch and polarquant_exp remains an experimental runtime branch: PolarQuant now works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and a Llama-scoped batch quality guardrail, but it is still outside the paper-facing preset story and formal supported product contract.
+- **Compatibility and non-paper-facing branches** — legacy_topk remains a compatibility branch, while polarquant_exp is now a supported non-paper-facing branch: PolarQuant works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and family-scoped batch quality guardrails, but it remains outside the paper-facing preset story.
 
 ## 5. Release evidence and benchmarks
 
@@ -56,6 +56,8 @@ Required release artifacts:
 - `quality_eval_polar_medium_summary.json`
 - `junit_gemma_smoke.xml`
 - `junit_polar_gemma_runtime.xml`
+- `quality_eval_polar_gemma_short_summary.json`
+- `quality_eval_polar_gemma_medium_summary.json`
 - `junit_long_context.xml`
 - `aggregate_runs.csv`
 - `certification_summary.json`

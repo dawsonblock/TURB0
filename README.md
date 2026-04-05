@@ -112,7 +112,7 @@ Exact deviations from the paper-facing story:
 - Non-power-of-two head dimensions use a deterministic orthogonal fallback instead of an exact Hadamard matrix.
 - Legacy aliases, `residual_topk`, and `block_tokens` remain for compatibility, but they are not part of the paper-facing preset contract.
 - The vendored `mlx_lm` tree is much wider than the supported boundary; only allowlisted families are eligible for the canonical path.
-- `legacy_topk` remains a compatibility branch and `polarquant_exp` remains an experimental runtime branch: PolarQuant now works through `upgrade_cache_list(...)` for allowlisted families, has Llama and Gemma runtime certification smoke stages, and a Llama-scoped batch quality guardrail, but it is not part of the repo's paper-facing claim or formal supported product contract.
+- `legacy_topk` remains a compatibility branch and `polarquant_exp` is now a supported non-paper-facing branch: PolarQuant works through `upgrade_cache_list(...)` for allowlisted families, has Llama and Gemma runtime certification smoke stages, and family-scoped batch quality guardrails, but it is not part of the repo's paper-facing claim.
 
 ---
 
@@ -212,9 +212,10 @@ reference path.
 `TurboQuantConfig.polarquant_exp(...)` for allowlisted families when you call
 `upgrade_cache_list(...)` directly. That route now round-trips through the
 runtime cache path, and the release harness now collects dedicated PolarQuant
-runtime smoke artifacts for Llama and Gemma plus Llama-scoped batch quality
-summaries for the experimental branch. It still remains experimental and is
-not part of the formal supported product contract.
+runtime smoke artifacts for Llama and Gemma plus family-scoped batch quality
+summaries for the supported non-paper-facing branch. It is now part of the
+formal supported product contract, but it remains outside the paper-facing
+preset story.
 
 ---
 

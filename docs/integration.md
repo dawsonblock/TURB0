@@ -156,15 +156,15 @@ mapping automatically.
 
 ## 4a. PolarQuant mode
 
-Use `TurboQuantConfig.polarquant_exp(...)` to select the experimental
-PolarQuant branch. The same config can drive the lower-level pipeline and, for
+Use `TurboQuantConfig.polarquant_exp(...)` to select the supported
+non-paper-facing PolarQuant branch. The same config can drive the lower-level pipeline and, for
 allowlisted families, the canonical `upgrade_cache_list(...)` runtime path.
 
 ```python
 from turboquant.config import TurboQuantConfig
 from turboquant.core.pipeline import TurboQuantPipeline
 
-# Experimental PolarQuant branch
+# Supported non-paper-facing PolarQuant branch
 cfg = TurboQuantConfig.polarquant_exp(
     rotation="random_orthogonal",
     residual_mode="none",
@@ -188,7 +188,7 @@ payload = pq.encode(x)   # → PolarQuantPayload (angle codes + final radii)
 x_hat  = pq.decode(payload)
 ```
 
-For allowlisted families, the same experimental config can now travel through
+For allowlisted families, the same supported non-paper-facing config can now travel through
 the canonical cache-upgrade path:
 
 ```python
@@ -199,18 +199,20 @@ cfg = TurboQuantConfig.polarquant_exp(rotation="random_orthogonal")
 events = upgrade_cache_list(cache, k_start=64, config=cfg, model_family="llama")
 ```
 
-That path preserves polar blocks through cache state round-trip, but it remains
-an experimental runtime mode rather than part of the supported product contract.
+That path preserves polar blocks through cache state round-trip, and the
+supported product contract now includes it as a non-paper-facing branch.
 
 **When to prefer PolarQuant:**
+
 - Encode-latency sensitive workloads (7–18× faster encode than scalar).
 - Lower reconstruction error is required at the same bit-budget (~40% lower MSE at 3.875 bits/dim vs 3-bit scalar).
 - Memory overhead from scale factors is undesirable (PolarQuant stores zero scales).
 
 **Limitations:**
+
 - Decode is slightly slower than scalar at large sequence lengths (interleaved reconstruction).
 - Does not currently support QJL residual correction (residual is skipped).
-- Certification evidence now includes Llama and Gemma PolarQuant runtime smoke plus a Llama-scoped batch quality guardrail; that still does not promote the mode into the formal product contract.
+- Certification evidence now includes Llama and Gemma PolarQuant runtime smoke plus family-scoped batch quality guardrails; the mode is now covered as a supported non-paper-facing branch rather than a paper-facing preset.
 - `paper_faithful_mode=True` is a deprecated stub; use `quantizer_mode="polar"` directly.
 
 ---

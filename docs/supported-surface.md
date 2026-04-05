@@ -17,7 +17,7 @@ Source archives document the certification workflow but do not prove a current P
 | Model family | Support status | Evidence depth | Notes |
 | :--- | :--- | :--- | :--- |
 | Llama | Allowlisted | stronger | The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Llama. Source archives alone do not prove a current PASS for Llama; use an addressable evidence bundle or pinned manifest digest. |
-| Gemma | Allowlisted | narrower | The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Gemma. Gemma coverage is narrower than Llama because the batch quality guardrail remains Llama-scoped; source archives alone do not prove a current PASS. |
+| Gemma | Allowlisted | narrower | The release workflow is designed to produce addressable Apple-arm64 certification artifacts for Gemma. Gemma coverage remains narrower overall because the conservative paper_mse batch quality guardrail remains Llama-scoped, even though PolarQuant runtime and quality evidence now exist for Gemma; source archives alone do not prove a current PASS. |
 
 ## Secondary surfaces
 
@@ -46,6 +46,8 @@ A release claim is only addressable when the workflow publishes or references:
 - `quality_eval_polar_medium_summary.json`
 - `junit_gemma_smoke.xml`
 - `junit_polar_gemma_runtime.xml`
+- `quality_eval_polar_gemma_short_summary.json`
+- `quality_eval_polar_gemma_medium_summary.json`
 - `junit_long_context.xml`
 - `aggregate_runs.csv`
 - `certification_summary.json`

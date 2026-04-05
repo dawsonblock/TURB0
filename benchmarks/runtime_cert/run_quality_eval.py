@@ -176,8 +176,8 @@ def main() -> None:
             "TurboQuantConfig preset to use (default: paper_mse). "
             "Use paper_mse for conservative 3-bit MSE (no QJL) quality "
             "gating; paper_prod for production-grade but more aggressive "
-            "settings, or polarquant_exp for the experimental PolarQuant "
-            "branch."
+            "settings, or polarquant_exp for the supported non-paper-facing "
+            "PolarQuant branch."
         ),
     )
     parser.add_argument(
@@ -352,4 +352,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

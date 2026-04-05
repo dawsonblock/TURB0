@@ -81,7 +81,7 @@ def test_upgrade_cache_list_unsupported_model():
 
 
 def test_upgrade_cache_list_supports_experimental_polar_mode():
-    """Experimental PolarQuant configs should flow through the upgrade path."""
+    """PolarQuant configs should flow through the upgrade path."""
     from turboquant.config import TurboQuantConfig
     from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
 

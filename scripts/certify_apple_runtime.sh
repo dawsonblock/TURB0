@@ -290,7 +290,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Stage 4.5: Experimental PolarQuant runtime smoke (Llama)
+# Stage 4.5: PolarQuant runtime smoke (Llama)
 # ---------------------------------------------------------------------------
 if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
     run_pytest_stage "PolarQuant Runtime (Llama)" "junit_polar_llama_runtime.xml" \
@@ -311,7 +311,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Stage 5.2: Experimental PolarQuant runtime smoke (Gemma)
+# Stage 5.2: PolarQuant runtime smoke (Gemma)
 # ---------------------------------------------------------------------------
 if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
     run_pytest_stage "PolarQuant Runtime (Gemma)" "junit_polar_gemma_runtime.xml" \
@@ -380,6 +380,30 @@ if [ -n "${TQ_TEST_LLAMA_MODEL:-}" ]; then
 else
     mark_out_of_scope "PolarQuant Quality Evaluation" \
         "quality guardrail is only defined for the selected Llama scope"
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 5.8: PolarQuant quality evaluation (Gemma)
+# ---------------------------------------------------------------------------
+if [ -n "${TQ_TEST_GEMMA_MODEL:-}" ]; then
+    for CLASS in short medium; do
+        run_stage "PolarQuant Quality Eval $CLASS (Gemma)" \
+            "$PYTHON_BIN" benchmarks/runtime_cert/run_quality_eval.py \
+            --model "$TQ_TEST_GEMMA_MODEL" \
+            --prompt-file "benchmarks/runtime_cert/prompts/$CLASS.jsonl" \
+            --prompt-class "$CLASS" \
+            --output-dir "$ARTIFACT_DIR" \
+            --artifact-label polar_gemma \
+            --preset polarquant_exp \
+            --model-family gemma \
+            --min-prompt-tokens 32 \
+            --max-delta-ppl "$POLAR_MAX_DELTA_PPL" \
+            --max-mean-kl "$POLAR_MAX_MEAN_KL" \
+            --seed 42
+    done
+else
+    mark_out_of_scope "PolarQuant Quality Evaluation (Gemma)" \
+        "quality guardrail requires the selected Gemma scope"
 fi
 
 # ---------------------------------------------------------------------------

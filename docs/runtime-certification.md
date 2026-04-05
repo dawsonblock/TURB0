@@ -11,7 +11,7 @@ source archive alone proves a current PASS.
 - Supported MLX range: `>= 0.30.0` and `< 1.0.0`.
 - Canonical runtime path: `upgrade_cache_list(...)` inside the `mlx_lm` decode flow.
 - Supported families: `llama` and `gemma`.
-- Evidence depth is asymmetric: Llama is stronger; Gemma is narrower because the current batch quality guardrail remains Llama-scoped.
+- Evidence depth is asymmetric: Llama is stronger; Gemma remains narrower overall because the conservative `paper_mse` batch quality guardrail remains Llama-scoped even though PolarQuant runtime and quality gates now run on both families.
 
 The machine-readable source of truth is `turboquant/contract.json`.
 
@@ -62,10 +62,11 @@ The certification script runs the following stages:
 7. PolarQuant runtime smoke for Gemma
 8. Llama batch quality guardrail for short and medium prompts (`paper_mse`)
 9. Llama PolarQuant batch quality guardrail for short and medium prompts (`polarquant_exp`)
-10. Long-context stability
-11. Dense-vs-TurboQuant benchmark sweeps
-12. Metric aggregation
-13. Contract snapshot (`contract.json`)
+10. Gemma PolarQuant batch quality guardrail for short and medium prompts (`polarquant_exp`)
+11. Long-context stability
+12. Dense-vs-TurboQuant benchmark sweeps
+13. Metric aggregation
+14. Contract snapshot (`contract.json`)
 
 `contract.json` is written into the artifact directory so the evidence bundle carries both the
 run result and the exact contract the run was meant to satisfy.
@@ -85,6 +86,8 @@ The generated evidence directory is expected to contain at least:
 - `junit_polar_gemma_runtime.xml`
 - `quality_eval_polar_short_summary.json`
 - `quality_eval_polar_medium_summary.json`
+- `quality_eval_polar_gemma_short_summary.json`
+- `quality_eval_polar_gemma_medium_summary.json`
 - `junit_long_context.xml`
 - `aggregate_runs.csv`
 - `certification_summary.json`
@@ -116,8 +119,8 @@ manifest that includes both `llama` and `gemma` in `certification_scope.families
 
 The quality stage is a batch teacher-forcing guardrail, not a streaming-certification claim.
 
-- It currently runs only on the Llama scope.
-- It now has two Llama-scoped variants: a conservative `paper_mse` guardrail and an experimental `polarquant_exp` guardrail.
+- The conservative `paper_mse` guardrail remains Llama-scoped.
+- The supported non-paper-facing `polarquant_exp` guardrail now runs on both Llama and Gemma.
 - It is designed to catch catastrophic regressions such as KV corruption, NaN propagation, or severe numerical drift.
 
 Do not present this stage as proof of streaming decode quality for every supported family.

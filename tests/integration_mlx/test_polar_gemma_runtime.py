@@ -1,4 +1,4 @@
-"""Experimental PolarQuant Gemma runtime smoke test.
+"""PolarQuant Gemma runtime smoke test.
 
 Contract
 --------
@@ -10,8 +10,8 @@ Contract
 - Asserts that at least one cache layer becomes ``TurboQuantKCache``, that the
   upgraded blocks carry PolarQuant payloads, and that decode logits remain
   finite after the upgrade.
-- This is runtime evidence only; Gemma still does not have a PolarQuant batch
-  quality guardrail.
+- This is the Gemma-family runtime smoke for the supported non-paper-facing
+    PolarQuant branch.
 """
 
 from __future__ import annotations

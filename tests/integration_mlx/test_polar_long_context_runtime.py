@@ -1,4 +1,4 @@
-"""Experimental PolarQuant long-context integration smoke test.
+"""PolarQuant long-context integration smoke test.
 
 Contract
 --------
@@ -10,9 +10,8 @@ Contract
 - Asserts that at least one cache layer becomes ``TurboQuantKCache``, that the
   upgraded blocks carry PolarQuant payloads, and that decode logits remain
   finite after the upgrade.
-- This covers the experimental runtime path. The Apple certification harness
-    can run it as a Llama-scoped smoke stage, but that evidence alone does not
-    promote PolarQuant into the formal supported product contract.
+- This covers the supported non-paper-facing PolarQuant runtime path. The
+    Apple certification harness runs it as the Llama-scoped Polar smoke stage.
 """
 
 from __future__ import annotations
