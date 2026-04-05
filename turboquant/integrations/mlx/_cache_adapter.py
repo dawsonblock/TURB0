@@ -17,8 +17,10 @@ Why an adapter module?
 What lives here
 ---------------
 ``mlx_version()``          — ``mx.__version__`` as a string
-``is_mlx_available()``     — safe existence check (no import error on non-Apple)
-``eval_and_sync(*arrays)`` — ``mx.eval`` + ``mx.synchronize``; prefer over bare ``mx.eval``
+``is_mlx_available()``     — safe existence check (no import error on
+non-Apple)
+``eval_and_sync(*arrays)`` — ``mx.eval`` + ``mx.synchronize``; prefer
+over bare ``mx.eval``
 ``zeros(shape, dtype)``    — ``mx.zeros``
 ``ones(shape, dtype)``     — ``mx.ones``
 ``to_float32(arr)``        — cast to float32
@@ -32,8 +34,10 @@ What lives here
 
 from __future__ import annotations
 
+from dataclasses import asdict
 import importlib.util
 import logging
+from typing import Any, cast
 
 import mlx.core as mx
 
@@ -65,8 +69,9 @@ class TurboQuantKCache(_BaseCache):
         self.v_cache: list = []
 
     @property
-    def nbytes(self):
-        # impl.byte_size() covers K + V (paper mode uses v_blocks; k_only uses v_cache).
+    def nbytes(self) -> int:
+        # impl.byte_size() covers K + V (paper mode uses v_blocks; k_only
+        # uses v_cache).
         return self._impl.byte_size()
 
     def update_and_fetch(self, keys: mx.array, values: mx.array):
@@ -88,12 +93,50 @@ class TurboQuantKCache(_BaseCache):
             return TurboQuantKeysView(self, start, self.offset), values
 
     @property
-    def state(self):
+    def state(self) -> dict[str, Any]:
         return self._impl.state()
 
+    @state.setter
+    def state(self, v: object) -> None:
+        from turboquant.runtime.kv_interface import TurboQuantKVCache
+
+        if not isinstance(v, dict):
+            raise ValueError(
+                "TurboQuantKCache.state must be a state dict produced by "
+                "TurboQuantKVCache.state()."
+            )
+
+        restored = TurboQuantKVCache.from_state(
+            cast(dict[str, Any], v),
+            quantize_main=None,
+            dequantize_main=None,
+        )
+        self._impl = restored
+        self.config = restored.config
+        self.offset = restored._offset
+        self.v_cache = restored.v_cache
+
     @property
-    def meta_state(self):
-        return (self.config.__dict__, self.offset)
+    def meta_state(self) -> tuple[dict[str, Any], int]:
+        return (asdict(self.config), self.offset)
+
+    @meta_state.setter
+    def meta_state(self, v: object) -> None:
+        if not isinstance(v, tuple) or len(v) != 2:
+            raise ValueError(
+                "TurboQuantKCache.meta_state must be a "
+                "(config_dict, offset) tuple."
+            )
+
+        _, offset = v
+        if not isinstance(offset, int):
+            raise ValueError(
+                "TurboQuantKCache.meta_state offset must be an int."
+            )
+
+        self.offset = offset
+        if hasattr(self, "_impl"):
+            self._impl._offset = offset
 
 
 logger = logging.getLogger("turboquant.integrations.mlx.adapter")
@@ -120,7 +163,7 @@ def mlx_version() -> str:
     """
     import mlx.core as mx  # noqa: PLC0415 (lazy import is intentional)
 
-    ver = str(mx.__version__)
+    ver = str(getattr(mx, "__version__", "0.0.0"))
     _check_version(ver)
     return ver
 
@@ -208,7 +251,7 @@ def concat(arrays: list, axis: int = 0):
 
 def item(arr) -> float | int:
     """Extract a scalar Python value from a single-element MLX array."""
-    return arr.item()
+    return cast(float | int, arr.item())
 
 
 def float32():
@@ -247,7 +290,10 @@ def int32():
 
 
 def dummy_quantize_main(x, *, config):
-    """Trivial quantizer for benchmarks: cast to uint8 (no real compression)."""
+    """Trivial quantizer for benchmarks.
+
+    Casts to uint8-shaped storage without implementing real compression.
+    """
     import mlx.core as mx
 
     group_size = config.k_group_size

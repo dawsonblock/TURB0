@@ -27,9 +27,12 @@ import base64
 import io
 import math
 from dataclasses import dataclass
+from numbers import Integral
+from typing import cast
 
 import mlx.core as mx
 import numpy as np
+import numpy.typing as npt
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Default hyperparameters (paper Table 1)
@@ -73,12 +76,17 @@ def _lloyd_1d(
     return centroids.astype(np.float32)
 
 
-def _sample_level1_angles(n: int = 400_000) -> np.ndarray:
+def _sample_level1_angles(n: int = 400_000) -> npt.NDArray[np.float32]:
     """Level-1 angles are uniform on [0, 2π) after Gaussian preconditioning."""
-    return np.random.default_rng(42).uniform(0.0, 2.0 * math.pi, n).astype(np.float32)
+    return np.asarray(
+        np.random.default_rng(42).uniform(0.0, 2.0 * math.pi, n),
+        dtype=np.float32,
+    )
 
 
-def _sample_level_ell_angles(level: int, n: int = 400_000) -> np.ndarray:
+def _sample_level_ell_angles(
+    level: int, n: int = 400_000
+) -> npt.NDArray[np.float32]:
     """Draw samples from f(ψ) ∝ sin^{2^{ℓ-1}-1}(2ψ) on [0, π/2].
 
     Equivalent construction: ψ = atan2(‖y‖₂, ‖x‖₂) where x, y are
@@ -90,7 +98,7 @@ def _sample_level_ell_angles(level: int, n: int = 400_000) -> np.ndarray:
     y = rng.standard_normal((n, half_dim)).astype(np.float32)
     nx = np.linalg.norm(x, axis=1)
     ny = np.linalg.norm(y, axis=1)
-    return np.arctan2(ny, nx).astype(np.float32)
+    return np.asarray(np.arctan2(ny, nx), dtype=np.float32)
 
 
 def build_polar_codebooks(
@@ -325,19 +333,32 @@ class PolarQuantPayload:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "PolarQuantPayload":
-        def _b64_to_arr(b64: str):
+        def _b64_to_arr(b64: str) -> mx.array:
             raw = base64.b64decode(b64.encode("ascii"))
             arr = np.load(io.BytesIO(raw))
             return mx.array(arr)
 
-        angle_codes = [_b64_to_arr(code) for code in data.get("angle_codes", [])]
-        final_radii = _b64_to_arr(data["final_radii"])
+        def _coerce_int(value: object, default: int) -> int:
+            return int(value) if isinstance(value, Integral) else default
+
+        raw_angle_codes = data.get("angle_codes", [])
+        if not isinstance(raw_angle_codes, list):
+            raise TypeError("angle_codes must be a list of base64 strings")
+        if not all(isinstance(code, str) for code in raw_angle_codes):
+            raise TypeError("angle_codes entries must be base64 strings")
+
+        raw_final_radii = data.get("final_radii")
+        if not isinstance(raw_final_radii, str):
+            raise TypeError("final_radii must be a base64 string")
+
+        angle_codes = [_b64_to_arr(code) for code in cast(list[str], raw_angle_codes)]
+        final_radii = _b64_to_arr(raw_final_radii)
         return cls(
             angle_codes=angle_codes,
             final_radii=final_radii,
-            d_orig=int(data.get("d_orig", 0)),
-            d_pad=int(data.get("d_pad", 0)),
-            n_levels=int(data.get("n_levels", len(angle_codes))),
+            d_orig=_coerce_int(data.get("d_orig"), 0),
+            d_pad=_coerce_int(data.get("d_pad"), 0),
+            n_levels=_coerce_int(data.get("n_levels"), len(angle_codes)),
         )
 
 

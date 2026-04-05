@@ -23,9 +23,15 @@ from __future__ import annotations
 
 import math
 import os
+from typing import Protocol
 
 import mlx.core as mx
 import numpy as np
+
+
+class _RotationConfig(Protocol):
+    rotation_seed: int
+    rotation: str
 
 
 def _next_pow2(n: int) -> int:
@@ -126,6 +132,7 @@ class FixedRotation:
             return x
         if self._can_use_fast_hadamard:
             return mx.hadamard_transform(x.astype(mx.float32)).astype(x.dtype)
+        assert self._R is not None
         return x @ self._R
 
     def inverse(self, x: mx.array) -> mx.array:
@@ -134,6 +141,7 @@ class FixedRotation:
             return x
         if self._can_use_fast_hadamard:
             return mx.hadamard_transform(x.astype(mx.float32)).astype(x.dtype)
+        assert self._RT is not None
         return x @ self._RT
 
     # Aliases matching the paper-faithful API
@@ -162,7 +170,7 @@ class FixedRotation:
         return float(mx.max(mx.abs(roundtripped - x)).item())
 
     @classmethod
-    def from_config(cls, config: object, dim: int) -> "FixedRotation":
+    def from_config(cls, config: _RotationConfig, dim: int) -> "FixedRotation":
         """Construct a FixedRotation from a TurboQuantConfig and head-dim."""
         return cls(
             dim=dim,

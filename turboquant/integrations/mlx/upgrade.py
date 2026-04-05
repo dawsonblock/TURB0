@@ -13,10 +13,18 @@ Usage
 -----
     from turboquant.config import TurboQuantConfig
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
-    from turboquant.runtime.events import EventLog, record_runtime_upgrade_events
+    from turboquant.runtime.events import (
+        EventLog,
+        record_runtime_upgrade_events,
+    )
 
     config = TurboQuantConfig(k_bits=3, k_group_size=64, ...)
-    events = upgrade_cache_list(prompt_cache, k_start=512, config=config, model_family="llama")
+    events = upgrade_cache_list(
+        prompt_cache,
+        k_start=512,
+        config=config,
+        model_family="llama",
+    )
     for ev in events:
         if ev.upgraded:
             print(f"layer {ev.layer_index}: {ev.old_type} → {ev.new_type} "
@@ -31,6 +39,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace as _dc_replace
 
+from turboquant.config import TurboQuantConfig
 from turboquant.runtime.support import assert_supported_model_family
 
 # -- Event --------------------------------------------------------------------
@@ -47,7 +56,9 @@ class CacheUpgradeEvent:
     For JSONL artifact persistence (e.g. writing ``events.jsonl`` during
     certification runs), use :class:`turboquant.runtime.events.EventLog`
     together with its own ``CacheUpgradeEvent`` or the explicit
-    ``record_runtime_upgrade_events(...)`` adapter.  The canonical runtime path returns these lightweight in-process decision events and does not automatically persist them.
+    ``record_runtime_upgrade_events(...)`` adapter. The canonical runtime
+    path returns these lightweight in-process decision events and does not
+    automatically persist them.
 
     Fields
     ------
@@ -89,7 +100,7 @@ class CacheUpgradeEvent:
 def upgrade_cache_list(
     prompt_cache: list,
     k_start: int | None,
-    config: object,  # type: ignore
+    config: TurboQuantConfig,
     model_family: str | None = None,
 ) -> list[CacheUpgradeEvent]:
     """Promote KVCache entries to TurboQuantKCache when their offset threshold
@@ -194,8 +205,6 @@ def upgrade_cache_list(
         # Canonical upgrade path: clone the caller's config, overriding only
         # return_mode for production safety.  Using dataclasses.replace
         # preserves all fields including residual_mode, qjl_bits, etc.
-        from turboquant.config import TurboQuantConfig  # noqa: F401 (type reference)
-
         prod_config = _dc_replace(config, return_mode="view")
 
         tq = TurboQuantKCache(prod_config)

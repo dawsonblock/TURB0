@@ -146,6 +146,25 @@ class TurboQuantPipeline:
     def _get_v_quant(self):
         return self._v_quant
 
+    def rotate_queries(self, q: mx.array) -> mx.array:
+        """Rotate query/key-domain samples into the encoded domain."""
+        from .rotation import FixedRotation
+
+        rotation = FixedRotation.from_config(self.config, int(q.shape[-1]))
+        return rotation.apply(q)
+
+    def fit_k(self, data: mx.array) -> None:
+        """Fit the K quantizer when the selected quantizer exposes fit()."""
+        fit = getattr(self._k_quant, "fit", None)
+        if callable(fit):
+            fit(data)
+
+    def fit_v(self, data: mx.array) -> None:
+        """Fit the V quantizer used by calibration flows."""
+        fit = getattr(self._v_quant, "fit", None)
+        if callable(fit):
+            fit(data)
+
     def encode_k(self, k: mx.array) -> EncodedKeyBlock:
         return encode_k_block(
             k,
