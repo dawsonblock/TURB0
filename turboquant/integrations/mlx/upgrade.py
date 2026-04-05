@@ -57,8 +57,8 @@ class CacheUpgradeEvent:
     certification runs), use :class:`turboquant.runtime.events.EventLog`
     together with its own ``CacheUpgradeEvent`` or the explicit
     ``record_runtime_upgrade_events(...)`` adapter. The canonical runtime
-    path returns these lightweight in-process decision events and does not
-    automatically persist them.
+    path returns these lightweight in-process decision events.
+    It does not automatically persist them.
 
     Fields
     ------

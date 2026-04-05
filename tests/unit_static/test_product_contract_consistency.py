@@ -171,6 +171,15 @@ def test_supported_surface_generated_doc_has_secondary_surfaces() -> None:
     )
     assert "KVCache.to_turboquant()" in content
     assert "contract.json" in content
+    assert (
+        "| `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache` | "
+        "compatibility shim | bypasses the model-family allowlist | "
+        "`turboquant.integrations.mlx.upgrade.upgrade_cache_list` |"
+        in content
+    ), (
+        "The compatibility shim must still point callers back to the "
+        "canonical support-gated upgrade_cache_list(...) path."
+    )
 
 
 def test_runtime_api_points_to_upgrade_cache_list() -> None:
