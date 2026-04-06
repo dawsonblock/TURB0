@@ -49,9 +49,9 @@ Required release evidence includes:
 - `aggregate_runs.csv`
 - `certification_summary.json`
 
-This checkout may retain `artifacts/runtime-cert/` bundles for archaeology, but built wheels and source
-distributions do not ship those generated directories. Release claims must point at a workflow artifact,
-release evidence bundle, or pinned manifest digest.
+Built wheels and source distributions do not ship `artifacts/runtime-cert/`
+bundles. Release claims must point at a workflow artifact, release evidence
+bundle, or pinned manifest digest.
 
 Final tagged publish is stricter than a family-scoped local run:
 

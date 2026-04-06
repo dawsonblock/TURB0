@@ -16,7 +16,7 @@ bounded Apple-Silicon MLX support contract: the package surface, generated
 contract docs, workflow gates, and static governance all point at the same
 narrow runtime slice.
 
-That structural work does not, by itself, prove a current Apple runtime PASS
+That structural work cannot prove a current Apple runtime PASS
 for this portable source snapshot. This archive does not bundle
 `artifacts/runtime-cert/`, and built wheels or source distributions would not
 ship that directory anyway. Final release publication therefore remains
@@ -121,7 +121,7 @@ same tagged revision.
 ## Runtime benchmark results (HISTORICAL — not release-certified)
 
 > **NOTE:** The figures below were recorded during early development and have
-> not been reproduced against saved certification artifacts.  They are
+> not been validated through the certification process.  They are
 > preserved here for historical reference only and **do not constitute
 > certification evidence**.  Run `make certify-apple-runtime` with real model
 > weights to produce an addressable certification artifact or pinned manifest

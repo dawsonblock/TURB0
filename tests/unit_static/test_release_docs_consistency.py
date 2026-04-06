@@ -78,7 +78,7 @@ def test_release_candidate_notes_distinguish_structure_from_release_proof() -> N
     content = _read("RELEASE_CANDIDATE_NOTES.md")
     normalized = " ".join(content.lower().split())
 
-    assert "does not, by itself, prove a current apple runtime pass" in normalized
+    assert "cannot prove a current apple runtime pass" in normalized
     assert "manifest digest" in normalized
     assert "self-hosted" in normalized
 
