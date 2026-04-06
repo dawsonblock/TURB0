@@ -1,14 +1,12 @@
 # Apple-Silicon runtime certification.
 #
-# Structural tier:
-#   - Runs on GitHub-hosted macOS to avoid blocking PR signal on a self-hosted box.
-#   - No model weights required.
+# Runs on two tiers:
+#   1. Structural tests (always) - no model weights needed.
+#   2. Full certification - requires TQ_TEST_LLAMA_MODEL / TQ_TEST_GEMMA_MODEL
+#      secrets and fails closed unless the script writes a PASS cert_manifest.json.
 #
-# Full certification tier:
-#   - Runs only on a self-hosted Apple Silicon runner.
-#   - Requires both model secrets.
-#   - Fails closed unless scripts/certify_apple_runtime.sh writes a PASS
-#     cert_manifest.json matching the repo contract and required artifacts.
+# Trigger: PRs that touch turboquant/ or mlx_lm/ run only the structural tier.
+# Full certification runs only on push to main or explicit manual dispatch.
 
 name: apple-runtime-cert
 
@@ -126,7 +124,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[apple,test]'
 
-      - name: Prepare artifact directories
+      - name: Clear stale certification artifacts
         shell: bash
         run: |
           set -euo pipefail
