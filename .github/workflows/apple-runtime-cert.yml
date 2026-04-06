@@ -269,5 +269,5 @@ jobs:
         if: always() && steps.cert.outcome != 'success'
         shell: bash
         run: |
-          echo "Full certification script failed. See uploaded runtime-cert artifact for details."
+          echo "Full certification script failed. Check the runtime-cert artifact for details if it was uploaded successfully; otherwise review the certification and artifact-upload step logs."
           exit 1
