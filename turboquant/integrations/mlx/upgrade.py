@@ -1,5 +1,5 @@
 """
-turboquant.integrations.mlx.upgrade — production KV-cache upgrade policy.
+turboquant.integrations.mlx.upgrade — bounded runtime KV-cache upgrade policy.
 
 This module owns the policy for when and how to promote a dense KVCache to a
 TurboQuantKCache.  It is intentionally separate from ``generate.py`` so that

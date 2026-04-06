@@ -58,6 +58,10 @@ Contract coverage
 12. ``attention_hot_path_does_not_read_block_tokens`` —
     ``turboquant/runtime/attention.py`` must not start reading ``block_tokens``
     unless the public contract is deliberately widened.
+
+13. ``only_experimental_metal_shader_path_exists`` — the repo must not retain
+    a second non-canonical ``turboquant/kernels/metal/decode_k.metal`` copy;
+    the experimental namespace is the only supported shader location.
 """
 
 from __future__ import annotations
@@ -423,4 +427,34 @@ def test_attention_hot_path_does_not_read_block_tokens() -> None:
         "that is intentional, widen the documented contract and update the "
         "static checks at "
         "the same time."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 13. Only the experimental Metal shader path may exist
+# ---------------------------------------------------------------------------
+
+
+def test_only_experimental_metal_shader_path_exists() -> None:
+    """Non-canonical duplicate Metal shader paths must stay absent."""
+    canonical = (
+        REPO_ROOT
+        / "turboquant"
+        / "experimental"
+        / "kernels"
+        / "metal"
+        / "decode_k.metal"
+    )
+    duplicate = (
+        REPO_ROOT / "turboquant" / "kernels" / "metal" / "decode_k.metal"
+    )
+
+    assert canonical.exists(), (
+        "Canonical experimental Metal shader asset missing at "
+        "turboquant/experimental/kernels/metal/decode_k.metal."
+    )
+    assert not duplicate.exists(), (
+        "Found stale duplicate Metal shader asset at "
+        "turboquant/kernels/metal/decode_k.metal. Keep the experimental "
+        "namespace as the single canonical shader location."
     )
