@@ -1,16 +1,14 @@
 # Apple-Silicon runtime certification.
 #
-# Runs on a self-hosted macOS-arm64 runner. Two tiers:
-#   1. Structural tests (always) — no model weights needed, ~1 s.
-#   2. Full certification — requires TQ_TEST_LLAMA_MODEL / TQ_TEST_GEMMA_MODEL
-#      secrets and fails closed unless the script writes a PASS cert_manifest.json.
+# Structural tier:
+#   - Runs on GitHub-hosted macOS to avoid blocking PR signal on a self-hosted box.
+#   - No model weights required.
 #
-# The full certification script (scripts/certify_apple_runtime.sh) runs end-to-end
-# and writes structured JSON/XML artifacts to artifacts/runtime-cert/. This workflow
-# now validates the resulting cert_manifest.json before treating the job as successful.
-#
-# Trigger: PRs that touch turboquant/ or mlx_lm/ run only the structural tier.
-# Full certification runs only on push to main or explicit manual dispatch.
+# Full certification tier:
+#   - Runs only on a self-hosted Apple Silicon runner.
+#   - Requires both model secrets.
+#   - Fails closed unless scripts/certify_apple_runtime.sh writes a PASS
+#     cert_manifest.json matching the repo contract and required artifacts.
 
 name: apple-runtime-cert
 
@@ -23,12 +21,19 @@ on:
       - 'tests/integration_mlx/**'
       - 'benchmarks/runtime_cert/**'
       - 'scripts/certify_apple_runtime.sh'
+      - '.github/workflows/apple-runtime-cert.yml'
+      - 'turboquant/contract.json'
+      - 'pyproject.toml'
   pull_request:
     paths:
       - 'turboquant/**'
       - 'mlx_lm/**'
       - 'tests/integration_mlx/**'
       - 'benchmarks/runtime_cert/**'
+      - 'scripts/certify_apple_runtime.sh'
+      - '.github/workflows/apple-runtime-cert.yml'
+      - 'turboquant/contract.json'
+      - 'pyproject.toml'
   workflow_dispatch:
     inputs:
       run_model_stages:
@@ -41,27 +46,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # -----------------------------------------------------------------------
-  # Tier 1: Structural tests — no model weights, fast, always runs.
-  # -----------------------------------------------------------------------
   structural:
     name: Structural Tests (no weights)
-    runs-on: [self-hosted, macOS, ARM64]
-    timeout-minutes: 10
+    runs-on: macos-14
+    timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Apple runner Python
-        run: |
-          python_bin="$(command -v python3.11 || command -v python3.10 || command -v python3.9)"
-          if [ -z "$python_bin" ]; then
-            echo "Self-hosted Apple runner requires python3.11, python3.10, or python3.9 on PATH."
-            exit 1
-          fi
-          mkdir -p "$RUNNER_TEMP/bin"
-          ln -sf "$python_bin" "$RUNNER_TEMP/bin/python"
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-          python --version
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Install package
         run: |
@@ -76,6 +72,9 @@ jobs:
           print('MLX version check passed')
           "
 
+      - name: Create artifacts directory
+        run: mkdir -p artifacts
+
       - name: Run structural integration tests
         run: |
           python -m pytest tests/integration_mlx/ \
@@ -89,12 +88,8 @@ jobs:
         with:
           name: structural-test-results
           path: artifacts/junit_structural.xml
+          if-no-files-found: error
 
-  # -----------------------------------------------------------------------
-  # Tier 2: Full certification — model weights required.
-  # Runs on push to main or explicit manual dispatch and fails closed unless the
-  # certification script produces a PASS cert_manifest.json.
-  # -----------------------------------------------------------------------
   full-certification:
     name: Full Runtime Certification
     needs: structural
@@ -106,12 +101,15 @@ jobs:
     env:
       TQ_TEST_LLAMA_MODEL: ${{ secrets.TQ_TEST_LLAMA_MODEL }}
       TQ_TEST_GEMMA_MODEL: ${{ secrets.TQ_TEST_GEMMA_MODEL }}
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Select Apple runner Python
+        shell: bash
         run: |
-          python_bin="$(command -v python3.11 || command -v python3.10 || command -v python3.9)"
+          set -euo pipefail
+          python_bin="$(command -v python3.11 || command -v python3.10 || command -v python3.9 || true)"
           if [ -z "$python_bin" ]; then
             echo "Self-hosted Apple runner requires python3.11, python3.10, or python3.9 on PATH."
             exit 1
@@ -122,17 +120,23 @@ jobs:
           python --version
 
       - name: Install package
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -e '.[apple,test]'
 
-      - name: Clear stale certification artifacts
+      - name: Prepare artifact directories
+        shell: bash
         run: |
+          set -euo pipefail
           rm -rf artifacts/runtime-cert
-          mkdir -p artifacts/runtime-cert
+          mkdir -p artifacts/runtime-cert artifacts
 
       - name: Require both release model secrets
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -z "${TQ_TEST_LLAMA_MODEL:-}" ] || [ -z "${TQ_TEST_GEMMA_MODEL:-}" ]; then
             echo "Full certification requires both TQ_TEST_LLAMA_MODEL and TQ_TEST_GEMMA_MODEL."
             exit 1
@@ -141,15 +145,18 @@ jobs:
       - name: Run full certification
         id: cert
         continue-on-error: true
+        shell: bash
         run: |
-          # Run inside existing venv — skip the cert script's own venv creation.
+          set -euo pipefail
           export VIRTUAL_ENV="$RUNNER_TEMP/dummy-venv"
           bash scripts/certify_apple_runtime.sh
 
       - name: Locate certification artifact directory
         id: locate_artifacts
         if: always()
+        shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
           import os
           from pathlib import Path
@@ -157,12 +164,11 @@ jobs:
           root = Path("artifacts/runtime-cert")
           artifact_dirs = sorted(path for path in root.glob("*") if path.is_dir())
           if not artifact_dirs:
-              print("No certification artifact directory found.")
-          else:
-              latest = artifact_dirs[-1]
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
-                handle.write(f"artifact_dir={latest.as_posix()}\n")
-              print(f"Found certification artifact directory: {latest}")
+              raise SystemExit("No certification artifact directory found under artifacts/runtime-cert/.")
+          latest = artifact_dirs[-1]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"artifact_dir={latest.as_posix()}\n")
+          print(f"Found certification artifact directory: {latest}")
           PY
 
       - name: Upload certification artifacts
@@ -172,11 +178,13 @@ jobs:
           name: runtime-cert-${{ github.sha }}
           path: ${{ steps.locate_artifacts.outputs.artifact_dir }}
           retention-days: 90
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - name: Validate certification manifest
         if: always()
+        shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
           import json
           from pathlib import Path
@@ -203,6 +211,7 @@ jobs:
           contract_path = contracts[0]
           contract = json.loads(contract_path.read_text(encoding="utf-8"))
           artifact_dir = Path(manifest["artifact_dir"])
+
           if manifest.get("result") != "PASS":
               raise SystemExit(
                   f"certification manifest result must be PASS, got {manifest.get('result')!r}"
@@ -211,15 +220,17 @@ jobs:
               raise SystemExit(
                   f"certification manifest platform must be darwin-arm64, got {manifest.get('platform')!r}"
               )
+
           families = set(manifest.get("certification_scope", {}).get("families", []))
           if families != {"llama", "gemma"}:
               raise SystemExit(
                   "full certification manifest must include both 'llama' and 'gemma' in scope, "
                   f"got {sorted(families)!r}"
               )
+
           if contract != repo_contract:
               raise SystemExit(
-                f"artifact contract {contract_path} does not match repo contract {repo_contract_path}"
+                  f"artifact contract {contract_path} does not match repo contract {repo_contract_path}"
               )
 
           missing = [
@@ -238,8 +249,10 @@ jobs:
           PY
 
       - name: Model smoke tests
-        if: env.TQ_TEST_LLAMA_MODEL != '' || env.TQ_TEST_GEMMA_MODEL != ''
+        if: env.TQ_TEST_LLAMA_MODEL != '' && env.TQ_TEST_GEMMA_MODEL != ''
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pytest tests/integration_mlx/ \
             -v --tb=short \
             --junitxml=artifacts/junit_model_smoke.xml
@@ -251,3 +264,10 @@ jobs:
           name: model-smoke-results
           path: artifacts/junit_model_smoke.xml
           if-no-files-found: ignore
+
+      - name: Fail if certification step failed
+        if: always() && steps.cert.outcome != 'success'
+        shell: bash
+        run: |
+          echo "Full certification script failed. See uploaded runtime-cert artifact for details."
+          exit 1
