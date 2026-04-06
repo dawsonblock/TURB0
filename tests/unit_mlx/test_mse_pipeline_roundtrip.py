@@ -46,11 +46,14 @@ def test_mse_pipeline_uses_lloydmax():
 # ── Encode → decode preserves shape ──────────────────────────────────────────
 
 
-@pytest.mark.parametrize("shape", [
-    (1, 2, 64),    # [batch, heads, d_head]
-    (2, 4, 128),
-    (1, 8, 32),
-])
+@pytest.mark.parametrize(
+    "shape",
+    [
+        (1, 2, 64),  # [batch, heads, d_head]
+        (2, 4, 128),
+        (1, 8, 32),
+    ],
+)
 def test_encode_decode_shape(shape):
     cfg = _mse_config(k_bits=3, k_group_size=shape[-1])
     pipe = TurboQuantPipeline(cfg)
@@ -64,12 +67,15 @@ def test_encode_decode_shape(shape):
 # ── Reconstruction is close (not an identity, bounded by quant error) ─────────
 
 
-@pytest.mark.parametrize("k_bits,max_rel_err", [
-    (4, 0.20),   # 4-bit Lloyd-Max: ~10-15 % relative error expected
-    (3, 0.35),   # 3-bit: moderate error
-    (2, 0.60),   # 2-bit: coarser
-    (1, 1.30),   # 1-bit: sign-only, high error by design
-])
+@pytest.mark.parametrize(
+    "k_bits,max_rel_err",
+    [
+        (4, 0.20),  # 4-bit Lloyd-Max: ~10-15 % relative error expected
+        (3, 0.35),  # 3-bit: moderate error
+        (2, 0.60),  # 2-bit: coarser
+        (1, 1.30),  # 1-bit: sign-only, high error by design
+    ],
+)
 def test_encode_decode_bounded_error(k_bits, max_rel_err):
     cfg = _mse_config(k_bits=k_bits, k_group_size=64)
     pipe = TurboQuantPipeline(cfg)
@@ -78,9 +84,7 @@ def test_encode_decode_bounded_error(k_bits, max_rel_err):
     block = pipe.encode_k(x)
     x_hat = pipe.decode_k(block)
 
-    rel_err = float(
-        (mx.mean(mx.abs(x_hat - x)) / (mx.mean(mx.abs(x)) + 1e-6)).item()
-    )
+    rel_err = float((mx.mean(mx.abs(x_hat - x)) / (mx.mean(mx.abs(x)) + 1e-6)).item())
     assert rel_err < max_rel_err, (
         f"k_bits={k_bits}: relative error {rel_err:.4f} exceeds bound {max_rel_err}"
     )
@@ -107,6 +111,7 @@ def test_encoded_block_serialisation():
     block = pipe.encode_k(x)
 
     from turboquant.core.pipeline import EncodedKeyBlock
+
     d = block.to_dict()
     block2 = EncodedKeyBlock.from_dict(d)
     assert block2.orig_dim == block.orig_dim

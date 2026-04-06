@@ -26,7 +26,6 @@ pytest.importorskip("mlx.core")
 
 from mlx_lm.generate import _infer_model_family  # noqa: E402
 
-
 # ── Mock model classes living in known module-path families ───────────────────
 
 

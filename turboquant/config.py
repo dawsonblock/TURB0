@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 _CANONICAL_ALGORITHMS = frozenset(
     {"paper_mse", "paper_prod_qjl", "legacy_topk", "polarquant_exp"}
 )
@@ -82,8 +81,7 @@ class TurboQuantConfig:
     def effective_bits_per_channel_total(self, d: int) -> float:
         """Average of K and V effective bits/channel."""
         return (
-            self.effective_bits_per_channel_k(d)
-            + self.effective_bits_per_channel_v(d)
+            self.effective_bits_per_channel_k(d) + self.effective_bits_per_channel_v(d)
         ) / 2.0
 
     def validate(self) -> None:
@@ -99,27 +97,19 @@ class TurboQuantConfig:
             raise ValueError(f"k_bits must be in [1, 8], got {self.k_bits}")
 
         if self.k_group_size <= 0:
-            raise ValueError(
-                f"k_group_size must be > 0, got {self.k_group_size}"
-            )
+            raise ValueError(f"k_group_size must be > 0, got {self.k_group_size}")
 
         if self.v_enabled:
             if self.v_bits <= 0 or self.v_bits > 8:
-                raise ValueError(
-                    f"v_bits must be in [1, 8], got {self.v_bits}"
-                )
+                raise ValueError(f"v_bits must be in [1, 8], got {self.v_bits}")
             if self.v_group_size <= 0:
-                raise ValueError(
-                    f"v_group_size must be > 0, got {self.v_group_size}"
-                )
+                raise ValueError(f"v_group_size must be > 0, got {self.v_group_size}")
 
         if self.rotation not in {"hadamard", "identity", "random_orthogonal"}:
             raise ValueError(f"Unsupported rotation: {self.rotation}")
 
         if self.residual_mode not in {"none", "topk", "qjl"}:
-            raise ValueError(
-                f"Unsupported residual_mode: {self.residual_mode}"
-            )
+            raise ValueError(f"Unsupported residual_mode: {self.residual_mode}")
 
         if self.quantizer_mode not in {"scalar", "polar"}:
             raise ValueError(
@@ -138,9 +128,7 @@ class TurboQuantConfig:
 
         if algo == "paper_prod_qjl":
             if self.quantizer_mode != "scalar":
-                raise ValueError(
-                    "paper_prod_qjl requires quantizer_mode='scalar'"
-                )
+                raise ValueError("paper_prod_qjl requires quantizer_mode='scalar'")
             if self.residual_mode != "qjl":
                 raise ValueError(
                     "paper_prod_qjl requires residual_mode='qjl', "
@@ -149,9 +137,7 @@ class TurboQuantConfig:
 
         if algo == "legacy_topk":
             if self.quantizer_mode != "scalar":
-                raise ValueError(
-                    "legacy_topk requires quantizer_mode='scalar'"
-                )
+                raise ValueError("legacy_topk requires quantizer_mode='scalar'")
             if self.residual_mode != "topk":
                 raise ValueError(
                     "legacy_topk requires residual_mode='topk', "
@@ -160,33 +146,25 @@ class TurboQuantConfig:
 
         if algo == "polarquant_exp":
             if self.quantizer_mode != "polar":
-                raise ValueError(
-                    "polarquant_exp requires quantizer_mode='polar'"
-                )
+                raise ValueError("polarquant_exp requires quantizer_mode='polar'")
             if self.rotation == "identity":
                 raise ValueError(
-                    "polarquant_exp expects a randomized "
-                    "preconditioning rotation"
+                    "polarquant_exp expects a randomized preconditioning rotation"
                 )
 
         if self.residual_mode == "topk" and self.residual_topk <= 0:
-            raise ValueError(
-                "residual_topk must be > 0 when residual_mode='topk'"
-            )
+            raise ValueError("residual_topk must be > 0 when residual_mode='topk'")
 
         if self.residual_mode == "qjl":
             if self.qjl_bits != 1:
                 raise ValueError(
-                    "Only 1-bit QJL is currently supported, "
-                    f"got {self.qjl_bits}"
+                    f"Only 1-bit QJL is currently supported, got {self.qjl_bits}"
                 )
             if self.qjl_proj_dim <= 0:
-                raise ValueError(
-                    f"qjl_proj_dim must be > 0, got {self.qjl_proj_dim}"
-                )
+                raise ValueError(f"qjl_proj_dim must be > 0, got {self.qjl_proj_dim}")
 
     @classmethod
-    def paper_mse(cls, **kwargs) -> "TurboQuantConfig":
+    def paper_mse(cls, **kwargs) -> TurboQuantConfig:
         return cls(
             algorithm="paper_mse",
             quantizer_mode="scalar",
@@ -195,7 +173,7 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def paper_prod_qjl(cls, **kwargs) -> "TurboQuantConfig":
+    def paper_prod_qjl(cls, **kwargs) -> TurboQuantConfig:
         return cls(
             algorithm="paper_prod_qjl",
             quantizer_mode="scalar",
@@ -205,7 +183,7 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def legacy_topk(cls, **kwargs) -> "TurboQuantConfig":
+    def legacy_topk(cls, **kwargs) -> TurboQuantConfig:
         return cls(
             algorithm="legacy_topk",
             quantizer_mode="scalar",
@@ -215,7 +193,7 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def polarquant_exp(cls, **kwargs) -> "TurboQuantConfig":
+    def polarquant_exp(cls, **kwargs) -> TurboQuantConfig:
         return cls(
             algorithm="polarquant_exp",
             quantizer_mode="polar",
@@ -224,7 +202,7 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def from_preset(cls, name: str) -> "TurboQuantConfig":
+    def from_preset(cls, name: str) -> TurboQuantConfig:
         presets = {
             "paper_mse": cls.paper_mse(
                 k_bits=3,
@@ -296,7 +274,7 @@ class TurboQuantConfig:
         return presets[name]
 
     @classmethod
-    def from_legacy_kwargs(cls, **kwargs) -> "TurboQuantConfig":
+    def from_legacy_kwargs(cls, **kwargs) -> TurboQuantConfig:
         residual_mode_kw = kwargs.get("residual_mode")
         residual_topk = kwargs.get("residual_topk", kwargs.get("residual", 0))
         if residual_mode_kw is None:
@@ -319,9 +297,7 @@ class TurboQuantConfig:
             v_group_size=kwargs.get("v_group_size", 64),
             v_enabled=kwargs.get("v_enabled", True),
             v_scale_dtype=kwargs.get("v_scale_dtype", "float16"),
-            rotation=kwargs.get(
-                "rotation", kwargs.get("rotation_mode", "hadamard")
-            ),
+            rotation=kwargs.get("rotation", kwargs.get("rotation_mode", "hadamard")),
             rotation_seed=kwargs.get("rotation_seed", 1337),
             rotation_pad_to_pow2=bool(
                 kwargs.get(
@@ -342,9 +318,7 @@ class TurboQuantConfig:
             quantizer_mode=kwargs.get(
                 "quantizer_mode",
                 "polar"
-                if cls.normalize_algorithm(
-                    kwargs.get("algorithm", default_algorithm)
-                )
+                if cls.normalize_algorithm(kwargs.get("algorithm", default_algorithm))
                 == "polarquant_exp"
                 else "scalar",
             ),

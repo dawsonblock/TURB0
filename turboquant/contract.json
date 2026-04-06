@@ -183,7 +183,7 @@
       "path": "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache",
       "status": "compatibility shim",
       "gate": "bypasses the model-family allowlist",
-      "preferred": "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache"
+      "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
     },
     {
       "path": "mlx_lm.models.cache.KVCache._to_turboquant()",

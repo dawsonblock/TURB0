@@ -54,9 +54,10 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable, Union
+from typing import Union
 
 logger = logging.getLogger("turboquant.runtime.events")
 
@@ -153,7 +154,7 @@ AnyEvent = Union[CacheUpgradeEvent, UpgradeFailureEvent]
 
 
 def record_runtime_upgrade_events(
-    event_log: "EventLog",
+    event_log: EventLog,
     runtime_events: Iterable[object],
 ) -> int:
     """Convert runtime ``upgrade.CacheUpgradeEvent`` objects into persistence events.
@@ -286,15 +287,11 @@ class EventLog:
 
     def upgrade_count(self) -> int:
         """Return number of successful upgrade events recorded."""
-        return sum(
-            1 for e in self._events if isinstance(e, CacheUpgradeEvent)
-        )
+        return sum(1 for e in self._events if isinstance(e, CacheUpgradeEvent))
 
     def failure_count(self) -> int:
         """Return number of upgrade failure events recorded."""
-        return sum(
-            1 for e in self._events if isinstance(e, UpgradeFailureEvent)
-        )
+        return sum(1 for e in self._events if isinstance(e, UpgradeFailureEvent))
 
     def summary(self) -> dict:
         """Return a summary dict for inclusion in ``metrics.json``.

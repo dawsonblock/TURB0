@@ -33,7 +33,6 @@ from typing import Any, cast
 
 from turboquant.errors import UnsupportedModelError
 
-
 _SUPPORT_CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contract.json"
 
 

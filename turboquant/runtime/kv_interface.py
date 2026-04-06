@@ -35,11 +35,13 @@ class TurboQuantKVCache:
                 _q = PolarQuantizer()
             elif config.is_mse_mode() or config.is_prod_mode():
                 from turboquant.core.quantizer import LloydMaxScalarQuantizer
+
                 _q = LloydMaxScalarQuantizer(
                     n_bits=config.k_bits, group_size=config.k_group_size
                 )
             else:
                 from turboquant.core.quantizer import GroupScalarQuantizer
+
                 _q = GroupScalarQuantizer(
                     n_bits=config.k_bits, group_size=config.k_group_size
                 )
@@ -56,9 +58,7 @@ class TurboQuantKVCache:
         # V-block storage — "paper_kv" mode encodes V alongside K.
         # "k_only" legacy mode stores dense values in v_cache.
         self.storage_mode: str = (
-            "paper_kv"
-            if (config.is_mse_mode() or config.is_prod_mode())
-            else "k_only"
+            "paper_kv" if (config.is_mse_mode() or config.is_prod_mode()) else "k_only"
         )
         self.v_blocks: list[Any] = []
         self.v_cache: list = []  # kept for backward compat + k_only mode
@@ -68,6 +68,7 @@ class TurboQuantKVCache:
 
         if self.storage_mode == "paper_kv":
             from turboquant.core.quantizer import LloydMaxScalarQuantizer
+
             _v = LloydMaxScalarQuantizer(
                 n_bits=config.v_bits, group_size=config.v_group_size
             )
@@ -156,9 +157,8 @@ class TurboQuantKVCache:
         def _residual_bytes(b):
             bits_arr = b.residual.data.get("bits", None)
             norms_arr = b.residual.data.get("norms", None)
-            return (
-                (bits_arr.nbytes if hasattr(bits_arr, "nbytes") else 0)
-                + (norms_arr.nbytes if hasattr(norms_arr, "nbytes") else 0)
+            return (bits_arr.nbytes if hasattr(bits_arr, "nbytes") else 0) + (
+                norms_arr.nbytes if hasattr(norms_arr, "nbytes") else 0
             )
 
         def _polar_bytes(b):
@@ -180,9 +180,7 @@ class TurboQuantKVCache:
                 for b in self.v_blocks
             )
         else:
-            v_bytes = sum(
-                v.nbytes for v in self.v_cache if hasattr(v, "nbytes")
-            )
+            v_bytes = sum(v.nbytes for v in self.v_cache if hasattr(v, "nbytes"))
         return int(k_bytes + v_bytes)
 
     @property
@@ -240,18 +238,23 @@ class TurboQuantKVCache:
             for b in self._blocks
         )
         k_scales = sum(
-            b.scales.nbytes if b.scales is not None else 0
-            for b in self._blocks
+            b.scales.nbytes if b.scales is not None else 0 for b in self._blocks
         )
         k_polar = sum(
             b.polar.byte_size() if getattr(b, "polar", None) is not None else 0
             for b in self._blocks
         )
         k_residual = sum(
-            (b.residual.data.get("bits", None).nbytes
-             if hasattr(b.residual.data.get("bits", None), "nbytes") else 0)
-            + (b.residual.data.get("norms", None).nbytes
-               if hasattr(b.residual.data.get("norms", None), "nbytes") else 0)
+            (
+                b.residual.data.get("bits", None).nbytes
+                if hasattr(b.residual.data.get("bits", None), "nbytes")
+                else 0
+            )
+            + (
+                b.residual.data.get("norms", None).nbytes
+                if hasattr(b.residual.data.get("norms", None), "nbytes")
+                else 0
+            )
             for b in self._blocks
         )
 
@@ -261,13 +264,10 @@ class TurboQuantKVCache:
                 for b in self.v_blocks
             )
             v_scales = sum(
-                b.scales.nbytes if b.scales is not None else 0
-                for b in self.v_blocks
+                b.scales.nbytes if b.scales is not None else 0 for b in self.v_blocks
             )
         else:
-            v_main = sum(
-                int(v.nbytes) for v in self.v_cache if hasattr(v, "nbytes")
-            )
+            v_main = sum(int(v.nbytes) for v in self.v_cache if hasattr(v, "nbytes"))
             v_scales = 0
             # Legacy dense path — values remain stored densely in v_cache.
         total = k_main + k_scales + k_polar + k_residual + v_main + v_scales
@@ -311,14 +311,10 @@ class TurboQuantKVCache:
             "rotation_type": self.config.rotation,
             "residual_kind": self.config.residual_mode,
             "qjl_dim": (
-                self.config.qjl_proj_dim
-                if self.config.residual_mode == "qjl"
-                else 0
+                self.config.qjl_proj_dim if self.config.residual_mode == "qjl" else 0
             ),
             "qjl_seed": (
-                self.config.qjl_seed
-                if self.config.residual_mode == "qjl"
-                else 0
+                self.config.qjl_seed if self.config.residual_mode == "qjl" else 0
             ),
             "codebook_id": self._codebook_id_for_state(),
             "main_bits": self._main_bits_for_state(),
@@ -390,13 +386,9 @@ class TurboQuantKVCache:
                 scale_dtype=state.get("scale_dtype", "float16"),
                 v_scale_dtype=state.get("v_scale_dtype", "float16"),
                 eps=float(state.get("eps", 1e-6)),
-                qjl_proj_dim=int(
-                    state.get("qjl_dim", state.get("qjl_proj_dim", 64))
-                ),
+                qjl_proj_dim=int(state.get("qjl_dim", state.get("qjl_proj_dim", 64))),
                 qjl_seed=int(state.get("qjl_seed", 42)),
-                qjl_bits=int(
-                    state.get("residual_bits", state.get("qjl_bits", 1))
-                ),
+                qjl_bits=int(state.get("residual_bits", state.get("qjl_bits", 1))),
                 algorithm=algorithm,
                 quantizer_mode=(
                     "polar"
@@ -426,9 +418,9 @@ class TurboQuantKVCache:
 
 # Shim for mlx_lm compatibility
 
+
 class TurboQuantKeysView:
     def __init__(self, cache, start: int, end: int):
         self.cache = cache
         self.start = start
         self.end = end
-

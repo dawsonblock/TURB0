@@ -22,4 +22,3 @@ Combining them in one invocation (e.g. pytest tests/unit_static tests/integratio
 is known to abort due to Metal GPU state isolation requirements.
 """
 # No fixtures needed — isolation is enforced at the invocation level.
-

@@ -199,8 +199,7 @@ class AccuracyComparison:
         n = min(len(dense_logits), len(tq_logits))
         if n == 0:
             logger.warning(
-                "AccuracyComparison: no logits collected — "
-                "returning zero-value report"
+                "AccuracyComparison: no logits collected — returning zero-value report"
             )
             return self._zero_report(max_tokens)
 
@@ -218,8 +217,7 @@ class AccuracyComparison:
         match_rate = float(mx.mean((p_tokens == q_tokens).astype(mx.float32)).item())
 
         logger.info(
-            "AccuracyComparison: n=%d mean_kl=%.4f max_kl=%.4f "
-            "token_match=%.3f",
+            "AccuracyComparison: n=%d mean_kl=%.4f max_kl=%.4f token_match=%.3f",
             n,
             mean_kl,
             max_kl,
@@ -292,10 +290,7 @@ class AccuracyComparison:
             k_group_size=getattr(self._config, "k_group_size", 64),
             residual_mode="none",
         )
-        cache = [
-            TurboQuantKCache(legacy_cfg)
-            for _ in range(len(self._model.layers))
-        ]
+        cache = [TurboQuantKCache(legacy_cfg) for _ in range(len(self._model.layers))]
 
         logits = self._model(input_ids, cache=cache)
         next_tok = mx.argmax(logits[:, -1, :], axis=-1)

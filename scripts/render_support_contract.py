@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = REPO_ROOT / "turboquant" / "contract.json"
 GENERATED_HEADER = (
@@ -54,10 +53,7 @@ def _avg_kv_bpc_d128(preset: JsonDict) -> str:
 
 
 def _format_deviation(deviation: JsonDict) -> str:
-    return (
-        f"- **{deviation['title']}** — "
-        f"{deviation['description']}"
-    )
+    return f"- **{deviation['title']}** — {deviation['description']}"
 
 
 def render_support_matrix(contract: JsonDict) -> str:
@@ -103,8 +99,7 @@ def render_support_matrix(contract: JsonDict) -> str:
             "",
             "## Model Architecture Matrix",
             "",
-            "| Model family | Canonical support status | Evidence depth | "
-            "Notes |",
+            "| Model family | Canonical support status | Evidence depth | Notes |",
             "| :--- | :--- | :--- | :--- |",
         ]
     )
@@ -138,8 +133,7 @@ def render_supported_surface(contract: JsonDict) -> str:
         GENERATED_HEADER,
         "# Supported surface",
         "",
-        "TurboQuant's supported surface is generated from "
-        "`turboquant/contract.json`.",
+        "TurboQuant's supported surface is generated from `turboquant/contract.json`.",
         runtime["source_archive_evidence_rule"],
         "",
         "## Supported slice",
@@ -148,8 +142,7 @@ def render_supported_surface(contract: JsonDict) -> str:
         f"- Python {runtime['python']['min']} through "
         f"{runtime['python']['max']} "
         f"(recommended {runtime['python']['recommended']})",
-        f"- MLX >= {runtime['mlx']['min']} and < "
-        f"{runtime['mlx']['max_exclusive']}",
+        f"- MLX >= {runtime['mlx']['min']} and < {runtime['mlx']['max_exclusive']}",
         f"- Canonical runtime entry point: `{runtime['entrypoint']}(...)`",
         "- Research and local evaluation workflows only",
         "",
@@ -170,8 +163,7 @@ def render_supported_surface(contract: JsonDict) -> str:
             "",
             "## Secondary surfaces",
             "",
-            "These surfaces exist, but they are not peer public runtime "
-            "entry points:",
+            "These surfaces exist, but they are not peer public runtime entry points:",
             "",
             "| Surface | Status | Why it is secondary | Preferred path |",
             "| :--- | :--- | :--- | :--- |",
@@ -232,10 +224,8 @@ def render_product_contract(contract: JsonDict) -> str:
         f"- Hardware: {', '.join(runtime['hardware'])}",
         f"- Python: {runtime['python']['min']} to {runtime['python']['max']} "
         f"(recommended {runtime['python']['recommended']})",
-        f"- MLX: >= {runtime['mlx']['min']} and < "
-        f"{runtime['mlx']['max_exclusive']}",
-        "- Scope: local Apple-Silicon MLX validation, not production "
-        "deployment",
+        f"- MLX: >= {runtime['mlx']['min']} and < {runtime['mlx']['max_exclusive']}",
+        "- Scope: local Apple-Silicon MLX validation, not production deployment",
         "",
         "## 2. Supported model families",
         "",
@@ -254,14 +244,12 @@ def render_product_contract(contract: JsonDict) -> str:
             "## 3. Canonical and secondary surfaces",
             "",
             f"- Canonical runtime path: `{runtime['entrypoint']}(...)`",
-            "- Secondary surfaces remain available only for compatibility or "
-            "eval use:",
+            "- Secondary surfaces remain available only for compatibility or eval use:",
         ]
     )
     for surface in contract["secondary_surfaces"]:
         lines.append(
-            f"  - `{surface['path']}` ({surface['status']}) — "
-            f"{surface['gate']}"
+            f"  - `{surface['path']}` ({surface['status']}) — {surface['gate']}"
         )
 
     lines.extend(
@@ -299,15 +287,9 @@ def render_product_contract(contract: JsonDict) -> str:
 def render_docs() -> dict[Path, str]:
     contract = load_contract()
     return {
-        REPO_ROOT / "docs" / "support_matrix.md": render_support_matrix(
-            contract
-        ),
-        REPO_ROOT / "docs" / "supported-surface.md": render_supported_surface(
-            contract
-        ),
-        REPO_ROOT / "docs" / "product_contract.md": render_product_contract(
-            contract
-        ),
+        REPO_ROOT / "docs" / "support_matrix.md": render_support_matrix(contract),
+        REPO_ROOT / "docs" / "supported-surface.md": render_supported_surface(contract),
+        REPO_ROOT / "docs" / "product_contract.md": render_product_contract(contract),
     }
 
 
@@ -339,9 +321,7 @@ def main() -> None:
     mismatches: list[str] = []
     for path, content in docs.items():
         if args.check:
-            existing = (
-                path.read_text(encoding="utf-8") if path.exists() else ""
-            )
+            existing = path.read_text(encoding="utf-8") if path.exists() else ""
             if existing != content:
                 mismatches.append(str(path.relative_to(REPO_ROOT)))
         else:
@@ -352,8 +332,7 @@ def main() -> None:
 
     if mismatches:
         raise SystemExit(
-            "Rendered support-contract docs are out of date: "
-            + ", ".join(mismatches)
+            "Rendered support-contract docs are out of date: " + ", ".join(mismatches)
         )
 
 

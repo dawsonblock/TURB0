@@ -91,13 +91,9 @@ def test_polar_long_context_runtime_path():
         "Dense prefill was not promoted to the PolarQuant runtime path."
     )
 
-    tq_layers = [
-        cache for cache in prompt_cache if isinstance(cache, TurboQuantKCache)
-    ]
+    tq_layers = [cache for cache in prompt_cache if isinstance(cache, TurboQuantKCache)]
     assert tq_layers, "No cache layers were upgraded to TurboQuantKCache."
-    assert any(
-        layer._impl.block(0).polar is not None for layer in tq_layers
-    ), (
+    assert any(layer._impl.block(0).polar is not None for layer in tq_layers), (
         "Upgraded cache layers did not persist any PolarQuant payloads."
     )
     assert tq_layers[0]._impl.state()["algorithm"] == "polarquant_exp"

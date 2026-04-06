@@ -1,7 +1,6 @@
-import os
 import pytest
-import turboquant
 
+import turboquant
 
 # MLX-dependent symbols: accessing these raises ImportError when MLX is absent.
 # Test their presence via __all__ (a static list) rather than hasattr(), which
@@ -68,7 +67,9 @@ def test_package_root_docstring_matches_public_contract():
     doc = turboquant.__doc__ or ""
 
     assert "RLM" not in doc, "turboquant.__doc__ still contains the 'RLM' typo."
-    assert "LLM" in doc, "turboquant.__doc__ must describe the supported MLX/Apple-Silicon LLM paths."
+    assert "LLM" in doc, (
+        "turboquant.__doc__ must describe the supported MLX/Apple-Silicon LLM paths."
+    )
     assert "passing full-model" in doc and "runtime-certification artifacts" in doc, (
         "turboquant.__doc__ must not imply that any partial artifact set makes the package production-certified."
     )

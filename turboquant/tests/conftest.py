@@ -1,8 +1,13 @@
 """
-Compatibility stub.  Unit tests have moved to tests/unit/.
+Compatibility stub.  Canonical tests now live under ``tests/``.
+
+The maintained test layout is:
+- ``tests/unit_static/`` for portable structural governance checks
+- ``tests/unit_mlx/`` for Apple-Silicon MLX unit coverage
+- ``tests/integration_mlx/`` for Apple-Silicon structural and runtime tests
 
 This conftest is retained so that ``pytest turboquant/tests/`` still adds the
-project root to sys.path (needed if someone runs from that directory directly).
+project root to ``sys.path`` when someone runs from that directory directly.
 Canonical test command: ``pytest tests/``
 """
 

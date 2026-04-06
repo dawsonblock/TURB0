@@ -150,8 +150,7 @@ def test_integration_doc_no_blanket_support_claim() -> None:
     assert "model_family" in content
     assert (
         "Routing through `base.py` is not the same as being in the "
-        "supported allowlist."
-        in content
+        "supported allowlist." in content
     )
 
 
@@ -161,16 +160,18 @@ def test_supported_surface_generated_doc_has_secondary_surfaces() -> None:
 
     assert "upgrade_cache_list" in content
     assert "Secondary surfaces" in content
-    assert (
-        "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache"
-        in content
-    )
-    assert (
-        "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache"
-        in content
-    )
+    assert "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache" in content
+    assert "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache" in content
     assert "KVCache.to_turboquant()" in content
     assert "contract.json" in content
+    assert (
+        "| `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache` | "
+        "compatibility shim | bypasses the model-family allowlist | "
+        "`turboquant.integrations.mlx.upgrade.upgrade_cache_list` |" in content
+    ), (
+        "The compatibility shim must still point callers back to the "
+        "canonical support-gated upgrade_cache_list(...) path."
+    )
 
 
 def test_runtime_api_points_to_upgrade_cache_list() -> None:
@@ -191,8 +192,7 @@ def test_vendored_doc_marks_to_turboquant_as_secondary_helper() -> None:
     assert "canonical public path is `upgrade_cache_list(...)`" in content
 
 
-def test_validation_local_distinguishes_smoke_from_real_certification(
-) -> None:
+def test_validation_local_distinguishes_smoke_from_real_certification() -> None:
     """validation-local.md must distinguish TinyModel smoke from real-model
     certification.
     """

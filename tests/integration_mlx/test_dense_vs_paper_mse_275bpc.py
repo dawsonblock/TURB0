@@ -86,9 +86,7 @@ def test_dense_vs_paper_mse_275bpc(tmp_path):
         v_group_size=64,
         rotation="hadamard",
     )
-    assert cfg.effective_bits_per_channel_total(128) == pytest.approx(
-        _EXPECTED_AVG_BPC
-    )
+    assert cfg.effective_bits_per_channel_total(128) == pytest.approx(_EXPECTED_AVG_BPC)
 
     delta_ppls = []
     for text in _SAMPLE_PROMPTS:
@@ -102,26 +100,18 @@ def test_dense_vs_paper_mse_275bpc(tmp_path):
         dense_cache = make_prompt_cache(model)
         dense_logits = model(feed, cache=dense_cache)[0]
         mx.eval(dense_logits)
-        dense_log_p = dense_logits - mx.logsumexp(
-            dense_logits, axis=-1, keepdims=True
-        )
+        dense_log_p = dense_logits - mx.logsumexp(dense_logits, axis=-1, keepdims=True)
         dense_ppl = _ppl(dense_log_p, targets)
 
         tq_cache = make_prompt_cache(model)
-        upgrade_cache_list(
-            tq_cache, k_start=0, config=cfg, model_family="llama"
-        )
+        upgrade_cache_list(tq_cache, k_start=0, config=cfg, model_family="llama")
         tq_logits = model(feed, cache=tq_cache)[0]
         mx.eval(tq_logits)
-        tq_log_p = tq_logits - mx.logsumexp(
-            tq_logits, axis=-1, keepdims=True
-        )
+        tq_log_p = tq_logits - mx.logsumexp(tq_logits, axis=-1, keepdims=True)
         tq_ppl = _ppl(tq_log_p, targets)
 
         delta = tq_ppl - dense_ppl
-        assert math.isfinite(delta), (
-            f"Non-finite Δppl={delta} for prompt {text[:40]!r}"
-        )
+        assert math.isfinite(delta), f"Non-finite Δppl={delta} for prompt {text[:40]!r}"
         delta_ppls.append(delta)
 
     assert delta_ppls, "No prompts produced valid results"

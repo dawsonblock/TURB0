@@ -182,10 +182,7 @@ def _run_benchmark(
     event_log = EventLog(artifact_dir=None)
     record_runtime_upgrade_events(event_log, events)
 
-    compressed_bytes = sum(
-        getattr(c, "byte_size", lambda: 0)()
-        for c in dense_cache
-    )
+    compressed_bytes = sum(getattr(c, "byte_size", lambda: 0)() for c in dense_cache)
     tracker.set_compressed_bytes(compressed_bytes)
 
     # Decode step timing

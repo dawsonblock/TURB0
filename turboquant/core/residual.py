@@ -54,9 +54,9 @@ def encode_topk_residual(
         )
 
     *prefix, d_pad = residual.shape
-    assert (
-        d_pad % group_size == 0
-    ), f"d_pad={d_pad} must be divisible by group_size={group_size}"
+    assert d_pad % group_size == 0, (
+        f"d_pad={d_pad} must be divisible by group_size={group_size}"
+    )
     n_groups = d_pad // group_size
 
     rg = residual.reshape(*prefix, n_groups, group_size)  # [..., ng, g]

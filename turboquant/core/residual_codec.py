@@ -28,16 +28,14 @@ class ResidualCodec(Protocol):
         residual: mx.array,
         *,
         config: TurboQuantConfig,
-    ) -> ResidualPayload:
-        ...
+    ) -> ResidualPayload: ...
 
     def decode(
         self,
         payload: ResidualPayload,
         *,
         config: TurboQuantConfig,
-    ) -> mx.array | None:
-        ...
+    ) -> mx.array | None: ...
 
     def dot_estimate(
         self,

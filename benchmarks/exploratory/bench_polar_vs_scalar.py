@@ -24,19 +24,19 @@ sys.path.insert(0, _ROOT)
 import mlx.core as mx
 import numpy as np
 
-from turboquant.core.quantizer import GroupScalarQuantizer
 from turboquant.core.polar_quant import PolarQuantizer
+from turboquant.core.quantizer import GroupScalarQuantizer
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-HEAD_DIMS   = [64, 128, 256]
-SEQ_LENS    = [256, 512, 1024]
-N_HEADS     = 8
-BATCH       = 1
-REPS        = 50   # timing repetitions
-WARMUP      = 10
+HEAD_DIMS = [64, 128, 256]
+SEQ_LENS = [256, 512, 1024]
+N_HEADS = 8
+BATCH = 1
+REPS = 50  # timing repetitions
+WARMUP = 10
 SCALAR_BITS = 3
-SCALAR_GRP  = 64
+SCALAR_GRP = 64
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -105,18 +105,18 @@ def run(head_dim: int, seq_len: int) -> dict:
     mse_scalar = _mse(x_flat, x_sq)
 
     # Scalar bits/dim: n_bits for packed data + 16 bits per scale element
-    n_groups = -(-head_dim // SCALAR_GRP)   # ceil div
+    n_groups = -(-head_dim // SCALAR_GRP)  # ceil div
     bits_scalar = (
         SCALAR_BITS * head_dim + 16 * n_groups
     ) / head_dim  # effective bits/dim
 
     result["scalar"] = {
         "encode_ms_mean": round(enc_mean, 3),
-        "encode_ms_std":  round(enc_std, 3),
+        "encode_ms_std": round(enc_std, 3),
         "decode_ms_mean": round(dec_mean, 3),
-        "decode_ms_std":  round(dec_std, 3),
-        "mse":            round(float(mse_scalar), 6),
-        "bits_per_dim":   round(bits_scalar, 3),
+        "decode_ms_std": round(dec_std, 3),
+        "mse": round(float(mse_scalar), 6),
+        "bits_per_dim": round(bits_scalar, 3),
     }
 
     # ── PolarQuant ────────────────────────────────────────────────────────────
@@ -142,21 +142,19 @@ def run(head_dim: int, seq_len: int) -> dict:
     # for d/2^L final radii → formula from paper §4
     n_l = pq.n_levels
     d_pad = (-(-head_dim // (1 << n_l))) * (1 << n_l)
-    angle_bits = (1 << pq.bits_l1) == 16  # just use the formula
-    total_angle_bits = (
-        pq.bits_l1 * (d_pad // 2)
-        + pq.bits_le * sum(d_pad // (2 ** lv) for lv in range(2, n_l + 1))
+    total_angle_bits = pq.bits_l1 * (d_pad // 2) + pq.bits_le * sum(
+        d_pad // (2**lv) for lv in range(2, n_l + 1)
     )
-    total_radii_bits = 16 * (d_pad // (2 ** n_l))
+    total_radii_bits = 16 * (d_pad // (2**n_l))
     bits_polar = (total_angle_bits + total_radii_bits) / head_dim
 
     result["polar"] = {
         "encode_ms_mean": round(enc_mean_p, 3),
-        "encode_ms_std":  round(enc_std_p, 3),
+        "encode_ms_std": round(enc_std_p, 3),
         "decode_ms_mean": round(dec_mean_p, 3),
-        "decode_ms_std":  round(dec_std_p, 3),
-        "mse":            round(float(mse_polar), 6),
-        "bits_per_dim":   round(bits_polar, 3),
+        "decode_ms_std": round(dec_std_p, 3),
+        "mse": round(float(mse_polar), 6),
+        "bits_per_dim": round(bits_polar, 3),
     }
 
     return result
@@ -166,10 +164,10 @@ def run(head_dim: int, seq_len: int) -> dict:
 
 
 def main():
-    print(f"\n{'='*90}")
-    print("  PolarQuant vs GroupScalarQuantizer({0}-bit, g={1})".format(SCALAR_BITS, SCALAR_GRP))
+    print(f"\n{'=' * 90}")
+    print(f"  PolarQuant vs GroupScalarQuantizer({SCALAR_BITS}-bit, g={SCALAR_GRP})")
     print(f"  batch={BATCH}  n_heads={N_HEADS}  reps={REPS}  warmup={WARMUP}")
-    print(f"{'='*90}")
+    print(f"{'=' * 90}")
 
     hdr = (
         f"{'d_head':>7} {'T':>6}  "

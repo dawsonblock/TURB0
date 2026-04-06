@@ -151,9 +151,7 @@ def main() -> int:
     manifest = {
         "schema_version": "3",
         "turboquant_version": args.turboquant_version,
-        "timestamp_utc": datetime.now(tz=timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        ),
+        "timestamp_utc": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "platform": _platform_tag(),
         "python_version": platform.python_version(),
         "certification_scope": {

@@ -1,4 +1,5 @@
 import pytest
+
 from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 
 # Skip on non-Apple-Silicon hosts and define mx for use in tests.
@@ -58,15 +59,14 @@ def test_upgrade_cache_list_idempotence():
     )
 
     assert all(isinstance(c, TurboQuantKCache) for c in cache_list), (
-        "Cache entries must remain TurboQuantKCache "
-        "after second (no-op) upgrade"
+        "Cache entries must remain TurboQuantKCache after second (no-op) upgrade"
     )
 
 
 def test_upgrade_cache_list_unsupported_model():
     """Unsupported model families should fail fast."""
-    from turboquant.errors import UnsupportedModelError
     from turboquant.config import TurboQuantConfig
+    from turboquant.errors import UnsupportedModelError
 
     cache_list = [MockCache(offset=100)]
     config = TurboQuantConfig()

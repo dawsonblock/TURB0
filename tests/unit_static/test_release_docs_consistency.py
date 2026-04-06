@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = REPO_ROOT / "turboquant" / "contract.json"
 
@@ -47,11 +46,8 @@ def test_release_docs_distinguish_checkout_from_built_distributions() -> None:
         assert "artifacts/runtime-cert/" in content, (
             f"{rel_path} must mention the runtime-cert artifact path."
         )
-        assert (
-            "built wheels and source distributions do not ship" in normalized
-        ), (
-            f"{rel_path} must distinguish a working tree from shipped "
-            "distributions."
+        assert "built wheels and source distributions do not ship" in normalized, (
+            f"{rel_path} must distinguish a working tree from shipped distributions."
         )
 
 

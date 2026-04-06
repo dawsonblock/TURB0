@@ -1,6 +1,3 @@
-from turboquant.config import TurboQuantConfig
-
-
 class TurboQuantRuntime:
     def __init__(self, *args, **kwargs):
         raise RuntimeError(

@@ -13,8 +13,9 @@ Contract coverage
    undermine the static-test contract.
 
 2. ``noxfile_excludes_unit_from_mlx_session`` — the noxfile's ``tests_mlx``
-   session must NOT include ``tests/unit/`` now that all MLX-requiring tests
-   have been moved to ``tests/integration_mlx/``.
+    session must NOT include the dead ``tests/unit/`` path now that the
+    maintained MLX test layout is ``tests/unit_mlx/`` plus
+    ``tests/integration_mlx/``.
 
 3. ``support_module_has_expected_families`` — ``SUPPORTED_FAMILIES`` in
     ``turboquant/runtime/support.py`` must match the allowlisted families in
@@ -57,13 +58,16 @@ Contract coverage
 12. ``attention_hot_path_does_not_read_block_tokens`` —
     ``turboquant/runtime/attention.py`` must not start reading ``block_tokens``
     unless the public contract is deliberately widened.
+
+13. ``only_experimental_metal_shader_path_exists`` — the repo must not retain
+    a second non-canonical ``turboquant/kernels/metal/decode_k.metal`` copy;
+    the experimental namespace is the only supported shader location.
 """
 
 from __future__ import annotations
 
 import ast
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -97,12 +101,12 @@ def test_no_mlx_import_in_unit_static() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. noxfile excludes tests/unit/ from tests_mlx
+# 2. noxfile excludes the dead tests/unit/ path from tests_mlx
 # ---------------------------------------------------------------------------
 
 
 def test_noxfile_excludes_unit_from_mlx_session() -> None:
-    """tests/unit/ must NOT appear inside the tests_mlx nox session."""
+    """tests/unit/ must stay out of the tests_mlx nox session."""
     noxfile = REPO_ROOT / "noxfile.py"
     assert noxfile.exists(), "noxfile.py not found at repo root"
 
@@ -125,8 +129,23 @@ def test_noxfile_excludes_unit_from_mlx_session() -> None:
     )
     assert "tests/unit/" not in mlx_session_src, (
         "noxfile.py tests_mlx session still references 'tests/unit/'.\n"
-        "All MLX-requiring tests must live in tests/integration_mlx/."
+        "The maintained MLX layout is tests/unit_mlx/ plus "
+        "tests/integration_mlx/."
     )
+
+
+def test_compatibility_conftest_tracks_current_test_layout() -> None:
+    """turboquant/tests/conftest.py must not point at dead test paths."""
+    conftest_path = REPO_ROOT / "turboquant" / "tests" / "conftest.py"
+    assert conftest_path.exists(), "turboquant/tests/conftest.py not found"
+
+    text = conftest_path.read_text(encoding="utf-8")
+    assert "tests/unit/" not in text, (
+        "turboquant/tests/conftest.py still points at the dead tests/unit/ path."
+    )
+    assert "tests/unit_static/" in text
+    assert "tests/unit_mlx/" in text
+    assert "tests/integration_mlx/" in text
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +154,7 @@ def test_noxfile_excludes_unit_from_mlx_session() -> None:
 
 
 def test_support_module_has_expected_families() -> None:
-    """SUPPORTED_FAMILIES must match the allowlisted families in the contract JSON."""
+    """SUPPORTED_FAMILIES must match the allowlisted contract families."""
     contract_json = REPO_ROOT / "turboquant" / "contract.json"
     assert contract_json.exists(), "turboquant/contract.json not found"
 
@@ -160,7 +179,8 @@ def test_support_module_has_expected_families() -> None:
             f"SUPPORTED_FAMILIES mismatch.\n"
             f"  Expected : {sorted(expected)}\n"
             f"  Got      : {sorted(SUPPORTED_FAMILIES)}\n"
-            "If you are adding a new family, update the contract JSON and runtime-cert coverage together."
+            "If you are adding a new family, update the contract JSON and "
+            "runtime-cert coverage together."
         )
     except ModuleNotFoundError as exc:
         pytest.skip(f"turboquant package not importable in this env: {exc}")
@@ -175,7 +195,7 @@ def test_support_module_has_expected_families() -> None:
 
 
 def test_unsupported_family_raises_unsupported_model_error() -> None:
-    """assert_supported_model_family('mixtral') must raise UnsupportedModelError."""
+    """assert_supported_model_family('mixtral') must raise the typed error."""
     # Patch sys.path so we can import without installing the package.
     repo_str = str(REPO_ROOT)
     injected = repo_str not in sys.path
@@ -207,7 +227,7 @@ def test_unsupported_family_raises_unsupported_model_error() -> None:
 
 
 def test_v_enabled_default_matches_architecture_doc() -> None:
-    """architecture.md must state v_enabled is enabled by default (Phase 4 fix)."""
+    """architecture.md must state v_enabled is enabled by default."""
     arch_doc = REPO_ROOT / "docs" / "architecture.md"
     assert arch_doc.exists(), "docs/architecture.md not found"
 
@@ -233,15 +253,15 @@ def test_v_enabled_default_matches_architecture_doc() -> None:
 
 
 def test_upgrade_cache_list_none_family_raises() -> None:
-    """upgrade_cache_list must raise UnsupportedModelError when model_family=None."""
+    """upgrade_cache_list must raise when model_family is None."""
     repo_str = str(REPO_ROOT)
     injected = repo_str not in sys.path
     if injected:
         sys.path.insert(0, repo_str)
     try:
+        from turboquant.config import TurboQuantConfig
         from turboquant.errors import UnsupportedModelError
         from turboquant.integrations.mlx.upgrade import upgrade_cache_list
-        from turboquant.config import TurboQuantConfig
 
         cfg = TurboQuantConfig()
         with pytest.raises(UnsupportedModelError):
@@ -284,14 +304,23 @@ def test_infer_model_family_returns_supported_or_none() -> None:
                 for child in ast.walk(node):
                     if isinstance(child, ast.For):
                         # Inspect the iterator for string constants.
-                        if isinstance(child.iter, (ast.Tuple, ast.List, ast.Set)):
+                        if isinstance(
+                            child.iter,
+                            (ast.Tuple, ast.List, ast.Set),
+                        ):
                             for elt in child.iter.elts:
-                                if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                                if isinstance(
+                                    elt,
+                                    ast.Constant,
+                                ) and isinstance(elt.value, str):
                                     assert elt.value in SUPPORTED_FAMILIES, (
-                                        f"_infer_model_family iterates over '{elt.value}' "
-                                        f"but that family is not in SUPPORTED_FAMILIES "
-                                        f"({sorted(SUPPORTED_FAMILIES)}).  Either add it "
-                                        "to the allowlist with runtime-cert coverage or "
+                                        f"_infer_model_family iterates over "
+                                        f"'{elt.value}' but that family is "
+                                        "not in "
+                                        f"SUPPORTED_FAMILIES "
+                                        f"({sorted(SUPPORTED_FAMILIES)}).  "
+                                        "Either add it to the allowlist with "
+                                        "runtime-cert coverage or "
                                         "remove it from the inference loop."
                                     )
                         break  # only check the first for-loop in the function
@@ -316,7 +345,8 @@ def test_upgrade_cache_list_none_docstring_correct() -> None:
     text = upgrade_py.read_text(encoding="utf-8")
     assert "intentionally bypass the allowlist" not in text, (
         "upgrade_cache_list docstring still claims passing model_family=None "
-        "is a valid way to bypass the allowlist from 'exploratory code paths'. "
+        "is a valid way to bypass the allowlist from 'exploratory code "
+        "paths'. "
         "That is incorrect: None now raises UnsupportedModelError.  "
         "Update the docstring."
     )
@@ -328,7 +358,7 @@ def test_upgrade_cache_list_none_docstring_correct() -> None:
 
 
 def test_architecture_doc_no_online_softmax_claim() -> None:
-    """architecture.md must not claim online softmax / 2-accumulator algorithm."""
+    """architecture.md must not claim online-softmax-style behavior."""
     arch_doc = REPO_ROOT / "docs" / "architecture.md"
     assert arch_doc.exists(), "docs/architecture.md not found"
 
@@ -347,14 +377,15 @@ def test_architecture_doc_no_online_softmax_claim() -> None:
 
 
 def test_architecture_doc_no_rotate_queries_for_attention() -> None:
-    """architecture.md must not claim rotate_queries_for_attention() is called."""
+    """architecture.md must not claim rotate_queries_for_attention()."""
     arch_doc = REPO_ROOT / "docs" / "architecture.md"
     assert arch_doc.exists(), "docs/architecture.md not found"
 
     text = arch_doc.read_text(encoding="utf-8")
     assert "rotate_queries_for_attention" not in text, (
-        "docs/architecture.md still references 'rotate_queries_for_attention()'. "
-        "That function does not exist; query rotation happens inside score_block() "
+        "docs/architecture.md still references "
+        "'rotate_queries_for_attention()'. That function does not exist; "
+        "query rotation happens inside score_block() "
         "via FixedRotation.apply().  Fix the documentation."
     )
 
@@ -365,16 +396,17 @@ def test_architecture_doc_no_rotate_queries_for_attention() -> None:
 
 
 def test_kvcompressor_is_marked_as_alias() -> None:
-    """turboquant/__init__.py must document KVCompressor as a compatibility alias."""
+    """turboquant/__init__.py must document KVCompressor as an alias."""
     init_py = REPO_ROOT / "turboquant" / "__init__.py"
     assert init_py.exists(), "turboquant/__init__.py not found"
 
     text = init_py.read_text(encoding="utf-8")
     # Both the module docstring line and the __all__ comment must say "alias".
     assert text.lower().count("alias") >= 2, (
-        "turboquant/__init__.py must mark KVCompressor as a compatibility alias "
-        "in at least two places (module docstring and __all__ comment) so callers "
-        "know to prefer TurboQuantKVCache.  Currently found fewer than 2 occurrences "
+        "turboquant/__init__.py must mark KVCompressor as a compatibility "
+        "alias in at least two places (module docstring and __all__ "
+        "comment) so callers know to prefer TurboQuantKVCache.  "
+        "Currently found fewer than 2 occurrences "
         "of the word 'alias'."
     )
 
@@ -391,7 +423,38 @@ def test_attention_hot_path_does_not_read_block_tokens() -> None:
 
     text = attention_py.read_text(encoding="utf-8")
     assert "block_tokens" not in text, (
-        "turboquant/runtime/attention.py now references block_tokens.  If that is "
-        "intentional, widen the documented contract and update the static checks at "
+        "turboquant/runtime/attention.py now references block_tokens.  If "
+        "that is intentional, widen the documented contract and update the "
+        "static checks at "
         "the same time."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 13. Only the experimental Metal shader path may exist
+# ---------------------------------------------------------------------------
+
+
+def test_only_experimental_metal_shader_path_exists() -> None:
+    """Non-canonical duplicate Metal shader paths must stay absent."""
+    canonical = (
+        REPO_ROOT
+        / "turboquant"
+        / "experimental"
+        / "kernels"
+        / "metal"
+        / "decode_k.metal"
+    )
+    duplicate = (
+        REPO_ROOT / "turboquant" / "kernels" / "metal" / "decode_k.metal"
+    )
+
+    assert canonical.exists(), (
+        "Canonical experimental Metal shader asset missing at "
+        "turboquant/experimental/kernels/metal/decode_k.metal."
+    )
+    assert not duplicate.exists(), (
+        "Found stale duplicate Metal shader asset at "
+        "turboquant/kernels/metal/decode_k.metal. Keep the experimental "
+        "namespace as the single canonical shader location."
     )

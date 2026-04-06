@@ -34,15 +34,14 @@ over bare ``mx.eval``
 
 from __future__ import annotations
 
-from dataclasses import asdict
 import importlib.util
 import logging
+from dataclasses import asdict
 from typing import Any, cast
 
 import mlx.core as mx
 
 from mlx_lm.models.cache import _BaseCache
-
 from turboquant.config import TurboQuantConfig
 
 
@@ -124,15 +123,12 @@ class TurboQuantKCache(_BaseCache):
     def meta_state(self, v: object) -> None:
         if not isinstance(v, tuple) or len(v) != 2:
             raise ValueError(
-                "TurboQuantKCache.meta_state must be a "
-                "(config_dict, offset) tuple."
+                "TurboQuantKCache.meta_state must be a (config_dict, offset) tuple."
             )
 
         _, offset = v
         if not isinstance(offset, int):
-            raise ValueError(
-                "TurboQuantKCache.meta_state offset must be an int."
-            )
+            raise ValueError("TurboQuantKCache.meta_state offset must be an int.")
 
         self.offset = offset
         if hasattr(self, "_impl"):

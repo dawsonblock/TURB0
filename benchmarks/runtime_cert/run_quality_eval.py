@@ -62,6 +62,7 @@ def _summary_artifact_name(
 def _kl_div(log_p: Any, log_q: Any) -> float:
     """Mean per-token KL(P_dense || P_tq) from log-softmax arrays [T, V]."""
     import mlx.core as mx
+
     # KL(P || Q) = sum_v P_v (log P_v - log Q_v)
     p = mx.exp(log_p)
     kl_per_token = mx.sum(p * (log_p - log_q), axis=-1)  # [T]
@@ -81,12 +82,13 @@ def _eval_one_prompt(
     persist runtime upgrade decisions as ``events.jsonl`` artifacts.
     """
     import mlx.core as mx
+
     from mlx_lm.models.cache import make_prompt_cache
     from turboquant.integrations.mlx.upgrade import upgrade_cache_list
     from turboquant.runtime.events import record_runtime_upgrade_events
 
-    targets = input_ids[0, 1:]   # [T-1]
-    feed = input_ids[:, :-1]      # [1, T-1]
+    targets = input_ids[0, 1:]  # [T-1]
+    feed = input_ids[:, :-1]  # [1, T-1]
     T = int(targets.shape[0])
 
     if T == 0:
@@ -94,7 +96,7 @@ def _eval_one_prompt(
 
     # ── Dense forward ──────────────────────────────────────────────────────
     dense_cache = make_prompt_cache(model)
-    dense_logits = model(feed, cache=dense_cache)[0]      # [T-1, V]
+    dense_logits = model(feed, cache=dense_cache)[0]  # [T-1, V]
     mx.eval(dense_logits)
     dense_log_p = dense_logits - mx.logsumexp(
         dense_logits,
@@ -114,7 +116,7 @@ def _eval_one_prompt(
     )
     if event_log is not None:
         record_runtime_upgrade_events(event_log, runtime_events)
-    tq_logits = model(feed, cache=tq_cache)[0]            # [T-1, V]
+    tq_logits = model(feed, cache=tq_cache)[0]  # [T-1, V]
     mx.eval(tq_logits)
     tq_log_p = tq_logits - mx.logsumexp(tq_logits, axis=-1, keepdims=True)
     tq_nll = -float(mx.sum(tq_log_p[mx.arange(T), targets]).item())
@@ -132,22 +134,16 @@ def _eval_one_prompt(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="TurboQuant quality evaluation gate"
-    )
+    parser = argparse.ArgumentParser(description="TurboQuant quality evaluation gate")
     parser.add_argument("--model", required=True, help="HuggingFace model ID")
     parser.add_argument(
         "--prompt-file", required=True, help="Path to a .jsonl prompt file"
     )
+    parser.add_argument("--output-dir", required=True, help="Directory for artifacts")
     parser.add_argument(
-        "--output-dir", required=True, help="Directory for artifacts"
-    )
-    parser.add_argument(
-        "--prompt-class", default="default",
-        help=(
-            "Prompt class label (e.g. short, medium, long) "
-            "used in artifact naming"
-        ),
+        "--prompt-class",
+        default="default",
+        help=("Prompt class label (e.g. short, medium, long) used in artifact naming"),
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility"
@@ -207,10 +203,12 @@ def main() -> None:
 
     # Seed for reproducibility
     import mlx.core as mx
+
     mx.random.seed(args.seed)
 
     print(f"Loading model: {args.model}")
     from mlx_lm import load as mlx_load  # type: ignore
+
     loaded = mlx_load(args.model)
     model, tokenizer = loaded[0], loaded[1]
 
@@ -236,12 +234,12 @@ def main() -> None:
         n_tokens = len(tokens)
         if n_tokens < args.min_prompt_tokens:
             print(
-                f"  [{i+1}/{len(prompts)}] SKIP — {n_tokens} tokens < "
+                f"  [{i + 1}/{len(prompts)}] SKIP — {n_tokens} tokens < "
                 f"min_prompt_tokens={args.min_prompt_tokens}"
             )
             skipped += 1
             continue
-        input_ids = mx.array(tokens)[None]   # [1, T]
+        input_ids = mx.array(tokens)[None]  # [1, T]
         metrics = _eval_one_prompt(
             model,
             input_ids,
@@ -252,7 +250,7 @@ def main() -> None:
         if metrics:
             results.append(metrics)
             print(
-                f"  [{i+1}/{len(prompts)}] Δppl={metrics['delta_ppl']:+.3f}  "
+                f"  [{i + 1}/{len(prompts)}] Δppl={metrics['delta_ppl']:+.3f}  "
                 f"KL={metrics['mean_kl']:.5f}  "
                 f"(dense={metrics['dense_ppl']:.2f}, "
                 f"tq={metrics['tq_ppl']:.2f})"
@@ -285,8 +283,7 @@ def main() -> None:
                 "per_prompt": [],
                 "events": event_log.summary(),
                 "note": (
-                    "All prompts shorter than min_prompt_tokens; "
-                    "TQ not activated."
+                    "All prompts shorter than min_prompt_tokens; TQ not activated."
                 ),
             }
             artifact_path = output_dir / _summary_artifact_name(
@@ -304,10 +301,7 @@ def main() -> None:
     mean_delta_ppl = sum(r["delta_ppl"] for r in results) / len(results)
     mean_kl = sum(r["mean_kl"] for r in results) / len(results)
 
-    passed = (
-        mean_delta_ppl <= args.max_delta_ppl
-        and mean_kl <= args.max_mean_kl
-    )
+    passed = mean_delta_ppl <= args.max_delta_ppl and mean_kl <= args.max_mean_kl
     status = "PASS" if passed else "FAIL"
 
     event_artifact = event_log.flush()
@@ -335,17 +329,16 @@ def main() -> None:
         args.artifact_label,
     )
     artifact_path.write_text(json.dumps(summary, indent=2))
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  Status        : {status}")
     print(
-        f"  Mean Δppl     : {mean_delta_ppl:+.4f}  "
-        f"(threshold ≤ {args.max_delta_ppl})"
+        f"  Mean Δppl     : {mean_delta_ppl:+.4f}  (threshold ≤ {args.max_delta_ppl})"
     )
     print(f"  Mean KL       : {mean_kl:.6f}  (threshold ≤ {args.max_mean_kl})")
     print(f"  Artifact      : {artifact_path}")
     if event_artifact is not None:
         print(f"  Events        : {event_artifact}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     sys.exit(0 if passed else 1)
 

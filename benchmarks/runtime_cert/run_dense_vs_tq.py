@@ -173,6 +173,7 @@ def run_single_generation(
         # generation without relying on process-level RSS (which is a
         # high-water mark that never resets between runs in the same process).
         from mlx_lm.models.cache import make_prompt_cache
+
         prompt_cache = make_prompt_cache(model)
         gen_kwargs["prompt_cache"] = prompt_cache
 

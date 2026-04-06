@@ -15,6 +15,7 @@ To run with a real Gemma model::
     export TQ_TEST_GEMMA_MODEL=mlx-community/gemma-2-2b-it-4bit
     python -m pytest tests/integration_mlx/test_gemma_runtime_smoke.py -v
 """
+
 import json
 import os
 import time
@@ -34,17 +35,19 @@ def test_gemma_runtime_smoke(tmp_path):
     Uses a tiny synthetic model by default (no download needed).  Identical
     contract to test_llama_runtime_smoke.
     """
-    from mlx_lm.models.cache import make_prompt_cache
     from mlx_lm.generate import generate_step
+    from mlx_lm.models.cache import make_prompt_cache
 
     _model_id = os.environ.get("TQ_TEST_GEMMA_MODEL", "")
     if _model_id:
         from mlx_lm import load as _load
+
         t_load = time.perf_counter()
         model, tokenizer = _load(_model_id)
         load_s = round(time.perf_counter() - t_load, 2)
     else:
         from tests.helpers.tiny_model import TinyModel, TinyTokenizer
+
         t_load = time.perf_counter()
         model, tokenizer = TinyModel(), TinyTokenizer()
         mx.eval(model.parameters())

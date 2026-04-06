@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True)
 class EncodedKeyBlock:
-    packed_main: mx.array | None     # None when quantizer_mode='polar'
-    scales: mx.array | None          # None when quantizer_mode='polar'
+    packed_main: mx.array | None  # None when quantizer_mode='polar'
+    scales: mx.array | None  # None when quantizer_mode='polar'
     residual: ResidualPayload
     d_head: int
     d_rot: int
@@ -70,7 +70,7 @@ class EncodedKeyBlock:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "EncodedKeyBlock":
+    def from_dict(cls, data: dict) -> EncodedKeyBlock:
         """Restore from a dict produced by to_dict()."""
         import base64
         import io
@@ -209,6 +209,7 @@ def encode_k_block(
     config.validate()
 
     from .rotation import FixedRotation
+
     orig_dim = int(k.shape[-1])
     rotation = FixedRotation.from_config(config, orig_dim)
     k_rot = rotation.apply(k)
@@ -262,6 +263,7 @@ def decode_k_block(
     config.validate()
 
     from .rotation import FixedRotation
+
     orig_dim = block.orig_dim if block.orig_dim > 0 else block.d_head
 
     # PolarQuant path: bypass scalar dequantisation and residual correction

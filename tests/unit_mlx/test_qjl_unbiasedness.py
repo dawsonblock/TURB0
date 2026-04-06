@@ -27,7 +27,6 @@ mx = pytest.importorskip("mlx.core")
 
 from turboquant.core.qjl import QJLProjector
 
-
 # ── estimate_inner_product is an alias of dot_estimate ────────────────────────
 
 
@@ -102,4 +101,3 @@ def test_estimate_scales_with_k_norm():
         assert 1.5 <= ratio <= 2.5, (
             f"Doubling ||k|| should ~double the estimate; got ratio={ratio:.3f}"
         )
-

@@ -5,7 +5,6 @@ import importlib.util
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -47,15 +46,9 @@ def _load_dist_verifier():
 
 
 def test_pyproject_intentionally_ships_vendored_boundary() -> None:
-    includes = set(
-        _extract_toml_list("tool.setuptools.packages.find", "include")
-    )
-    excludes = set(
-        _extract_toml_list("tool.setuptools.packages.find", "exclude")
-    )
-    mlx_data = set(
-        _extract_toml_list("tool.setuptools.package-data", "mlx_lm")
-    )
+    includes = set(_extract_toml_list("tool.setuptools.packages.find", "include"))
+    excludes = set(_extract_toml_list("tool.setuptools.packages.find", "exclude"))
+    mlx_data = set(_extract_toml_list("tool.setuptools.package-data", "mlx_lm"))
     turboquant_data = set(
         _extract_toml_list("tool.setuptools.package-data", "turboquant")
     )
@@ -73,10 +66,7 @@ def test_manifest_explicitly_prunes_non_shipped_top_level_dirs() -> None:
     content = _read("MANIFEST.in")
 
     assert "include turboquant/contract.json" in content
-    assert (
-        "recursive-include turboquant/experimental/kernels/metal *.metal"
-        in content
-    )
+    assert "recursive-include turboquant/experimental/kernels/metal *.metal" in content
     assert "recursive-include mlx_lm py.typed" in content
     assert "recursive-include docs *.md" in content
     assert "prune tests" in content
@@ -106,8 +96,7 @@ def test_dist_verifier_tracks_the_same_boundary() -> None:
     }
 
 
-def test_dist_verifier_requires_colocated_assets_for_shipped_runtime_modules(
-) -> None:
+def test_dist_verifier_requires_colocated_assets_for_shipped_runtime_modules() -> None:
     verifier = _load_dist_verifier()
 
     assert verifier.REQUIRED_COLOCATED_ASSETS == (

@@ -6,6 +6,7 @@ fixtures from tests.integration.test_turboquant_gemma.py so the cache config is 
 to the unit tests.integration.
 """
 
+import importlib
 import os
 import sys
 import time
@@ -14,11 +15,14 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 sys.path.insert(0, os.path.join(_ROOT, "tests.integration"))
 
-import mlx.core as mx
-from tests.integration.test_turboquant_gemma import PREFILL_LEN, _make_kv
-
-from turboquant import TurboQuantConfig
-from turboquant.runtime.kv_interface import TurboQuantKVCache as KVCompressor
+mx = importlib.import_module("mlx.core")
+_gemma_fixture = importlib.import_module("tests.integration.test_turboquant_gemma")
+PREFILL_LEN = _gemma_fixture.PREFILL_LEN
+_make_kv = _gemma_fixture._make_kv
+TurboQuantConfig = importlib.import_module("turboquant").TurboQuantConfig
+KVCompressor = importlib.import_module(
+    "turboquant.runtime.kv_interface"
+).TurboQuantKVCache
 
 
 def my_make_tq_cache(rm):

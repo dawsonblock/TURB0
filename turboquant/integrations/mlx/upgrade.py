@@ -1,5 +1,5 @@
 """
-turboquant.integrations.mlx.upgrade — production KV-cache upgrade policy.
+turboquant.integrations.mlx.upgrade — bounded runtime KV-cache upgrade policy.
 
 This module owns the policy for when and how to promote a dense KVCache to a
 TurboQuantKCache.  It is intentionally separate from ``generate.py`` so that
@@ -37,7 +37,8 @@ Usage
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace as _dc_replace
+from dataclasses import dataclass
+from dataclasses import replace as _dc_replace
 
 from turboquant.config import TurboQuantConfig
 from turboquant.runtime.support import assert_supported_model_family
@@ -57,8 +58,8 @@ class CacheUpgradeEvent:
     certification runs), use :class:`turboquant.runtime.events.EventLog`
     together with its own ``CacheUpgradeEvent`` or the explicit
     ``record_runtime_upgrade_events(...)`` adapter. The canonical runtime
-    path returns these lightweight in-process decision events and does not
-    automatically persist them.
+    path returns these lightweight in-process decision events.
+    It does not automatically persist them.
 
     Fields
     ------
@@ -141,6 +142,7 @@ def upgrade_cache_list(
     # rather than passing None here.
     if model_family is None:
         from turboquant.errors import UnsupportedModelError
+
         raise UnsupportedModelError(
             "model_family must be specified; pass 'llama' or 'gemma'. "
             "Got None — unknown or unsupported model architecture."
@@ -186,11 +188,7 @@ def upgrade_cache_list(
 
         # Threshold not yet reached or missing required properties to extract
         # keys/values.
-        if (
-            cur_offset < k_start
-            or not hasattr(c, "keys")
-            or not hasattr(c, "values")
-        ):
+        if cur_offset < k_start or not hasattr(c, "keys") or not hasattr(c, "values"):
             events.append(
                 CacheUpgradeEvent(
                     upgraded=False,
@@ -213,9 +211,7 @@ def upgrade_cache_list(
         keys = getattr(c, "keys", None)
         values = getattr(c, "values", None)
         if keys is not None and values is not None:
-            tq.update_and_fetch(
-                keys[..., :cur_offset, :], values[..., :cur_offset, :]
-            )
+            tq.update_and_fetch(keys[..., :cur_offset, :], values[..., :cur_offset, :])
 
         prompt_cache[i] = tq
 

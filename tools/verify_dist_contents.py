@@ -38,9 +38,7 @@ REQUIRED_SHARED_MEMBERS: tuple[str, ...] = (
     "mlx_lm/__init__.py",
     "mlx_lm/py.typed",
 )
-REQUIRED_WHEEL_PREFIXES: tuple[str, ...] = (
-    "mlx_lm/models/",
-)
+REQUIRED_WHEEL_PREFIXES: tuple[str, ...] = ("mlx_lm/models/",)
 REQUIRED_SDIST_ONLY_MEMBERS: tuple[str, ...] = (
     "docs/product_contract.md",
     "docs/support_matrix.md",
@@ -64,8 +62,7 @@ def _find_single(dist_dir: Path, pattern: str) -> Path:
     matches = sorted(dist_dir.glob(pattern))
     if len(matches) != 1:
         raise FileNotFoundError(
-            "expected exactly one "
-            f"{pattern} in {dist_dir}, found {len(matches)}"
+            f"expected exactly one {pattern} in {dist_dir}, found {len(matches)}"
         )
     return matches[0]
 
@@ -83,9 +80,7 @@ def _strip_sdist_root(member: str) -> str:
 def _read_sdist_members(path: Path) -> tuple[str, ...]:
     with tarfile.open(path, "r:gz") as archive:
         return tuple(
-            _strip_sdist_root(member)
-            for member in archive.getnames()
-            if member
+            _strip_sdist_root(member) for member in archive.getnames() if member
         )
 
 
@@ -112,10 +107,7 @@ def _forbidden_members(members: tuple[str, ...]) -> list[str]:
     return sorted(
         member
         for member in members
-        if any(
-            member.startswith(prefix)
-            for prefix in FORBIDDEN_TOP_LEVEL_PREFIXES
-        )
+        if any(member.startswith(prefix) for prefix in FORBIDDEN_TOP_LEVEL_PREFIXES)
     )
 
 
@@ -224,27 +216,20 @@ def _print_human(result: dict[str, object]) -> None:
                 print(f"    {member}")
 
     if result["ok"]:
-        print(
-            "\nBuilt artifacts match the intended TurboQuant shipping "
-            "boundary."
-        )
+        print("\nBuilt artifacts match the intended TurboQuant shipping boundary.")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Validate built wheel/sdist contents against the intended "
-            "boundary."
+            "Validate built wheel/sdist contents against the intended boundary."
         )
     )
     parser.add_argument(
         "--dist-dir",
         type=Path,
         default=DEFAULT_DIST_DIR,
-        help=(
-            "Directory containing exactly one wheel and one source "
-            "distribution."
-        ),
+        help=("Directory containing exactly one wheel and one source distribution."),
     )
     parser.add_argument(
         "--json",

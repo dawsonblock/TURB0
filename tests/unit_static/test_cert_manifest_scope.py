@@ -3,7 +3,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WRITE_CERT_MANIFEST = REPO_ROOT / "scripts" / "write_cert_manifest.py"
 
@@ -102,8 +101,7 @@ def test_certify_script_marks_unselected_families_out_of_scope() -> None:
     )
 
     assert "OUT OF SCOPE" in content, (
-        "certify_apple_runtime.sh must mark unselected families "
-        "as out of scope."
+        "certify_apple_runtime.sh must mark unselected families as out of scope."
     )
     assert "No real-model certification scope selected" in content, (
         "certify_apple_runtime.sh must fail closed when no real-model "

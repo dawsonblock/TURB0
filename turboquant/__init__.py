@@ -59,19 +59,24 @@ def __getattr__(name: str):
 
     if name == "calibrate":
         from turboquant.calibration.fit_quantizer import calibrate
+
         return calibrate
     elif name == "TurboQuantPipeline":
         from turboquant.core.pipeline import TurboQuantPipeline
+
         return TurboQuantPipeline
     elif name == "TurboQuantKVCache":
         from turboquant.runtime.kv_interface import TurboQuantKVCache
+
         return TurboQuantKVCache
     elif name == "upgrade_cache_list":
         from turboquant.integrations.mlx.upgrade import upgrade_cache_list
+
         return upgrade_cache_list
     elif name == "KVCompressor":
         # compatibility alias for TurboQuantKVCache
         from turboquant.runtime.kv_interface import TurboQuantKVCache as KVCompressor
+
         return KVCompressor
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
