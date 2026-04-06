@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """
 Structural proof: TurboQuantKCache.update_and_fetch() must return
 TurboQuantKeysView as the key output — never a plain mx.array.

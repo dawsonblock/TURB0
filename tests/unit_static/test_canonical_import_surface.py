@@ -1,62 +1,53 @@
-import os
 import re
+from pathlib import Path
 
 import pytest
 
-
-def get_repo_root():
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_canonical_import_surface():
-    """Ensure all internal code and docs use the turboquant.integrations.mlx namespace."""
-    root = get_repo_root()
-
-    # Directories to scan
-    scan_dirs = ["turboquant", "mlx_lm", "tests", "docs", "scripts", "benchmarks"]
-
-    # Patterns that should no longer be used for primary logic
-    forbidden_patterns = [
+def test_canonical_import_surface() -> None:
+    """Internal code and docs must prefer turboquant.integrations.mlx."""
+    scan_dirs = [
+        "turboquant",
+        "mlx_lm",
+        "tests",
+        "docs",
+        "scripts",
+        "benchmarks",
+    ]
+    forbidden_patterns = (
         re.compile(r"from integrations\.mlx"),
         re.compile(r"import integrations\.mlx"),
-    ]
-
-    # Exceptions: The shims themselves are allowed to have these imports
-    # and any compatibility tests explicitly checking the shims.
-    allowed_files = [
+    )
+    allowed_files = {
         "integrations/mlx/cache_adapter.py",
         "integrations/mlx/upgrade.py",
-        "test_canonical_import_surface.py",  # self
-    ]
+        "tests/unit_static/test_canonical_import_surface.py",
+    }
+    found_violations: list[str] = []
 
-    found_violations = []
-
-    for sdir in scan_dirs:
-        abs_sdir = os.path.join(root, sdir)
-        if not os.path.exists(abs_sdir):
+    for scan_dir in scan_dirs:
+        abs_scan_dir = REPO_ROOT / scan_dir
+        if not abs_scan_dir.exists():
             continue
 
-        for r, d, files in os.walk(abs_sdir):
-            for f in files:
-                if not f.endswith((".py", ".md")):
-                    continue
+        for full_path in abs_scan_dir.rglob("*"):
+            if full_path.suffix not in {".py", ".md"}:
+                continue
 
-                full_path = os.path.join(r, f)
-                rel_path = os.path.relpath(full_path, root)
+            rel_path = full_path.relative_to(REPO_ROOT).as_posix()
+            if rel_path in allowed_files:
+                continue
 
-                if any(rel_path == allowed for allowed in allowed_files):
-                    continue
+            try:
+                content = full_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
 
-                with open(full_path, encoding="utf-8") as f_handle:
-                    try:
-                        content = f_handle.read()
-                        for pattern in forbidden_patterns:
-                            if pattern.search(content):
-                                found_violations.append(
-                                    f"{rel_path}: matches {pattern.pattern}"
-                                )
-                    except UnicodeDecodeError:
-                        continue
+            for pattern in forbidden_patterns:
+                if pattern.search(content):
+                    found_violations.append(f"{rel_path}: matches {pattern.pattern}")
 
     if found_violations:
         pytest.fail(

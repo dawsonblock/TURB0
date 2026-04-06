@@ -211,7 +211,10 @@ def upgrade_cache_list(
         keys = getattr(c, "keys", None)
         values = getattr(c, "values", None)
         if keys is not None and values is not None:
-            tq.update_and_fetch(keys[..., :cur_offset, :], values[..., :cur_offset, :])
+            tq.update_and_fetch(
+                keys[..., :cur_offset, :],
+                values[..., :cur_offset, :],
+            )
 
         prompt_cache[i] = tq
 

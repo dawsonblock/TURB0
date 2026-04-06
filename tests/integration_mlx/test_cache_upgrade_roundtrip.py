@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """
 Structural test: upgrade_cache_list must promote a cache entry to
 TurboQuantKCache when its offset exceeds k_start, and the promoted
@@ -6,6 +8,8 @@ cache must correctly service subsequent update_and_fetch calls.
 Uses synthetic MLX tensors; no model weights are required.
 Auto-skips on non-MLX machines via pytest.importorskip.
 """
+
+from typing import Any
 
 import pytest
 
@@ -20,7 +24,7 @@ from turboquant.runtime.kv_interface import TurboQuantKeysView
 class _MinimalKVCache:
     """Minimal stand-in for mlx_lm KVCache with the attributes upgrade_cache_list reads."""
 
-    def __init__(self, keys: "mx.array", values: "mx.array"):
+    def __init__(self, keys: Any, values: Any):
         self.keys = keys
         self.values = values
         self.offset = keys.shape[-2]

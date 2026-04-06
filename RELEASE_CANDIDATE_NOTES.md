@@ -95,6 +95,7 @@ correctly blocked until `certify-apple-runtime` runs on an online self-hosted
     `families: ["gemma", "llama"]`)
 
 ### Cleanup — Ruff linting and temp script removal
+
 - 78 violations resolved (unused imports, whitespace, line length)
 - `turboquant/__init__.py` updated: added `check_mlx_version`, `has_mlx`,
   `is_apple_silicon`, `require_mlx` to `__all__`

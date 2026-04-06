@@ -30,8 +30,9 @@ from __future__ import annotations
 def peak_memory_bytes(cache_list) -> int:
     """Sum the byte sizes of all MLX arrays in a cache list.
 
-    Iterates over each cache object and looks for known array attributes
-    (``keys``, ``values``, ``k_codes``, ``k_scales``, ``v_codes``, ``v_scales``).
+    Iterates over each cache object and looks for known array
+    attributes (``keys``, ``values``, ``k_codes``, ``k_scales``,
+    ``v_codes``, ``v_scales``).
 
     Parameters
     ----------

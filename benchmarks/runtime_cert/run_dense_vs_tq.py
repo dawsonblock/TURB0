@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# flake8: noqa
+
 """
 run_dense_vs_tq — paired dense / TurboQuant benchmark runner.
 

@@ -13,6 +13,8 @@ Prints a table like:
   ...
 """
 
+# flake8: noqa
+
 import os
 import sys
 import time

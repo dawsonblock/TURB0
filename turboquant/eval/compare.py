@@ -1,5 +1,6 @@
 """
-turboquant.eval.compare — accuracy comparison between dense and compressed inference.
+turboquant.eval.compare — accuracy comparison between dense and
+compressed inference.
 
 This module provides the tools to measure, quantify, and report the accuracy
 degradation introduced by KV-cache compression.  The comparison is always
@@ -37,7 +38,9 @@ Usage
 
 Thresholds
 ----------
-Default thresholds (heuristics from docs/evaluation.md, not certification gates):
+Default thresholds (
+heuristics from docs/evaluation.md, not certification gates
+):
   * ``mean_kl``          ≤ 0.1 → ``kl_bound_ok``
   * ``token_match_rate`` ≥ 0.95 → ``match_bound_ok``
 
@@ -48,7 +51,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger("turboquant.eval.compare")
 
@@ -214,7 +217,8 @@ class AccuracyComparison:
         # Token match rate — greedy argmax comparison
         p_tokens = mx.argmax(p, axis=-1)  # [n]
         q_tokens = mx.argmax(q, axis=-1)  # [n]
-        match_rate = float(mx.mean((p_tokens == q_tokens).astype(mx.float32)).item())
+        matches = cast(Any, p_tokens == q_tokens).astype(mx.float32)
+        match_rate = float(mx.mean(matches).item())
 
         logger.info(
             "AccuracyComparison: n=%d mean_kl=%.4f max_kl=%.4f token_match=%.3f",
@@ -238,7 +242,11 @@ class AccuracyComparison:
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
-    def _collect_logits_dense(self, input_ids, max_tokens: int) -> list:
+    def _collect_logits_dense(
+        self,
+        input_ids,
+        max_tokens: int,
+    ) -> list:
         """Run the model with a standard dense KVCache; return logits list."""
         import mlx.core as mx
 
@@ -268,10 +276,11 @@ class AccuracyComparison:
             This method constructs ``TurboQuantKCache`` objects **directly** —
             it intentionally bypasses the runtime model-family support gate
             (i.e. it does not call ``upgrade_cache_list``).  This is by design
-            for internal/eval purposes: the comparison harness needs fresh cache objects
-            built from an explicit config, independent of what model architecture
-            is being evaluated.  Do **not** use this path as a template for
-            production inference — production code must route through
+            for internal/eval purposes: the comparison harness needs fresh
+            cache objects built from an explicit config, independent of what
+            model architecture is being evaluated.  Do **not** use this path
+            as a template for production inference — production code must
+            route through
             :func:`~turboquant.integrations.mlx.upgrade.upgrade_cache_list`
             with a valid ``model_family``.
         """

@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """Unit tests for TurboQuantKVCache memory accounting.
 
 Verifies that:

@@ -43,7 +43,7 @@ def test_public_api_surface():
 
 
 def test_removed_turboquant_runtime():
-    """Verify that TurboQuantRuntime is removed from the supported surface and raises an error."""
+    """TurboQuantRuntime is removed from the supported surface."""
     # It shouldn't be in __all__
     assert "TurboQuantRuntime" not in turboquant.__all__
 
@@ -63,7 +63,7 @@ def test_internal_adapter_not_exported_at_package_root():
 
 
 def test_package_root_docstring_matches_public_contract():
-    """The package-root docstring must reflect the same narrow contract as the docs."""
+    """The package-root docstring must reflect the same narrow contract."""
     doc = turboquant.__doc__ or ""
 
     assert "RLM" not in doc, "turboquant.__doc__ still contains the 'RLM' typo."
@@ -71,7 +71,8 @@ def test_package_root_docstring_matches_public_contract():
         "turboquant.__doc__ must describe the supported MLX/Apple-Silicon LLM paths."
     )
     assert "passing full-model" in doc and "runtime-certification artifacts" in doc, (
-        "turboquant.__doc__ must not imply that any partial artifact set makes the package production-certified."
+        "turboquant.__doc__ must not imply that any partial artifact set "
+        "makes the package production-certified."
     )
     assert "internal/eval-only" in doc, (
         "turboquant.__doc__ must label TurboQuantKCache as an internal/eval-only adapter."

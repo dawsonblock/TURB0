@@ -1,24 +1,30 @@
 """
-TurboQuant — research-stage KV-cache compression for selected MLX/Apple-Silicon LLM paths.
+TurboQuant — research-stage KV-cache compression for selected
+MLX/Apple-Silicon LLM paths.
 
-This package exposes the supported public surface for the current TurboQuant prototype.
-Do not treat the package-level API as production-certified unless passing full-model
-runtime-certification artifacts have been generated on Apple Silicon.
+This package exposes the supported public surface for the current
+TurboQuant prototype. Do not treat the package-level API as
+production-certified unless passing full-model runtime-certification artifacts have been generated on Apple Silicon.
 
 Public API
 ----------
 TurboQuantConfig          — runtime-immutable configuration
 TurboQuantPipeline        — low-level encode/decode pipeline
 TurboQuantKVCache         — canonical KV cache implementation
-KVCompressor              — compatibility alias for TurboQuantKVCache; prefer TurboQuantKVCache for new code
+KVCompressor              — compatibility alias for TurboQuantKVCache;
+                            prefer TurboQuantKVCache for new code
 calibrate                 — calibration pass over representative data
-upgrade_cache_list        — canonical support-gated runtime path for allowlisted MLX cache upgrades
+upgrade_cache_list        — canonical support-gated runtime path for
+                            allowlisted MLX cache upgrades
 
 Internal adapter note
 ---------------------
-`TurboQuantKCache(...)` is an internal/eval-only mlx_lm adapter. It intentionally bypasses the
-support gate and is therefore not exported from the package root.
+`TurboQuantKCache(...)` is an internal/eval-only mlx_lm adapter. It
+intentionally bypasses the support gate and is therefore not exported
+from the package root.
 """
+
+from typing import TYPE_CHECKING, Any
 
 from turboquant._deps import (
     check_mlx_version,
@@ -27,6 +33,13 @@ from turboquant._deps import (
     require_mlx,
 )
 from turboquant.config import TurboQuantConfig
+
+if TYPE_CHECKING:
+    from turboquant.calibration.fit_quantizer import calibrate
+    from turboquant.core.pipeline import TurboQuantPipeline
+    from turboquant.integrations.mlx.upgrade import upgrade_cache_list
+    from turboquant.runtime.kv_interface import TurboQuantKVCache
+    from turboquant.runtime.kv_interface import TurboQuantKVCache as KVCompressor
 
 # Validate MLX version bounds at import time (no-op if MLX is absent)
 check_mlx_version()
@@ -43,7 +56,7 @@ _MLX_DEPENDENT = frozenset(
 )
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name not in _MLX_DEPENDENT:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -53,7 +66,8 @@ def __getattr__(name: str):
         # regardless of platform so the contract is uniform: accessing any
         # MLX-dependent symbol without MLX always fails loudly.
         raise ImportError(
-            f"TurboQuant: '{name}' requires the `mlx` package on Apple Silicon. "
+            f"TurboQuant: '{name}' requires the `mlx` package on Apple "
+            "Silicon. "
             "Install it with: pip install 'turboquant[apple]'"
         )
 

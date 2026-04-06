@@ -1,4 +1,5 @@
 # Copyright © 2023-2024 Apple Inc.
+# flake8: noqa
 
 import argparse
 import contextlib
@@ -232,9 +233,13 @@ def wired_limit(model: nn.Module, streams: Optional[list[mx.Stream]] = None):
             pass
     else:
         model_bytes = tree_reduce(
-            lambda acc, x: acc + x.nbytes if isinstance(x, mx.array) else acc, model, 0
+            lambda acc, x: acc + x.nbytes if isinstance(x, mx.array) else acc,
+            model,
+            0,
         )
-        max_rec_size = mx.metal.device_info()["max_recommended_working_set_size"]
+        max_rec_size = mx.metal.device_info()[
+            "max_recommended_working_set_size"
+        ]
         if model_bytes > 0.9 * max_rec_size:
             model_mb = model_bytes // 2**20
             max_rec_mb = max_rec_size // 2**20
@@ -286,12 +291,16 @@ class GenerationResponse:
     finish_reason: Optional[str] = None
 
 
-def maybe_quantize_kv_cache(prompt_cache, quantized_kv_start, kv_group_size, kv_bits):
+def maybe_quantize_kv_cache(
+    prompt_cache, quantized_kv_start, kv_group_size, kv_bits
+):
     if kv_bits is None:
         return
     for e, c in enumerate(prompt_cache):
         if hasattr(c, "to_quantized") and c.offset >= quantized_kv_start:
-            prompt_cache[e] = c.to_quantized(group_size=kv_group_size, bits=kv_bits)
+            prompt_cache[e] = c.to_quantized(
+                group_size=kv_group_size, bits=kv_bits
+            )
 
 
 _tq_logger = logging.getLogger("turboquant.generate")
@@ -312,6 +321,7 @@ def _infer_model_family(model: nn.Module) -> Optional[str]:
     2. Class module + name string search (fallback for non-standard models).
     """
     from turboquant.runtime.support import SUPPORTED_FAMILIES, _normalize
+
     # 1. Check model_type attribute first (fastest path).
     model_type = getattr(model, "model_type", None)
     if model_type:
@@ -382,21 +392,26 @@ def maybe_turboquant_k_cache(
         v_enabled=turboquant_v_enabled,
         block_tokens=turboquant_block_tokens,
     )
-    upgrade_cache_list(prompt_cache, k_start=turboquant_k_start, config=_cfg, model_family=turboquant_model_family)
+    upgrade_cache_list(prompt_cache,
+        k_start=turboquant_k_start,
+        config=_cfg,
+        model_family=turboquant_model_family,
+    )
 
     # One-shot confirmation that TQ path is active (logged once per process)
     global _tq_upgrade_logged
     if not _tq_upgrade_logged:
         n_upgraded = sum(
-            1 for c in prompt_cache
-            if type(c).__name__ == "TurboQuantKCache"
+            1 for c in prompt_cache if type(c).__name__ == "TurboQuantKCache"
         )
         if n_upgraded > 0:
             _tq_logger.info(
                 "TurboQuant cache active: %d/%d layers upgraded "
                 "(k_bits=%d, rotation=%s, v_enabled=%s)",
-                n_upgraded, len(prompt_cache),
-                turboquant_k_bits, turboquant_rotation,
+                n_upgraded,
+                len(prompt_cache),
+                turboquant_k_bits,
+                turboquant_rotation,
                 turboquant_v_enabled,
             )
             _tq_upgrade_logged = True
@@ -408,7 +423,9 @@ def generate_step(
     *,
     max_tokens: int = 256,
     sampler: Optional[Callable[[mx.array], mx.array]] = None,
-    logits_processors: Optional[list[Callable[[mx.array, mx.array], mx.array]]] = None,
+    logits_processors: Optional[
+        list[Callable[[mx.array, mx.array], mx.array]]
+    ] = None,
     max_kv_size: Optional[int] = None,
     prompt_cache: Optional[Any] = None,
     prefill_step_size: int = 2048,
@@ -514,22 +531,30 @@ def generate_step(
 
     sampler = sampler or (lambda x: mx.argmax(x, axis=-1))
 
-    def _model_call(input_tokens: mx.array, input_embeddings: Optional[mx.array]):
+    def _model_call(
+        input_tokens: mx.array, input_embeddings: Optional[mx.array]
+    ):
         if input_embeddings is not None:
             return model(
-                input_tokens, cache=prompt_cache, input_embeddings=input_embeddings
+                input_tokens,
+                cache=prompt_cache,
+                input_embeddings=input_embeddings,
             )
         else:
             return model(input_tokens, cache=prompt_cache)
 
-    def _step(input_tokens: mx.array, input_embeddings: Optional[mx.array] = None):
+    def _step(
+        input_tokens: mx.array, input_embeddings: Optional[mx.array] = None
+    ):
         nonlocal tokens
 
         with mx.stream(generation_stream):
             logits = _model_call(
                 input_tokens=input_tokens[None],
                 input_embeddings=(
-                    input_embeddings[None] if input_embeddings is not None else None
+                    input_embeddings[None]
+                    if input_embeddings is not None
+                    else None
                 ),
             )
 
@@ -552,7 +577,9 @@ def generate_step(
 
     with mx.stream(generation_stream):
         total_prompt_tokens = (
-            len(input_embeddings) if input_embeddings is not None else len(prompt)
+            len(input_embeddings)
+            if input_embeddings is not None
+            else len(prompt)
         )
         prompt_processed_tokens = 0
         prompt_progress_callback(prompt_processed_tokens, total_prompt_tokens)
@@ -570,7 +597,9 @@ def generate_step(
             quantize_cache_fn(prompt_cache)
             mx.eval([c.state for c in prompt_cache])
             prompt_processed_tokens += n_to_process
-            prompt_progress_callback(prompt_processed_tokens, total_prompt_tokens)
+            prompt_progress_callback(
+                prompt_processed_tokens, total_prompt_tokens
+            )
             prompt = prompt[n_to_process:]
             input_embeddings = (
                 input_embeddings[n_to_process:]
@@ -579,7 +608,9 @@ def generate_step(
             )
             mx.clear_cache()
 
-        y, logprobs = _step(input_tokens=prompt, input_embeddings=input_embeddings)
+        y, logprobs = _step(
+            input_tokens=prompt, input_embeddings=input_embeddings
+        )
 
     mx.async_eval(y, logprobs)
     n = 0
@@ -607,7 +638,9 @@ def speculative_generate_step(
     num_draft_tokens: int = 2,
     max_tokens: int = 256,
     sampler: Optional[Callable[[mx.array], mx.array]] = None,
-    logits_processors: Optional[list[Callable[[mx.array, mx.array], mx.array]]] = None,
+    logits_processors: Optional[
+        list[Callable[[mx.array, mx.array], mx.array]]
+    ] = None,
     prompt_cache: Optional[Any] = None,
     prefill_step_size: int = 512,
     kv_bits: Optional[int] = None,
@@ -686,9 +719,13 @@ def speculative_generate_step(
                     y = y[: -(n_predict - 1)]
                 for i in range(n_predict):
                     prev_tokens = (
-                        mx.concat([prev_tokens, y]) if prev_tokens is not None else y
+                        mx.concat([prev_tokens, y])
+                        if prev_tokens is not None
+                        else y
                     )
-                    y, logprobs = _process_and_sample(prev_tokens, logits[:, i, :])
+                    y, logprobs = _process_and_sample(
+                        prev_tokens, logits[:, i, :]
+                    )
                     out_y.append(y)
                     out_logprobs.append(logprobs)
                 return mx.concatenate(out_y, axis=0), mx.concatenate(
@@ -708,7 +745,9 @@ def speculative_generate_step(
 
     def _rewind_cache(num_draft, num_accept):
         cache.trim_prompt_cache(model_cache, num_draft - num_accept)
-        cache.trim_prompt_cache(draft_cache, max(num_draft - num_accept - 1, 0))
+        cache.trim_prompt_cache(
+            draft_cache, max(num_draft - num_accept - 1, 0)
+        )
 
     def _draft_generate(y, num_draft):
         if num_draft == 0:
@@ -733,7 +772,9 @@ def speculative_generate_step(
             num_draft = min(max_tokens - ntoks, num_draft_tokens)
             draft_tokens = _draft_generate(draft_y, num_draft)
             if prev_tokens is not None:
-                prev_tokens = prev_tokens[: prev_tokens.size - y.size - num_draft + 1]
+                prev_tokens = prev_tokens[
+                    : prev_tokens.size - y.size - num_draft + 1
+                ]
             y = mx.concatenate([y, draft_tokens])
             tokens, logprobs = _step(model, model_cache, y, num_draft + 1)
             mx.eval(tokens, draft_tokens)
@@ -808,10 +849,13 @@ def stream_generate(
     if not isinstance(prompt, mx.array):
         if isinstance(prompt, str):
             # Try to infer if special tokens are needed
-            add_special_tokens = tokenizer.bos_token is None or not prompt.startswith(
-                tokenizer.bos_token
+            add_special_tokens = (
+                tokenizer.bos_token is None
+                or not prompt.startswith(tokenizer.bos_token)
             )
-            prompt = tokenizer.encode(prompt, add_special_tokens=add_special_tokens)
+            prompt = tokenizer.encode(
+                prompt, add_special_tokens=add_special_tokens
+            )
         prompt = mx.array(prompt)
 
     detokenizer = tokenizer.detokenizer
@@ -869,7 +913,9 @@ def stream_generate(
             generation_tokens=n + 1,
             generation_tps=(n + 1) / (time.perf_counter() - tic),
             peak_memory=mx.get_peak_memory() / 1e9,
-            finish_reason="stop" if token in tokenizer.eos_token_ids else "length",
+            finish_reason="stop"
+            if token in tokenizer.eos_token_ids
+            else "length",
         )
 
 
@@ -1019,7 +1065,9 @@ def _make_cache(model, left_padding):
             return c
         elif isinstance(c, RotatingKVCache):
             if c.keep > 0:
-                raise ValueError("RotatingKVCache with keep tokens is not supported.")
+                raise ValueError(
+                    "RotatingKVCache with keep tokens is not supported."
+                )
             return BatchRotatingKVCache(c.max_size, left_padding)
         elif isinstance(c, CacheList):
             return CacheList(*(to_batch_cache(sub_c) for sub_c in c.caches))
@@ -1050,7 +1098,6 @@ def _merge_caches(caches):
 
 
 class BatchGenerator:
-
     @dataclass
     class Response:
         uid: int
@@ -1080,8 +1127,12 @@ class BatchGenerator:
         self.uid_count = 0
         self.prefill_step_size = prefill_step_size
         self.prefill_batch_size = prefill_batch_size
-        self.completion_batch_size = max(completion_batch_size, prefill_batch_size)
-        self.prompt_progress_callback = prompt_progress_callback or (lambda *_: None)
+        self.completion_batch_size = max(
+            completion_batch_size, prefill_batch_size
+        )
+        self.prompt_progress_callback = prompt_progress_callback or (
+            lambda *_: None
+        )
         self._stats = BatchStats()
 
         self.active_batch = None
@@ -1103,7 +1154,10 @@ class BatchGenerator:
         self.close()
 
     def insert(
-        self, prompts, max_tokens: Union[list[int], int, None] = None, caches=None
+        self,
+        prompts,
+        max_tokens: Union[list[int], int, None] = None,
+        caches=None,
     ):
         uids = []
 
@@ -1122,7 +1176,8 @@ class BatchGenerator:
             self.uid_count += 1
         # Sort in ascending order of length
         self.unprocessed_prompts = sorted(
-            self.unprocessed_prompts, key=lambda x: len(x[1]) + cache.cache_length(x[3])
+            self.unprocessed_prompts,
+            key=lambda x: len(x[1]) + cache.cache_length(x[3]),
         )
         return uids
 
@@ -1130,7 +1185,9 @@ class BatchGenerator:
         uids = set(uids)
         if self.active_batch is not None:
             batch = self.active_batch
-            keep_idx = [e for e, uid in enumerate(batch.uids) if uid not in uids]
+            keep_idx = [
+                e for e, uid in enumerate(batch.uids) if uid not in uids
+            ]
             if len(keep_idx) > 0:
                 batch.filter(keep_idx)
             else:
@@ -1210,7 +1267,12 @@ class BatchGenerator:
         y, logprobs = self._step(inputs, prompt_cache)
         mx.async_eval(y, logprobs)
         return Batch(
-            list(uids), y, logprobs, list(max_tokens), [0] * len(uids), prompt_cache
+            list(uids),
+            y,
+            logprobs,
+            list(max_tokens),
+            [0] * len(uids),
+            prompt_cache,
         )
 
     def _step(self, input_tokens: mx.array, prompt_cache: list[Any]):
@@ -1221,7 +1283,9 @@ class BatchGenerator:
         return sampled, list(logprobs)
 
     def stats(self):
-        self._stats.prompt_tps = self._stats.prompt_tokens / self._stats.prompt_time
+        self._stats.prompt_tps = (
+            self._stats.prompt_tokens / self._stats.prompt_time
+        )
         self._stats.generation_tps = (
             self._stats.generation_tokens / self._stats.generation_time
         )
@@ -1297,7 +1361,9 @@ class BatchGenerator:
                 keep_idx.append(e)
             if finish_reason is not None:
                 cache = batch.extract_cache(e)
-            responses.append(self.Response(uid, t, logprobs[e], finish_reason, cache))
+            responses.append(
+                self.Response(uid, t, logprobs[e], finish_reason, cache)
+            )
 
         # Remove any finished completions
         if len(end_idx):
@@ -1348,7 +1414,10 @@ def batch_generate(
     num_samples = len(prompts)
     fin = 0
     if verbose:
-        print(f"[batch_generate] Finished processing 0/{num_samples} ...", end="\r")
+        print(
+            f"[batch_generate] Finished processing 0/{num_samples} ...",
+            end="\r",
+        )
 
     uids = gen.insert(prompts, max_tokens, caches=prompt_caches)
     results = {uid: [] for uid in uids}
@@ -1373,7 +1442,9 @@ def batch_generate(
     # Return results in correct order
     texts = [tokenizer.decode(results[uid]) for uid in uids]
     stats = gen.stats()
-    caches = [prompt_caches[uid] for uid in uids] if return_prompt_caches else None
+    caches = (
+        [prompt_caches[uid] for uid in uids] if return_prompt_caches else None
+    )
     if verbose:
         print(
             f"[batch_generate] Prompt: {stats.prompt_tokens} tokens, {stats.prompt_tps:.3f} tokens-per-sec"
@@ -1401,7 +1472,10 @@ def main():
             return_metadata=True,
         )
         if isinstance(prompt_cache[0], QuantizedKVCache):
-            if args.kv_bits is not None and args.kv_bits != prompt_cache[0].bits:
+            if (
+                args.kv_bits is not None
+                and args.kv_bits != prompt_cache[0].bits
+            ):
                 raise ValueError(
                     "--kv-bits does not match the kv cache loaded from --prompt-cache-file."
                 )
@@ -1414,7 +1488,9 @@ def main():
     tokenizer_config = (
         {} if not using_cache else json.loads(metadata["tokenizer_config"])
     )
-    tokenizer_config["trust_remote_code"] = True if args.trust_remote_code else None
+    tokenizer_config["trust_remote_code"] = (
+        True if args.trust_remote_code else None
+    )
 
     model_path = args.model
     if using_cache:
@@ -1457,7 +1533,9 @@ def main():
 
         has_prefill = args.prefill_response is not None
         if has_prefill:
-            messages.append({"role": "assistant", "content": args.prefill_response})
+            messages.append(
+                {"role": "assistant", "content": args.prefill_response}
+            )
         prompt = tokenizer.apply_chat_template(
             messages,
             tokenize=False,
@@ -1484,7 +1562,9 @@ def main():
     if args.draft_model is not None:
         draft_model, draft_tokenizer = load(args.draft_model)
         if draft_tokenizer.vocab_size != tokenizer.vocab_size:
-            raise ValueError("Draft model tokenizer does not match model tokenizer.")
+            raise ValueError(
+                "Draft model tokenizer does not match model tokenizer."
+            )
     else:
         draft_model = None
     sampler = make_sampler(
@@ -1495,7 +1575,8 @@ def main():
         top_k=args.top_k,
         xtc_probability=args.xtc_probability,
         xtc_threshold=args.xtc_threshold,
-        xtc_special_tokens=tokenizer.encode("\n") + list(tokenizer.eos_token_ids),
+        xtc_special_tokens=tokenizer.encode("\n")
+        + list(tokenizer.eos_token_ids),
     )
     response = generate(
         model,

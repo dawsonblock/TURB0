@@ -13,6 +13,8 @@ Sample output:
   ...
 """
 
+# flake8: noqa
+
 import os
 import sys
 

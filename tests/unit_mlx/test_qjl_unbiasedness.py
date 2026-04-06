@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """Unit tests for QJLProjector inner-product estimation.
 
 The QJL estimator uses 1-bit sign sketches: it captures the *angle* between

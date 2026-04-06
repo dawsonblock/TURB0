@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """Unit tests for PolarQuant pipeline encode/decode and block persistence.
 
 Requires MLX (Apple Silicon).

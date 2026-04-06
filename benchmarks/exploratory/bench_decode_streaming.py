@@ -19,6 +19,8 @@ Sample output:
       ...
 """
 
+# flake8: noqa
+
 import os
 import sys
 import time
@@ -80,7 +82,7 @@ def _baseline_attn(q, k, v) -> mx.array:
     k_t = k.swapaxes(-1, -2)
     scores = (q @ k_t) * scale
     weights = mx.softmax(scores.astype(mx.float32), axis=-1).astype(q.dtype)
-    return weights @ v
+    return mx.array(weights @ v)
 
 
 def main():

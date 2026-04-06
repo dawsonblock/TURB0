@@ -36,6 +36,7 @@ import ast
 import inspect
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -312,6 +313,7 @@ def test_upgrade_cache_list_rejects_none_model_family() -> None:
     """upgrade_cache_list must raise UnsupportedModelError when model_family=None."""
     injected = _add_repo_to_path()
     try:
+        from turboquant.config import TurboQuantConfig
         from turboquant.errors import UnsupportedModelError
         from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 
@@ -323,7 +325,7 @@ def test_upgrade_cache_list_rejects_none_model_family() -> None:
             upgrade_cache_list(
                 [_StubCache()],
                 k_start=0,
-                config=object(),
+                config=TurboQuantConfig(),
                 model_family=None,
             )
     except ModuleNotFoundError as exc:
@@ -430,7 +432,7 @@ def test_record_runtime_upgrade_events_converts_runtime_events() -> None:
 
         assert recorded == 1, "Only successful runtime upgrades should be persisted."
         assert len(log.events) == 1, "Exactly one persistence event should be recorded."
-        persisted = log.events[0]
+        persisted = cast(Any, log.events[0])
         assert persisted.layer_index == 2
         assert persisted.token_index == 128
         assert persisted.old_type == "KVCache"

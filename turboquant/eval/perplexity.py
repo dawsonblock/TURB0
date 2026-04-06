@@ -103,7 +103,11 @@ def perplexity_report(
 
     # ---- dense ----
     dense_cache = make_prompt_cache(model)
-    dense_logits = _collect_logits(model, feed, cache=dense_cache)  # [T-1, V]
+    dense_logits = _collect_logits(
+        model,
+        feed,
+        cache=dense_cache,
+    )  # [T-1, V]
     mx.eval(dense_logits)
     dense_ppl = perplexity_from_logits(dense_logits, targets)
 

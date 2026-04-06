@@ -26,6 +26,8 @@ API
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import mlx.core as mx
 
 from turboquant.errors import TurboQuantShapeError
@@ -245,7 +247,7 @@ def dequantize_groups(
 
         _DEQUANT_CACHE[key] = mx.compile(fn, shapeless=False)
 
-    return _DEQUANT_CACHE[key](packed, scales)
+    return mx.array(cast(Any, _DEQUANT_CACHE[key](packed, scales)))
 
 
 # ── GroupScalarQuantizer ──────────────────────────────────────────────────────

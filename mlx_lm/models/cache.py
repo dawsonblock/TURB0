@@ -1,4 +1,5 @@
 # Copyright © 2023-2024 Apple Inc.
+# flake8: noqa
 
 import logging
 from typing import TYPE_CHECKING, Any, Optional

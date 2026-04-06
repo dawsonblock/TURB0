@@ -1,3 +1,5 @@
+# flake8: noqa
+
 import pytest
 
 from tests.helpers.mlx_env import MLX_SKIP_MARKER

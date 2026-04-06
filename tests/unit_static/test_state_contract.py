@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import pytest
 
 from turboquant.config import TurboQuantConfig
@@ -162,7 +164,8 @@ def test_validate_state_accepts_polar_v4_block_list() -> None:
 
 def test_validate_state_rejects_polar_v4_without_payload() -> None:
     state, config = _polar_v4_state()
-    state["blocks"][0].pop("polar_payload")
+    blocks = cast(list[dict[str, Any]], state["blocks"])
+    blocks[0].pop("polar_payload")
 
     with pytest.raises(TurboQuantStateError, match="must include 'polar_payload'"):
         validate_state(state, config)

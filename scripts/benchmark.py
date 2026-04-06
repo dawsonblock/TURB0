@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# flake8: noqa
+
 """
 scripts/benchmark.py — single-command TurboQuant benchmark.
 
@@ -52,6 +54,7 @@ import os
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,7 +79,12 @@ DEFAULT_V_GROUP = 64
 # ── Dry-run synthetic report ───────────────────────────────────────────────────
 
 
-def _synthetic_report(model_family: str, n_tokens: int, k_bits: int, v_bits: int):
+def _synthetic_report(
+    model_family: str,
+    n_tokens: int,
+    k_bits: int,
+    v_bits: int,
+) -> dict[str, Any]:
     """Return a fake report for non-Apple / CI environments."""
     dense = 1024 * 1024 * 32  # 32 MB
     compressed = int(dense * (k_bits / 16) * 0.55)
@@ -109,7 +117,7 @@ def _run_benchmark(
     v_bits: int,
     k_group: int,
     v_group: int,
-) -> dict:
+) -> dict[str, Any]:
     """Run a real benchmark on Apple Silicon.
 
     Attempts to load the model; falls back to dry-run on any ImportError.
@@ -142,7 +150,9 @@ def _run_benchmark(
     try:
         from mlx_lm import load
 
-        model, tokenizer = load(model_family)
+        load_result = load(model_family, return_config=False)
+        model = load_result[0]
+        tokenizer = load_result[1]
     except Exception as exc:
         logger.warning("Could not load model '%s': %s — dry-run", model_family, exc)
         return _synthetic_report(model_family, n_tokens, k_bits, v_bits)

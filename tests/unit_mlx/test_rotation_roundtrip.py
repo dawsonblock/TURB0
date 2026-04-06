@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """Unit tests for FixedRotation — apply/invert roundtrip and orthogonality.
 
 Requires MLX (Apple Silicon).

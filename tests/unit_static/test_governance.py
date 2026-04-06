@@ -445,9 +445,7 @@ def test_only_experimental_metal_shader_path_exists() -> None:
         / "metal"
         / "decode_k.metal"
     )
-    duplicate = (
-        REPO_ROOT / "turboquant" / "kernels" / "metal" / "decode_k.metal"
-    )
+    duplicate = REPO_ROOT / "turboquant" / "kernels" / "metal" / "decode_k.metal"
 
     assert canonical.exists(), (
         "Canonical experimental Metal shader asset missing at "

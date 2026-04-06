@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """Unit tests for TurboQuantPipeline MSE encode/decode roundtrip.
 
 Verifies that:

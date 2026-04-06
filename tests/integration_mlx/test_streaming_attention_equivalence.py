@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """
 Structural test: turboquant_streaming_attention must produce
 a finite, correctly-shaped output.

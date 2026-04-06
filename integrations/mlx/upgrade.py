@@ -5,7 +5,7 @@ Deprecated: Use 'from turboquant.integrations.mlx.upgrade import ...' instead.
 
 import warnings
 
-from turboquant.integrations.mlx.upgrade import *  # noqa: F403
+from turboquant.integrations.mlx.upgrade import *  # noqa: F401,F403
 
 warnings.warn(
     "Importing from 'integrations.mlx.upgrade' is deprecated. "
