@@ -1,6 +1,8 @@
 # Contract Audit
 
-This audit records the actual TurboQuant support contract in the checked-in tree and the evidence that is addressable from this workspace.
+This audit records the actual TurboQuant support contract in the checked-in
+tree and the evidence rules enforced by the repository. It does not assume
+that a portable source snapshot contains a current Apple certification bundle.
 
 ## Canonical runtime path
 
@@ -30,35 +32,27 @@ All of those surfaces bypass the model-family support gate. The supported contra
 - Paper-facing presets: `paper_mse` and `paper_prod` / `paper_prod_qjl`
 - Evidence rule: source archives document workflow shape but do not prove a current PASS without an addressable workflow artifact, release evidence bundle, or pinned manifest digest
 
-## Evidence sources present in this workspace
+## Evidence rules present in this workspace
 
 Workflow definitions:
 
 - `.github/workflows/apple-runtime-cert.yml` — self-hosted Apple runtime certification workflow
 - `.github/workflows/release.yml` — tagged release gate that requires Apple certification, both allowlisted families in scope, and the retained contract snapshot
+- `turboquant/contract.json` — machine-readable source of truth for the
+  source-archive evidence rule and the required release artifact set
 
-Retained local evidence directories:
-
-- `artifacts/runtime-cert/20260404_013136` — `PASS`, family-scoped to `llama`
-- `artifacts/runtime-cert/20260404_013527` — `PASS`, family-scoped to `gemma`
-- `artifacts/runtime-cert/20260404_015658` — `PASS`, combined `certification_scope.families=["gemma", "llama"]`
-
-The combined retained run under `artifacts/runtime-cert/20260404_015658` contains the machine-readable and human-auditable evidence expected by the current release-facing contract, including:
-
-- `contract.json`
-- `cert_manifest.json`
-- `preflight.json`
-- `junit_cache_roundtrip.xml`
-- `junit_attention_equiv.xml`
-- `junit_llama_smoke.xml`
-- `junit_gemma_smoke.xml`
-- `junit_long_context.xml`
-- `aggregate_runs.csv`
-- `certification_summary.json`
+Portable source snapshots are not expected to include
+`artifacts/runtime-cert/` directories. Final release claims must instead point
+to a published workflow artifact, release evidence bundle, or pinned manifest
+digest from the tagged Apple-arm64 run.
 
 ## Evidence without product claims
 
-The retained evidence directories also contain benchmark and exploratory detail such as paired dense-vs-TurboQuant JSON outputs, `aggregate_runs.csv`, `certification_summary.json`, and optional `events.jsonl`. Those files are kept as evidence, but primary docs no longer convert them into timeless benchmark claims without pinned provenance.
+When Apple certification is run, the resulting evidence bundle can contain
+benchmark and exploratory detail such as paired dense-vs-TurboQuant JSON
+outputs, `aggregate_runs.csv`, `certification_summary.json`, and optional
+`events.jsonl`. Those files are useful evidence, but primary docs should not
+convert them into timeless benchmark claims without pinned provenance.
 
 ## Claims deliberately removed or narrowed
 

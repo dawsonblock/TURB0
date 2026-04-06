@@ -21,9 +21,9 @@ tagged release workflow all consume or validate against that same contract.
 - Supported non-paper-facing branch: `polarquant_exp`, exercised through the
   same `upgrade_cache_list(...)` path with `TurboQuantConfig.polarquant_exp(...)`
   and the same `llama` / `gemma` allowlist gate.
-- Release workflow checks both `cert_manifest.json` and the retained
-  `contract.json` snapshot, and for tagged releases it also requires both
-  allowlisted families in `certification_scope.families`.
+- Release workflow checks both `cert_manifest.json` and the certification
+  artifact's `contract.json` snapshot, and for tagged releases it also
+  requires both allowlisted families in `certification_scope.families`.
 
 ## What ships in built distributions
 
@@ -55,26 +55,17 @@ tagged release workflow all consume or validate against that same contract.
 - A `PASS` `cert_manifest.json` whose `certification_scope.families` contains
   both `llama` and `gemma`.
 
-## Retained local evidence in this checkout
+## Evidence required for release claims
 
-- `artifacts/runtime-cert/20260404_201202` — full promoted-contract `PASS` on
-  `darwin-arm64` with `23/23` stages passed and
-  `certification_scope.families=["gemma", "llama"]`.
-- That retained bundle includes the required release evidence for both
-  paper-facing presets and the supported non-paper-facing `polarquant_exp`
-  branch, including `junit_polar_llama_runtime.xml`,
-  `junit_polar_gemma_runtime.xml`, `quality_eval_polar_short_summary.json`,
-  `quality_eval_polar_medium_summary.json`,
-  `quality_eval_polar_gemma_short_summary.json`, and
-  `quality_eval_polar_gemma_medium_summary.json`.
-- Earlier retained checkpoints remain useful for archaeology, including
-  `artifacts/runtime-cert/20260404_013136` (`llama`),
-  `artifacts/runtime-cert/20260404_013527` (`gemma`), and
-  `artifacts/runtime-cert/20260404_015658` (earlier combined `PASS`).
+A release claim requires an addressable Apple-arm64 certification artifact or
+a pinned manifest digest from the tagged workflow run. This source snapshot
+documents the workflow shape and the required artifact set, but it does not
+itself prove a current `PASS` unless that external evidence accompanies it.
 
-These retained directories are local evidence for this working tree only. A
-different extracted source or built snapshot without them does not prove a
-current `PASS` release.
+Portable source archives and shared zip snapshots are not expected to contain
+`artifacts/runtime-cert/`. If a working tree happens to retain local
+`artifacts/runtime-cert/` bundles for archaeology, treat them as local notes
+rather than portable release proof.
 
 ## Compatibility-only or secondary surfaces
 
@@ -90,18 +81,16 @@ Those surfaces remain available for compatibility or investigation, but they
 are not the canonical support-gated public runtime path and should not be
 treated as release-facing entry points.
 
-## Validation executed for this cleanup
+## Validation expected for this cleanup
 
-Validation for this boundary-hardening pass was rerun in generic packaging and
-static environments on 2026-04-05 and stayed confined to the build,
-support-contract, and static-test lanes plus the already-retained Apple
+The structural truth cleanup in this snapshot should remain confined to the
+generic build and static-test lanes. Those lanes prove buildability and
+bounded doc or workflow coherence; they do not remove the need for Apple
 runtime evidence.
 
-- `python -m build` — passed
-- `python scripts/render_support_contract.py --check` — passed
-- `pytest tests/unit_static -q` — passed
+- `python -m build`
+- `pytest tests/unit_static -q`
 
-The long-running real-model certification workflow does not need to be rerun
-for packaging/docs-only changes so long as the retained `PASS` bundle under
-`artifacts/runtime-cert/20260404_201202` remains the current evidence source
-and the runtime contract itself is unchanged.
+Apple runtime proof remains conditional on the tagged self-hosted workflow
+publishing a `PASS` certification artifact or pinned manifest digest that
+covers both allowlisted families.

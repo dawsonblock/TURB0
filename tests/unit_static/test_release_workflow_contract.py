@@ -65,6 +65,9 @@ def test_release_workflow_requires_single_verified_publish_path() -> None:
     assert not (REPO_ROOT / ".github/workflows/python-publish.yml").exists(), (
         "release.yml must be the only publish workflow."
     )
+    assert not (REPO_ROOT / ".github/workflows/python-app.yml").exists(), (
+        "static-ci.yml plus release.yml must replace the legacy python-app workflow."
+    )
     assert "verify-vendored-surface:" in content, (
         "release.yml must contain a dedicated vendored-surface verification job."
     )

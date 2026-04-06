@@ -164,6 +164,11 @@ strongest honest claim is that the package build/install structure and
 non-runtime validation lanes work there. That is useful, but it is not a
 runtime go/no-go for the Apple-Silicon MLX path.
 
+This repository layout and its static checks do not, by themselves, prove a
+current Apple runtime PASS for any release. Only a published certification
+artifact or pinned manifest digest from the tagged Apple-arm64 workflow does
+that.
+
 Local validation entry points:
 
 ```bash

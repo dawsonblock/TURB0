@@ -11,22 +11,23 @@ like Qwen, Mistral, and Phi are exploratory and uncertified.
 ## Summary
 
 This pass covers Phases 2–6 and the `paper-contract-tranche1` branch of the
-v0.2.2 release cycle. The repository is now fully linted (both `ruff check .`
-and `ruff format --check .` pass under `nox -s lint`), statically clean (107
-unit-static tests pass, typecheck reports no issues in 173 source files), and
-runtime-certified against real model weights for both supported families.
+v0.2.2 release cycle. The repository is now structurally aligned around a
+bounded Apple-Silicon MLX support contract: the package surface, generated
+contract docs, workflow gates, and static governance all point at the same
+narrow runtime slice.
 
-The most recent combined certification artifact is
-`artifacts/runtime-cert/20260405_210920`, which records a combined
-`result: PASS` for Llama and Gemma in a single 23-stage run (60/60 benchmark
-runs succeeded). Earlier single-family artifacts are retained for archaeology:
-`artifacts/runtime-cert/20260404_013136` (Llama), `artifacts/runtime-cert/20260404_013527`
-(Gemma), and `artifacts/runtime-cert/20260404_015658` (prior combined run).
+That structural work does not, by itself, prove a current Apple runtime PASS
+for this portable source snapshot. This archive does not bundle
+`artifacts/runtime-cert/`, and built wheels or source distributions would not
+ship that directory anyway. Final release publication therefore remains
+blocked until the tagged Apple-arm64 workflow publishes an addressable
+certification artifact or pinned manifest digest whose `cert_manifest.json`
+reports `PASS` for both allowlisted families (`llama` and `gemma`).
 
-The release candidate tag `v0.2.2-rc1` has also been pushed to exercise the remote
-GitHub Actions gate. The Ubuntu jobs pass, and the final publish step remains
-correctly blocked until `certify-apple-runtime` runs on an online self-hosted
-`macOS` `ARM64` runner. No final `v0.2.2` tag should be cut until that job succeeds.
+The current RC workflow design still fails closed in the right place: generic
+Ubuntu validation can succeed while the final publish step remains blocked
+until the self-hosted `macOS` `ARM64` runner completes certification for the
+same tagged revision.
 
 ---
 
@@ -51,7 +52,7 @@ correctly blocked until `certify-apple-runtime` runs on an online self-hosted
 - `docs/supported-surface.md` and `docs/validation-local.md` aligned with
   current Makefile targets and certification scripts
 
-### Phase 5 — Runtime certification
+### Phase 5 — Runtime certification contract
 
 - Stubbed `tests/integration_mlx/` with six required test files:
   `test_cache_upgrade_roundtrip.py`, `test_streaming_attention_equivalence.py`,
@@ -60,11 +61,13 @@ correctly blocked until `certify-apple-runtime` runs on an online self-hosted
 - Smoke tests use a tiny synthetic model by default (no download needed); the
   real-model path requires `TQ_TEST_LLAMA_MODEL` / `TQ_TEST_GEMMA_MODEL`.
 - `make test-structural` runs the explicit file list.
-- `./scripts/certify_apple_runtime.sh` now emits family-scoped PASS manifests.
-- Retained PASS artifacts now exist at `artifacts/runtime-cert/20260404_013136`
-  (Llama) and `artifacts/runtime-cert/20260404_013527` (Gemma).
+- `./scripts/certify_apple_runtime.sh` now emits family-scoped manifests and
+  the Apple workflows validate both `cert_manifest.json` and the artifact's
+  retained `contract.json` snapshot.
+- Final tagged release remains blocked until the Apple-arm64 workflow produces
+  and publishes a combined PASS artifact covering both supported families.
 
-### Phase 6 — paper-contract-tranche1: full lint clean + combined certification
+### Phase 6 — paper-contract-tranche1: full lint clean + release gate hardening
 
 - Repo-wide `ruff check .` reduced to zero violations by:
   - Auto-fix pass (`ruff check . --fix`) across all source files
@@ -79,20 +82,15 @@ correctly blocked until `certify-apple-runtime` runs on an online self-hosted
     `benchmarks/exploratory/decode_latency.py` to resolve `I001` conflict with
     mid-block `sys.path` mutation
 - `ruff format .` applied repo-wide (~70 files reformatted, style-only)
-- `nox -s lint` now passes end-to-end: both `ruff check .` and
-  `ruff format --check .` are green
-- `nox -s typecheck` reports no issues in 173 source files
-- `pytest tests/unit_static -q` — 107 passed
-- `python scripts/render_support_contract.py --check` — silent pass
-- Combined certification (`TQ_TEST_LLAMA_MODEL` + `TQ_TEST_GEMMA_MODEL`)
-  completed in a single 23-stage run:
-  - 60/60 benchmark runs succeeded
-  - Quality guardrail `paper_mse` Llama short Δppl +4.10 ≤ 20.0 ✅
-  - Quality guardrail `paper_mse` Llama medium Δppl +11.84 ≤ 20.0 ✅
-  - PolarQuant quality guardrails for both families: within threshold ✅
-  - Manifest: `artifacts/runtime-cert/20260405_210920/cert_manifest.json`
-    (`result: PASS`, `stages.passed: 23`, `stages.failed: 0`,
-    `families: ["gemma", "llama"]`)
+- `nox -s lint` was restored as the canonical Ruff-based generic lint lane
+- Type annotations across the maintained support surface were tightened to
+  keep the static contract legible and auditable
+- `pytest tests/unit_static -q` and
+  `python scripts/render_support_contract.py --check` remain the key
+  structural proof points for this source snapshot
+- The release workflows now require a two-family Apple-arm64 certification
+  bundle before final publish; this archive documents that requirement but
+  does not bundle the resulting evidence
 
 ### Cleanup — Ruff linting and temp script removal
 
@@ -126,7 +124,8 @@ correctly blocked until `certify-apple-runtime` runs on an online self-hosted
 > not been reproduced against saved certification artifacts.  They are
 > preserved here for historical reference only and **do not constitute
 > certification evidence**.  Run `make certify-apple-runtime` with real model
-> weights to produce artifact-backed results.
+> weights to produce an addressable certification artifact or pinned manifest
+> digest.
 
 **Hardware:** Apple Silicon · macOS 26.2 · Python 3.10.12  
 **Model:** `Llama / Gemma` (e.g. `Meta-Llama-3-8B-Instruct`)  
@@ -158,27 +157,15 @@ verified but now considered exploratory and removed from primary support list.
 
 ## Gating status
 
-> **NOTE:** The gates below reflect the current narrow release-candidate state.
-> Tagged release publish must still re-run Apple certification with both
-> `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` in scope.
+> **IMPORTANT:** The gates below distinguish structural completeness from
+> evidential completeness. A portable source snapshot can be buildable and
+> statically coherent without proving a current Apple runtime PASS.
 
-The current RC tag demonstrates that this gate fails closed: the remote workflow
-will wait for the Apple runner instead of publishing from Ubuntu-only checks.
-
-| Gate | Result |
+| Gate | Meaning in this archive |
 |---|---|
-| `python scripts/preflight.py` | ✅ passes |
-| `python -m build` (sdist + wheel) | ✅ passes |
-| `ruff check .` | ✅ 0 violations |
-| `ruff format --check .` | ✅ passes |
-| `nox -s lint` (check + format) | ✅ passes |
-| `nox -s typecheck` | ✅ no issues in 173 source files |
-| `pytest tests/unit_static -q` | ✅ 107 passed |
-| `make test-structural` | ✅ 4 / 4 (explicit file list) |
-| `./scripts/certify_apple_runtime.sh` with `TQ_TEST_LLAMA_MODEL` | ✅ PASS — `artifacts/runtime-cert/20260404_013136` |
-| `./scripts/certify_apple_runtime.sh` with `TQ_TEST_GEMMA_MODEL` | ✅ PASS — `artifacts/runtime-cert/20260404_013527` |
-| `./scripts/certify_apple_runtime.sh` with both family env vars set (prior run) | ✅ PASS — `artifacts/runtime-cert/20260404_015658` |
-| `./scripts/certify_apple_runtime.sh` with both family env vars set (latest run) | ✅ PASS — `artifacts/runtime-cert/20260405_210920` (23/23 stages, 60/60 runs) |
-| Paired generative benchmark artifacts | ✅ Retained in both PASS artifact directories |
-| Dense output == TurboQuant output (correctness) | ✅ Recorded through retained PASS artifacts |
-| Remote tag `v0.2.2-rc1` release workflow | ⏳ Waiting for online `self-hosted` `macOS` `ARM64` runner |
+| `python -m build` (sdist + wheel) | Structural packaging proof, not runtime proof |
+| `pytest tests/unit_static -q` | Structural support-contract proof, not runtime proof |
+| `make test-structural` | Apple-Silicon structural gate without real model weights |
+| Tagged Apple-arm64 certification artifact | Required release evidence; this archive does not include it |
+| Published certification artifact or pinned manifest digest | Required for an unqualified release claim |
+| Remote tag `v0.2.2-rc1` release workflow | Designed to fail closed until an online `self-hosted` `macOS` `ARM64` runner certifies the tag |

@@ -75,6 +75,8 @@ def test_readme_tracks_primary_contract_story() -> None:
     assert "built wheels and source distributions do not ship" in lowered
     assert "apple silicon is required for runtime inference" in lowered
     assert "not a runtime go/no-go" in normalized
+    assert "do not, by themselves, prove a current apple runtime pass" in normalized
+    assert "only a published certification artifact or pinned manifest digest" in normalized
     assert "encode_topk_residual" not in content
     assert "top-k sparse residual" not in lowered
 
@@ -82,7 +84,10 @@ def test_readme_tracks_primary_contract_story() -> None:
 def test_release_facing_docs_use_addressable_evidence_language() -> None:
     """Release-facing docs must use addressable evidence language."""
     for rel_path in (
+        "RELEASE_CANDIDATE_NOTES.md",
         "README.md",
+        "docs/contract_status.md",
+        "docs/contract_audit.md",
         "docs/product_contract.md",
         "docs/supported-surface.md",
         "docs/support_matrix.md",
@@ -96,6 +101,12 @@ def test_release_facing_docs_use_addressable_evidence_language() -> None:
         )
         assert "artifact-backed" not in lowered, (
             f"{rel_path} must not use the stale 'artifact-backed' wording."
+        )
+        assert "retained local evidence in this checkout" not in lowered, (
+            f"{rel_path} must not imply timestamped local evidence ships with the snapshot."
+        )
+        assert "addressable from this workspace" not in lowered, (
+            f"{rel_path} must not imply portable source snapshots carry local evidence directories."
         )
 
 
@@ -223,3 +234,5 @@ def test_contract_status_distinguishes_static_from_runtime_proof() -> None:
     assert "support-contract" in lowered
     assert "typecheck" in lowered
     assert "and those lanes pass" in normalized
+    assert "published workflow artifact" in lowered or "manifest digest" in lowered
+    assert "retained local evidence in this checkout" not in lowered

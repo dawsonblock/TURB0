@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import Any, cast
 
@@ -32,6 +33,9 @@ def test_contract_status_tracks_current_supported_boundary() -> None:
     assert "artifacts/runtime-cert/" in text
     assert "vendored `mlx_lm`" in text or "vendored mlx_lm" in lowered
     assert "built wheels and source distributions do not ship" in lowered
+    assert "published workflow artifact" in lowered or "manifest digest" in lowered
+    assert "retained local evidence in this checkout" not in lowered
+    assert "source snapshot" in lowered or "source archive" in lowered
 
 
 def test_release_docs_distinguish_checkout_from_built_distributions() -> None:
@@ -49,6 +53,34 @@ def test_release_docs_distinguish_checkout_from_built_distributions() -> None:
         assert "built wheels and source distributions do not ship" in normalized, (
             f"{rel_path} must distinguish a working tree from shipped distributions."
         )
+        assert (
+            "published workflow artifact" in normalized
+            or "workflow-uploaded artifact" in normalized
+            or "manifest digest" in normalized
+        ), f"{rel_path} must describe the required external release evidence."
+
+
+def test_release_facing_docs_do_not_inventory_timestamped_runtime_artifacts() -> None:
+    timestamped_runtime_artifacts = re.compile(r"artifacts/runtime-cert/20\d{6,}")
+
+    for rel_path in (
+        "RELEASE_CANDIDATE_NOTES.md",
+        "docs/contract_status.md",
+        "docs/contract_audit.md",
+    ):
+        content = _read(rel_path)
+        assert not timestamped_runtime_artifacts.search(content), (
+            f"{rel_path} must not inventory timestamped local runtime artifacts."
+        )
+
+
+def test_release_candidate_notes_distinguish_structure_from_release_proof() -> None:
+    content = _read("RELEASE_CANDIDATE_NOTES.md")
+    normalized = " ".join(content.lower().split())
+
+    assert "does not, by itself, prove a current apple runtime pass" in normalized
+    assert "manifest digest" in normalized
+    assert "self-hosted" in normalized
 
 
 def test_release_checklist_matches_contract_required_artifacts() -> None:
