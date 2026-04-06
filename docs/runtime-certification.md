@@ -138,6 +138,31 @@ For a tagged publish to be technically credible:
 If the self-hosted `macOS` `ARM64` runner pool is offline, the release should stay blocked rather than reusing a
 previous local artifact or making a manual judgment call.
 
+## Workflow operator runbook
+
+To close the remaining release-proof gap from a clean repo snapshot:
+
+1. Ensure an online GitHub Actions runner labeled `self-hosted`, `macOS`, `ARM64` is available.
+2. Ensure both `TQ_TEST_LLAMA_MODEL` and `TQ_TEST_GEMMA_MODEL` secrets are configured.
+3. Trigger `.github/workflows/apple-runtime-cert.yml` on a matching push to `main` or by manual dispatch with `run_model_stages` enabled.
+4. Confirm `structural` passes on `macos-14` and `full-certification` passes on the self-hosted Apple runner.
+5. Download the uploaded `runtime-cert-<sha>` artifact from that workflow run.
+6. Validate the downloaded artifact with:
+
+```bash
+python scripts/verify_runtime_cert_artifact.py path/to/runtime-cert-<sha>.zip
+```
+
+The verifier accepts either the downloaded zip or an extracted artifact directory. It fails unless:
+
+- `cert_manifest.json` records `result: PASS`
+- `cert_manifest.json` records `platform: darwin-arm64`
+- `certification_scope.families` is exactly `llama` and `gemma`
+- the retained `contract.json` matches `turboquant/contract.json`
+- every contract-driven required release artifact is present
+
+Keep the uploaded artifact or a pinned manifest digest as the addressable release-proof citation. A local `artifacts/runtime-cert/` directory is useful operationally, but it is not a portable proof source by itself.
+
 ## Related docs
 
 - [docs/product_contract.md](docs/product_contract.md)

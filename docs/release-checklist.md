@@ -58,6 +58,8 @@ Final tagged publish is stricter than a family-scoped local run:
 - the manifest must record `result: PASS`
 - the manifest must include both `llama` and `gemma` in `certification_scope.families`
 - the self-hosted `macOS` `ARM64` runner pool must have been online for that same workflow
+- the uploaded `runtime-cert-<sha>` artifact should be rechecked with `python scripts/verify_runtime_cert_artifact.py path/to/runtime-cert-<sha>.zip`
+- the release note or evidence handoff should cite that uploaded artifact or a pinned manifest digest, not only a local working-tree path
 
 ## Regression gate
 
