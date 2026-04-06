@@ -172,7 +172,7 @@ jobs:
           PY
 
       - name: Upload certification artifacts
-        if: always()
+        if: always() && steps.locate_artifacts.outcome == 'success' && steps.locate_artifacts.outputs.artifact_dir != ''
         uses: actions/upload-artifact@v4
         with:
           name: runtime-cert-${{ github.sha }}
