@@ -66,9 +66,9 @@ def _macos_version() -> str:
 
 def _mlx_version() -> str:
     try:
-        import mlx  # type: ignore
+        import mlx.core as mx  # type: ignore
 
-        return getattr(mlx, "__version__", "unknown")
+        return str(getattr(mx, "__version__", "unknown"))
     except ImportError:
         return "not-installed"
 

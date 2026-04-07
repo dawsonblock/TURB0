@@ -19,6 +19,12 @@ def _read_json(path: Path) -> JsonDict:
     return cast(JsonDict, json.loads(path.read_text(encoding="utf-8")))
 
 
+def _read_optional_json(path: Path) -> JsonDict | None:
+    if not path.is_file():
+        return None
+    return _read_json(path)
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -94,11 +100,65 @@ def _render_table(rows: list[dict[str, str]]) -> list[str]:
     return lines
 
 
+def _render_inner_product_bias_section(
+    summary: JsonDict | None,
+    *,
+    expected_commit: str,
+) -> list[str]:
+    if summary is None:
+        return []
+
+    environment = cast(JsonDict, summary.get("environment", {}))
+    bias_commit = str(environment.get("git_commit", "unknown"))
+    if bias_commit != expected_commit:
+        return []
+
+    algorithms = cast(list[JsonDict], summary.get("algorithms", []))
+    if not algorithms:
+        return []
+
+    comparison = cast(JsonDict, summary.get("comparison", {}))
+    lines = [
+        "",
+        "## Inner-Product Bias Snapshot",
+        "",
+        "This artifact also includes a research-only synthetic score comparison for the paper-facing scalar-only and two-stage paths.",
+        "It is evidence about current estimator behavior, not a release gate and not yet a proof of unbiasedness.",
+        "",
+        "| Algorithm | Residual mode | Mean signed error | Mean abs error | Normalized mean bias | Normalized mean abs error | Error variance | 95th pct abs error |",
+        "| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for item in algorithms:
+        lines.append(
+            "| "
+            f"`{item['algorithm']}` | `{item['residual_mode']}` | "
+            f"{float(item['mean_signed_error']):.4f} | "
+            f"{float(item['mean_abs_error']):.4f} | "
+            f"{float(item['normalized_mean_bias']):.4f} | "
+            f"{float(item['normalized_mean_abs_error']):.4f} | "
+            f"{float(item['error_variance']):.4f} | "
+            f"{float(item['q95_abs_error']):.4f} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "Bias snapshot takeaway:",
+            f"The current `paper_prod_qjl` path differs from `paper_mse` by a normalized mean-abs-error delta of {float(comparison.get('normalized_mean_abs_error_delta', 0.0)):+.4f} on this fixed synthetic workload.",
+            "That makes the two-stage path directly measurable, but it does not by itself justify an unbiasedness claim yet.",
+        ]
+    )
+    return lines
+
+
 def render_snapshot(artifact_dir: Path, artifact_uri: str) -> str:
     summary = _read_json(artifact_dir / "certification_summary.json")
     manifest = _read_json(artifact_dir / "cert_manifest.json")
     preflight = _read_json(artifact_dir / "preflight.json")
     rows = _load_rows(artifact_dir / "aggregate_runs.csv")
+    inner_product_bias = _read_optional_json(
+        artifact_dir / "inner_product_bias_summary.json"
+    )
 
     memory_deltas = cast(list[JsonDict], summary["memory_deltas"])
     speed_deltas = cast(list[JsonDict], summary["speed_deltas"])
@@ -146,6 +206,12 @@ def render_snapshot(artifact_dir: Path, artifact_uri: str) -> str:
     ]
     lines.extend(_render_table(rows))
     lines.extend(
+        _render_inner_product_bias_section(
+            inner_product_bias,
+            expected_commit=commit,
+        )
+    )
+    lines.extend(
         [
             "",
             "## Scope And Limits",
@@ -167,6 +233,7 @@ def render_snapshot(artifact_dir: Path, artifact_uri: str) -> str:
             f"- `hardware`: `{preflight['platform']}`",
             "- `script`: `bash scripts/certify_apple_runtime.sh`",
             "- `args`: certification script invoked `benchmarks/runtime_cert/run_dense_vs_tq.py` for each model with `--prompt-file benchmarks/runtime_cert/prompts/{short,medium,long}.jsonl --max-new-tokens 64 --seed 42 --mode both`",
+            "- `extra_research_metrics`: optional `benchmarks/runtime_cert/run_inner_product_bias_eval.py` output when retained in the same artifact directory",
             "",
             "## Addressable Evidence",
             "",

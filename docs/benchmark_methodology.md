@@ -64,6 +64,22 @@ python benchmarks/runtime_cert/run_dense_vs_tq.py \
 For release-facing evidence, prefer the certification script so the benchmark outputs travel with `cert_manifest.json`,
 `contract.json`, and the other required evidence files.
 
+### Research-only score diagnostics
+
+The runtime-cert artifact directory may also retain research-only score
+diagnostics that are not release gates.
+
+```bash
+python benchmarks/runtime_cert/run_inner_product_bias_eval.py \
+    --output-dir artifacts/runtime-cert/manual_run
+```
+
+This synthetic lane compares `paper_mse` against `paper_prod_qjl` on a fixed
+attention-score workload and emits `inner_product_bias_summary.json`.
+Use it to make the paper-facing scalar-only and two-stage paths directly
+measurable. Do not present it as proof of unbiasedness unless stronger retained
+evidence supports that claim.
+
 ## Reproduction rules
 
 - Synchronize compute before timing.

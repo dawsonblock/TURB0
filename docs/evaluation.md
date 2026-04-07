@@ -58,6 +58,24 @@ What it tells you:
 
 Treat analytic bit-accounting values and measured cache-byte totals as separate pieces of evidence.
 
+### Inner-product bias
+
+Inner-product bias compares the estimated compressed attention scores against the
+true rotated-space dot products on a fixed synthetic workload.
+
+What it tells you:
+
+- whether the paper-facing two-stage `paper_prod_qjl` path behaves differently
+	from the scalar-only `paper_mse` baseline
+- whether the residual sketch is measurably changing signed error, absolute
+	error, and error variance rather than only existing in code
+
+Illustrative use:
+
+- retain `inner_product_bias_summary.json` from
+	`benchmarks/runtime_cert/run_inner_product_bias_eval.py` as a research metric,
+	not a certification gate
+
 ## Recommended local workflow
 
 1. Start with `TurboQuantConfig.from_preset("paper_prod")` for the production-style path.
@@ -65,6 +83,9 @@ Treat analytic bit-accounting values and measured cache-byte totals as separate 
 3. Check drift with `drift_report(...)` on a short held-out sequence.
 4. Check perplexity delta with `perplexity_report(...)`.
 5. If you need a batch-quality reference, compare against `paper_mse`.
+6. If you need a paper-facing score diagnostic, run the inner-product bias lane
+	and compare `paper_prod_qjl` against `paper_mse` on the retained synthetic
+	workload.
 
 ## Interpreting exploratory results
 

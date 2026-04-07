@@ -1,3 +1,19 @@
+"""QJL residual sketch used by the paper-facing two-stage path.
+
+This module implements the residual side of the repo's ``paper_prod_qjl``
+algorithm family:
+
+1. Rotate keys into a better-conditioned space.
+2. Quantize the main coordinates with the scalar stage.
+3. Encode the remaining residual with a 1-bit sign sketch plus its norm.
+
+The sign sketch alone is not treated here as a proven unbiased estimator of the
+raw inner product. The repo currently uses it as a measurable residual score
+contribution inside the two-stage attention path and validates that behavior
+empirically. See ``docs/theory.md`` and the QJL unit tests for the current
+measured properties.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
