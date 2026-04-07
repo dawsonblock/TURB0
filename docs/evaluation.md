@@ -100,6 +100,9 @@ Interpretation rule:
 8. If you need one consolidated KV report bundle, run the unified KV paper
    evaluation command and read its stage statuses by tier instead of treating
    all evidence as equally strong.
+9. If you need a small retrieval-style paper-alignment check, run the vector-search
+   research lane and compare dense recall against the current compressed preset
+   surfaces on the bundled mini dataset.
 
 ## Interpreting exploratory results
 

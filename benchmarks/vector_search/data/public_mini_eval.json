@@ -1,0 +1,92 @@
+{
+  "dataset_name": "public_mini_vector_search_v1",
+  "license": "CC0-1.0 equivalent self-authored evaluation snippets",
+  "description": "Small bundled research-only text retrieval set for reproducible vector-search evaluation.",
+  "docs": [
+    {
+      "id": "astronomy_observation",
+      "text": "Astronomers use telescopes to observe planets, stars, moons, and distant galaxies during clear night skies."
+    },
+    {
+      "id": "astronomy_orbits",
+      "text": "Orbital mechanics explains how gravity keeps planets moving around the sun on predictable paths."
+    },
+    {
+      "id": "bread_baking",
+      "text": "Bakers mix flour, water, yeast, and salt so dough can rise before bread is baked in a hot oven."
+    },
+    {
+      "id": "pasta_cooking",
+      "text": "Cooks boil pasta in salted water and finish it with sauce, herbs, and grated cheese."
+    },
+    {
+      "id": "marine_mammals",
+      "text": "Marine biologists study whales, dolphins, and seals in cold ocean waters and coastal habitats."
+    },
+    {
+      "id": "coral_reef",
+      "text": "Coral reefs support fish, sea turtles, and colorful invertebrates in warm tropical seas."
+    },
+    {
+      "id": "roman_roads",
+      "text": "Roman engineers built stone roads, bridges, and aqueducts across their empire to move armies and goods."
+    },
+    {
+      "id": "egypt_pyramids",
+      "text": "Ancient Egyptian builders raised pyramids and temples beside the Nile using stone blocks and organized labor."
+    },
+    {
+      "id": "python_programming",
+      "text": "Python programs use functions, modules, and readable syntax for automation, scripting, and data analysis."
+    },
+    {
+      "id": "sql_databases",
+      "text": "SQL databases store tables, enforce schemas, and answer queries with joins, filters, and indexes."
+    },
+    {
+      "id": "rainforest_ecology",
+      "text": "Tropical rainforests have heavy rainfall, dense tree canopies, and rich biodiversity across many species."
+    },
+    {
+      "id": "desert_climate",
+      "text": "Deserts receive very little rain, swing between hot days and cold nights, and support drought-tolerant plants."
+    }
+  ],
+  "queries": [
+    {
+      "id": "q_telescopes",
+      "text": "Which passage is about using telescopes to observe planets and stars?",
+      "relevant_ids": ["astronomy_observation"]
+    },
+    {
+      "id": "q_gravity_orbits",
+      "text": "Which document explains how gravity keeps planets moving around the sun?",
+      "relevant_ids": ["astronomy_orbits"]
+    },
+    {
+      "id": "q_yeast_bread",
+      "text": "Which text talks about yeast, dough rising, and baking bread in an oven?",
+      "relevant_ids": ["bread_baking"]
+    },
+    {
+      "id": "q_whales_ocean",
+      "text": "Which passage is about whales and dolphins living in ocean habitats?",
+      "relevant_ids": ["marine_mammals"]
+    },
+    {
+      "id": "q_roman_engineers",
+      "text": "Which document is about Roman engineers building roads, bridges, and aqueducts?",
+      "relevant_ids": ["roman_roads"]
+    },
+    {
+      "id": "q_python_modules",
+      "text": "Which text is about Python functions, modules, and readable syntax for automation?",
+      "relevant_ids": ["python_programming"]
+    },
+    {
+      "id": "q_rainforest_rain",
+      "text": "Which passage describes heavy rainfall and biodiversity in tropical rainforests?",
+      "relevant_ids": ["rainforest_ecology"]
+    }
+  ]
+}

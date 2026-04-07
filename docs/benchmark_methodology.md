@@ -134,6 +134,27 @@ lightweight fast checks and which are heavier offline research evaluations.
 See [docs/kv_paper_eval.md](docs/kv_paper_eval.md) for the tier definitions and
 interpretation rules.
 
+### Vector-search research lane
+
+The repo also includes a bundled mini vector-search evaluation path under
+`benchmarks/vector_search/`.
+
+```bash
+python benchmarks/vector_search/run_vector_search_eval.py \
+    --output-dir artifacts/runtime-cert/manual_vector_search
+```
+
+It emits:
+
+- `vector_search_summary.json`
+- `vector_search_metrics.csv`
+- `vector_search_summary.md`
+
+Use it to compare dense retrieval against the current paper-facing and
+non-paper-facing preset surfaces on a bundled mini dataset. This lane is
+research-only and should not be described as part of the supported runtime
+product surface. See [docs/vector_search.md](docs/vector_search.md).
+
 ## Reproduction rules
 
 - Synchronize compute before timing.

@@ -143,6 +143,14 @@ def _tail(text: str, limit: int = 20) -> str:
     return "\n".join(lines[-limit:]) if lines else ""
 
 
+def _display_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(_ROOT))
+    except ValueError:
+        return str(resolved)
+
+
 def _parse_junit(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {
@@ -216,7 +224,7 @@ def _run_pytest_stage(
         "status": summary["status"],
         "command": " ".join(command),
         "returncode": completed.returncode,
-        "artifacts": [str(junit_path.relative_to(_ROOT))] if junit_path.exists() else [],
+        "artifacts": [_display_path(junit_path)] if junit_path.exists() else [],
         "notes": summary["notes"],
         "pytest": {
             "tests": summary["tests"],
@@ -301,8 +309,8 @@ def _run_dense_vs_tq_stage(
         "status": status,
         "commands": stage_commands,
         "artifacts": [
-            str((family_dir / "aggregate_runs.csv").relative_to(_ROOT)),
-            str(summary_path.relative_to(_ROOT)),
+            _display_path(family_dir / "aggregate_runs.csv"),
+            _display_path(summary_path),
         ],
         "notes": stage_notes,
         "model": model_id,
@@ -370,7 +378,7 @@ def _run_quality_eval_stage(
         summary_path = family_dir / f"quality_eval_{prompt_class}_summary.json"
         if summary_path.is_file():
             summaries.append(json.loads(summary_path.read_text(encoding="utf-8")))
-            artifacts.append(str(summary_path.relative_to(_ROOT)))
+            artifacts.append(_display_path(summary_path))
         if completed.returncode != 0:
             status = "failed"
             stage_notes.append(f"quality eval for prompt class '{prompt_class}' failed")
@@ -442,11 +450,17 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
 def main() -> int:
     args = _parse_args()
     output_dir = ensure_artifact_dir(args.output_dir)
-    env = os.environ.copy()
+    base_env = os.environ.copy()
+    fast_env = base_env.copy()
+    fast_env.pop("TQ_TEST_LLAMA_MODEL", None)
+    fast_env.pop("TQ_TEST_GEMMA_MODEL", None)
+    fast_env.pop("TQ_RUN_EXPLORATORY_REAL_MODEL_QUALITY", None)
+
+    heavy_env = base_env.copy()
     if args.llama_model:
-        env["TQ_TEST_LLAMA_MODEL"] = args.llama_model
+        heavy_env["TQ_TEST_LLAMA_MODEL"] = args.llama_model
     if args.gemma_model:
-        env["TQ_TEST_GEMMA_MODEL"] = args.gemma_model
+        heavy_env["TQ_TEST_GEMMA_MODEL"] = args.gemma_model
 
     stages: list[dict[str, Any]] = []
     fast_dir = ensure_artifact_dir(output_dir / "fast_checks")
@@ -458,7 +472,7 @@ def main() -> int:
                 test_path=test_path,
                 junit_name=junit_name,
                 output_dir=fast_dir,
-                env=env,
+                env=fast_env,
             )
         )
 
@@ -483,7 +497,7 @@ def main() -> int:
                     max_new_tokens=args.max_new_tokens,
                     seed=args.seed,
                     output_dir=heavy_dir,
-                    env=env,
+                    env=heavy_env,
                 )
             )
             stages.append(
@@ -492,7 +506,7 @@ def main() -> int:
                     model_id=args.llama_model,
                     prompt_classes=list(args.quality_prompt_classes),
                     output_dir=heavy_dir,
-                    env=env,
+                    env=heavy_env,
                 )
             )
         else:
@@ -515,7 +529,7 @@ def main() -> int:
                     max_new_tokens=args.max_new_tokens,
                     seed=args.seed,
                     output_dir=heavy_dir,
-                    env=env,
+                    env=heavy_env,
                 )
             )
             stages.append(

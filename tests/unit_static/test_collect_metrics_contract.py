@@ -25,6 +25,7 @@ def test_collect_run_artifacts_ignores_non_run_json(tmp_path: Path) -> None:
         "bit_budget_sweep_summary.json": {"metric_family": "bit_budget_sweep"},
         "inner_product_bias_summary.json": {"metric_family": "inner_product_bias"},
         "kv_paper_eval_summary.json": {"metric_family": "kv_paper_eval"},
+        "vector_search_summary.json": {"metric_family": "vector_search"},
     }.items():
         (tmp_path / name).write_text(json.dumps(payload), encoding="utf-8")
 

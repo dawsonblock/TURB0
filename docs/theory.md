@@ -44,7 +44,7 @@ contract explicitly says otherwise.
 | Full two-stage paper path (`paper_prod_qjl`) | `turboquant/config.py`, `turboquant/core/qjl.py`, `turboquant/core/residual_codec.py`, `turboquant/runtime/attention.py` | `tests/unit_static/test_config_contract.py`, `tests/unit_mlx/test_attention_score_block_qjl.py`, `tests/unit_mlx/test_qjl_inner_product_bias_analysis.py` | `partial` | `research-only` | The path is implemented and benchmarkable, but the stronger theorem-style claim about unbiased inner-product restoration remains open here. |
 | Current inner-product-bias evidence | `benchmarks/runtime_cert/run_inner_product_bias_eval.py`, `tests/unit_mlx/test_qjl_inner_product_bias_analysis.py` | `inner_product_bias_summary.json`, `inner_product_bias_metrics.csv`, `inner_product_bias_summary.md`, dated benchmark snapshots under `docs/history/`, MLX bias tests | `empirical` | `research-only` | The repo retains signed-error, absolute-error, and variance measurements for scalar-only versus two-stage scoring, but treats them as research diagnostics rather than release truth. |
 | Current KV-cache evidence | `benchmarks/runtime_cert/run_dense_vs_tq.py`, `benchmarks/runtime_cert/run_quality_eval.py`, `benchmarks/runtime_cert/run_kv_paper_eval.py`, `scripts/certify_apple_runtime.sh` | runtime-cert artifacts, `tests/integration_mlx/test_long_context_stability.py`, `kv_paper_eval_summary.json`, dated benchmark snapshots under `docs/history/` | `partial` | `product` | The repo has addressable Apple-MLX evidence for allowlisted families, but that evidence is narrow, family-scoped, and does not imply universal speed or quality wins. |
-| Missing vector-search evidence | not yet implemented | none | `not yet shown` | `research-only` | The repo does not yet have a retained vector-search benchmark lane, recall results, or memory-and-latency evidence for that part of the paper framing. |
+| Vector-search research lane | `benchmarks/vector_search/dataset_loader.py`, `benchmarks/vector_search/run_vector_search_eval.py` | `vector_search_summary.json`, `vector_search_metrics.csv`, `vector_search_summary.md` | `partial` | `research-only` | The repo now has a bundled mini vector-search benchmark lane with recall, memory, and latency metrics, but it remains a small research entry point rather than a broad retrieval claim. |
 
 ## Code-To-Claim Mapping
 
@@ -59,7 +59,7 @@ contract explicitly says otherwise.
 | `benchmarks/runtime_cert/run_dense_vs_tq.py`, `benchmarks/runtime_cert/run_kv_paper_eval.py` | KV-cache memory and throughput tradeoff on the allowlisted Apple-MLX path plus consolidated research reporting | `product` lane and `research` lane | runtime-cert artifacts, `kv_paper_eval_summary.json`, `docs/history/BENCHMARK_SNAPSHOT_*.md` | The retained story is memory relief on a narrow hardware and family slice; throughput can regress materially. |
 | `benchmarks/runtime_cert/run_quality_eval.py` | Family-scoped quality guardrails used during certification and research comparison | `product` lane, family-scoped | `quality_eval_*_summary.json` artifacts | These guardrails catch regressions; they do not prove generalized quality improvement. |
 | `benchmarks/runtime_cert/run_inner_product_bias_eval.py` | Retained bias snapshot for scalar-only versus two-stage scoring | `research` lane | `inner_product_bias_summary.json`, `inner_product_bias_metrics.csv`, `inner_product_bias_summary.md`, dated benchmark snapshots | The current retained workload is synthetic; real KV-derived bias evidence is not yet retained here. |
-| `benchmarks/vector_search/` | Vector-search recall, memory, and indexing claims | planned research lane only | none yet | Not implemented in this repo today. |
+| `benchmarks/vector_search/run_vector_search_eval.py` | Vector-search recall, memory, and indexing claims on the bundled mini dataset | `research` lane | `vector_search_summary.json`, `vector_search_metrics.csv`, `vector_search_summary.md` | The current lane is intentionally small and bundled; it does not yet represent a broader retrieval benchmark corpus. |
 
 ## Still Not Proven Here
 
@@ -70,8 +70,9 @@ These are the important theory-facing questions that remain open in this repo.
    measurement lane.
 2. Whether the current paper-facing path generalizes beyond the narrow
    allowlisted Apple-MLX runtime slice without widening support prematurely.
-3. Whether vector-search outcomes can be added as research validation without
-   confusing them with the supported product lane.
+3. Whether the bundled mini vector-search lane generalizes beyond this small
+   research entry point without confusing retrieval research with the supported
+   product lane.
 4. Whether the current evidence depth for Gemma should ever be described as
    equal to Llama; today it should not.
 5. Whether TurboQuant should ever be described here as a throughput win on the
