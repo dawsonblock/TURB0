@@ -34,6 +34,11 @@ if str(_ROOT) not in sys.path:
 import mlx.core as mx
 from mlx_lm.models.cache import KVCache
 
+from benchmarks.runtime_cert.research_report_schema import (
+    build_artifact_paths,
+    build_research_report,
+    build_run_id,
+)
 from benchmarks.runtime_cert.utils import collect_environment_metadata, ensure_artifact_dir, write_json
 from turboquant.config import TurboQuantConfig
 from turboquant.core.pipeline import TurboQuantPipeline
@@ -256,6 +261,8 @@ def _operating_point_id(preset: str, k_bits: int, v_bits: int, group_size: int) 
 
 def _write_metrics_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     fieldnames = [
+        "run_id",
+        "family",
         "operating_point_id",
         "preset",
         "classification",
@@ -303,6 +310,9 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
         "",
         "## Scope",
         "",
+        f"- run_id: `{payload['run_id']}`",
+        f"- preset group: `{payload['preset']}`",
+        f"- family: `{payload['family']}`",
         f"- support scope: `{payload['support_scope']}`",
         f"- presets: {', '.join(f'`{preset}`' for preset in payload['presets'])}",
         f"- k_bits sweep: {', '.join(f'`{bits}`' for bits in payload['k_bits'])}",
@@ -352,6 +362,15 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
 def main() -> int:
     args = _parse_args()
     output_dir = ensure_artifact_dir(args.output_dir)
+    environment = collect_environment_metadata(
+        model="synthetic-kv-workload",
+        mode="bit_budget_sweep",
+    )
+    run_id = build_run_id(
+        timestamp=str(environment["timestamp"]),
+        label=f"{'_'.join(args.presets)}_{'_'.join(str(bits) for bits in args.k_bits)}",
+        mode="bit_budget_sweep",
+    )
 
     cache_keys, cache_values, step_keys, step_values = _cache_workload(args)
     score_queries, score_keys = _score_workload(args)
@@ -398,6 +417,8 @@ def main() -> int:
             )
 
             row = {
+                "run_id": run_id,
+                "family": "synthetic",
                 "operating_point_id": _operating_point_id(
                     preset,
                     k_bits,
@@ -441,18 +462,43 @@ def main() -> int:
 
             rows.append(row)
 
-    payload = {
-        "schema_version": "1",
-        "metric_family": "bit_budget_sweep",
-        "status": "ok",
-        "support_scope": "research-only",
-        "environment": collect_environment_metadata(
-            model="synthetic-kv-workload",
-            mode="bit_budget_sweep",
+    artifact_paths = build_artifact_paths(
+        summary_json=SUMMARY_JSON,
+        metrics_csv=METRICS_CSV,
+        summary_markdown=SUMMARY_MD,
+    )
+    notes = [
+        "This is a research-only synthetic sweep, not a release gate.",
+        "The downstream-quality field remains null here because this command does not run real-model long-context or teacher-forcing quality evaluation.",
+        "Use the runtime-cert quality artifacts for supported-family quality guardrails.",
+    ]
+    metrics = {
+        "operating_point_count": len(rows),
+        "best_memory_reduction_pct": max(
+            float(row["memory_reduction_pct"]) for row in rows
         ),
-        "presets": list(args.presets),
-        "k_bits": list(args.k_bits),
-        "workload": {
+        "lowest_latency_overhead_pct": min(
+            float(row["latency_overhead_pct"]) for row in rows
+        ),
+    }
+
+    payload = build_research_report(
+        schema_version="1",
+        metric_family="bit_budget_sweep",
+        run_id=run_id,
+        environment=environment,
+        preset=args.presets[0] if len(args.presets) == 1 else "mixed",
+        family="synthetic",
+        scope="research-only",
+        mode="bit_budget_sweep",
+        status="ok",
+        metrics=metrics,
+        artifact_paths=artifact_paths,
+        notes=notes,
+        support_scope="research-only",
+        presets=list(args.presets),
+        k_bits=list(args.k_bits),
+        workload={
             "cache": {
                 "batch": args.batch,
                 "kv_heads": args.kv_heads,
@@ -472,7 +518,7 @@ def main() -> int:
                 "vector_source": "synthetic",
             },
         },
-        "report_schema": {
+        report_schema={
             "configured_fields": [
                 "preset",
                 "classification",
@@ -500,14 +546,9 @@ def main() -> int:
                 "downstream_quality_note",
             ],
         },
-        "operating_points": rows,
-        "companion_artifacts": [SUMMARY_JSON, METRICS_CSV, SUMMARY_MD],
-        "notes": [
-            "This is a research-only synthetic sweep, not a release gate.",
-            "The downstream-quality field remains null here because this command does not run real-model long-context or teacher-forcing quality evaluation.",
-            "Use the runtime-cert quality artifacts for supported-family quality guardrails.",
-        ],
-    }
+        operating_points=rows,
+        companion_artifacts=[SUMMARY_JSON, METRICS_CSV, SUMMARY_MD],
+    )
 
     summary_path = output_dir / SUMMARY_JSON
     csv_path = output_dir / METRICS_CSV

@@ -28,6 +28,11 @@ if str(_ROOT) not in sys.path:
 
 import mlx.core as mx
 
+from benchmarks.runtime_cert.research_report_schema import (
+    build_artifact_paths,
+    build_research_report,
+    build_run_id,
+)
 from benchmarks.runtime_cert.utils import collect_environment_metadata, ensure_artifact_dir, write_json
 from turboquant.config import TurboQuantConfig
 from turboquant.core.pipeline import TurboQuantPipeline
@@ -111,6 +116,9 @@ def _score_stats(config: TurboQuantConfig, q: mx.array, k: mx.array) -> dict[str
 
 def _write_metrics_csv(path: Path, rows: list[dict[str, float | str]]) -> None:
     fieldnames = [
+        "run_id",
+        "preset",
+        "family",
         "algorithm",
         "residual_mode",
         "quantizer_mode",
@@ -142,6 +150,9 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
         "",
         "## Workload",
         "",
+        f"- run_id: `{payload['run_id']}`",
+        f"- preset group: `{payload['preset']}`",
+        f"- family: `{payload['family']}`",
         f"- batch: `{workload['batch']}`",
         f"- q_len: `{workload['q_len']}`",
         f"- k_len: `{workload['k_len']}`",
@@ -190,6 +201,15 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
 def main() -> int:
     args = _parse_args()
     output_dir = ensure_artifact_dir(args.output_dir)
+    environment = collect_environment_metadata(
+        model="synthetic-inner-product",
+        mode="inner_product_bias",
+    )
+    run_id = build_run_id(
+        timestamp=str(environment["timestamp"]),
+        label="paper_mse_vs_paper_prod_qjl",
+        mode="inner_product_bias",
+    )
     queries, keys = _synthetic_queries_and_keys(args)
 
     algorithms = [
@@ -197,6 +217,10 @@ def main() -> int:
         TurboQuantConfig.from_preset("paper_prod"),
     ]
     results = [_score_stats(config, queries, keys) for config in algorithms]
+    for result in results:
+        result["run_id"] = run_id
+        result["preset"] = "paper_mse_vs_paper_prod_qjl"
+        result["family"] = "synthetic"
 
     for result in results:
         for key, value in result.items():
@@ -206,16 +230,56 @@ def main() -> int:
     by_algorithm = {str(item["algorithm"]): item for item in results}
     baseline = by_algorithm["paper_mse"]
     prod = by_algorithm["paper_prod_qjl"]
-
-    payload = {
-        "schema_version": "2",
-        "metric_family": "inner_product_bias",
-        "status": "ok",
-        "environment": collect_environment_metadata(
-            model="synthetic-inner-product",
-            mode="inner_product_bias",
+    comparison = {
+        "normalized_mean_abs_error_delta": (
+            float(prod["normalized_mean_abs_error"])
+            - float(baseline["normalized_mean_abs_error"])
         ),
-        "workload": {
+        "normalized_mean_bias_delta": (
+            float(prod["normalized_mean_bias"])
+            - float(baseline["normalized_mean_bias"])
+        ),
+        "normalized_mean_bias_magnitude_delta": (
+            abs(float(prod["normalized_mean_bias"]))
+            - abs(float(baseline["normalized_mean_bias"]))
+        ),
+    }
+    artifact_paths = build_artifact_paths(
+        summary_json=SUMMARY_JSON,
+        metrics_csv=METRICS_CSV,
+        summary_markdown=SUMMARY_MD,
+    )
+    notes = [
+        "This is a research validation metric, not a release gate.",
+        "The repo keeps the unbiased-inner-product claim explicitly open until stronger retained evidence exists.",
+        "The fixed synthetic workload is intended to keep score-estimation changes reproducible and comparable across commits.",
+    ]
+
+    payload = build_research_report(
+        schema_version="2",
+        metric_family="inner_product_bias",
+        run_id=run_id,
+        environment=environment,
+        preset="paper_mse_vs_paper_prod_qjl",
+        family="synthetic",
+        scope="research-only",
+        mode="inner_product_bias",
+        status="ok",
+        metrics={
+            "algorithm_count": len(results),
+            "normalized_mean_abs_error_delta": comparison[
+                "normalized_mean_abs_error_delta"
+            ],
+            "normalized_mean_bias_delta": comparison["normalized_mean_bias_delta"],
+            "normalized_mean_bias_magnitude_delta": comparison[
+                "normalized_mean_bias_magnitude_delta"
+            ],
+        },
+        artifact_paths=artifact_paths,
+        notes=notes,
+        support_scope="research-only",
+        presets=["paper_mse", "paper_prod_qjl"],
+        workload={
             "batch": args.batch,
             "q_len": args.q_len,
             "k_len": args.k_len,
@@ -228,28 +292,10 @@ def main() -> int:
                 "the scalar-only paper_mse path against the paper_prod_qjl two-stage path."
             ),
         },
-        "algorithms": results,
-        "comparison": {
-            "normalized_mean_abs_error_delta": (
-                float(prod["normalized_mean_abs_error"])
-                - float(baseline["normalized_mean_abs_error"])
-            ),
-            "normalized_mean_bias_delta": (
-                float(prod["normalized_mean_bias"])
-                - float(baseline["normalized_mean_bias"])
-            ),
-            "normalized_mean_bias_magnitude_delta": (
-                abs(float(prod["normalized_mean_bias"]))
-                - abs(float(baseline["normalized_mean_bias"]))
-            ),
-        },
-        "companion_artifacts": [SUMMARY_JSON, METRICS_CSV, SUMMARY_MD],
-        "notes": [
-            "This is a research validation metric, not a release gate.",
-            "The repo keeps the unbiased-inner-product claim explicitly open until stronger retained evidence exists.",
-            "The fixed synthetic workload is intended to keep score-estimation changes reproducible and comparable across commits.",
-        ],
-    }
+        algorithms=results,
+        comparison=comparison,
+        companion_artifacts=[SUMMARY_JSON, METRICS_CSV, SUMMARY_MD],
+    )
 
     summary_path = output_dir / SUMMARY_JSON
     csv_path = output_dir / METRICS_CSV

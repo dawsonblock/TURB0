@@ -29,6 +29,11 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+from benchmarks.runtime_cert.research_report_schema import (
+    build_artifact_paths,
+    build_research_report,
+    build_run_id,
+)
 from benchmarks.runtime_cert.utils import collect_environment_metadata, ensure_artifact_dir, write_json
 
 SUMMARY_JSON = "kv_paper_eval_summary.json"
@@ -455,6 +460,12 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
         "This is a research-only consolidation of the repo's KV-cache evidence surfaces.",
         "It does not replace the Apple runtime certification gate and it does not widen the supported product contract.",
         "",
+        "## Report Identity",
+        "",
+        f"- run_id: `{payload['run_id']}`",
+        f"- preset group: `{payload['preset']}`",
+        f"- family scope: `{payload['family']}`",
+        "",
         "## Tier Definitions",
         "",
         "- `fast-check` — tiny-model or lightweight runtime path checks intended to stay quick and reproducible.",
@@ -494,6 +505,25 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
 def main() -> int:
     args = _parse_args()
     output_dir = ensure_artifact_dir(args.output_dir)
+    environment = collect_environment_metadata(
+        model="kv-paper-eval",
+        mode="kv_paper_eval",
+    )
+    configured_families = [
+        family
+        for family, model_id in (("llama", args.llama_model), ("gemma", args.gemma_model))
+        if model_id
+    ]
+    family_scope = (
+        configured_families[0]
+        if len(configured_families) == 1
+        else ("mixed" if configured_families else "not-configured")
+    )
+    run_id = build_run_id(
+        timestamp=str(environment["timestamp"]),
+        label=f"{family_scope}_{'heavy' if args.include_heavy_offline else 'fast'}",
+        mode="kv_paper_eval",
+    )
     base_env = os.environ.copy()
     fast_env = base_env.copy()
     fast_env.pop("TQ_TEST_LLAMA_MODEL", None)
@@ -617,40 +647,65 @@ def main() -> int:
             )
 
     tier_counts = {
-        "fast-check": {"executed": 0, "passed": 0, "failed": 0, "skipped": 0},
-        "heavy-offline": {"executed": 0, "passed": 0, "failed": 0, "skipped": 0},
+        "fast-check": {
+            "executed": 0,
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0,
+            "captured": 0,
+        },
+        "heavy-offline": {
+            "executed": 0,
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0,
+            "captured": 0,
+        },
     }
     overall_status = "passed"
     for stage in stages:
         tier = stage["tier"]
         status = stage["status"]
-        if status in {"passed", "failed", "skipped"}:
+        if status in {"passed", "failed", "skipped", "captured"}:
             tier_counts[tier]["executed"] += 1
             tier_counts[tier][status] += 1
         if status == "failed":
             overall_status = "failed"
 
-    payload = {
-        "schema_version": "1",
-        "metric_family": "kv_paper_eval",
-        "support_scope": "research-only",
-        "status": overall_status,
-        "environment": collect_environment_metadata(
-            model="kv-paper-eval",
-            mode="kv_paper_eval",
-        ),
-        "heavy_offline_requested": args.include_heavy_offline,
-        "llama_model": args.llama_model or None,
-        "gemma_model": args.gemma_model or None,
-        "tier_counts": tier_counts,
-        "stages": stages,
-        "companion_artifacts": [SUMMARY_JSON, SUMMARY_MD],
-        "notes": [
+    artifact_paths = build_artifact_paths(
+        summary_json=SUMMARY_JSON,
+        summary_markdown=SUMMARY_MD,
+    )
+
+    payload = build_research_report(
+        schema_version="1",
+        metric_family="kv_paper_eval",
+        run_id=run_id,
+        environment=environment,
+        preset="mixed",
+        family=family_scope,
+        scope="research-only",
+        mode="kv_paper_eval",
+        status=overall_status,
+        metrics={
+            "fast_check_executed": tier_counts["fast-check"]["executed"],
+            "heavy_offline_executed": tier_counts["heavy-offline"]["executed"],
+            "heavy_offline_captured": tier_counts["heavy-offline"]["captured"],
+        },
+        artifact_paths=artifact_paths,
+        notes=[
             "This bundle consolidates existing KV runtime, stability, and benchmark surfaces into one research-only report.",
             "Fast-check stages are intentionally lighter than heavy-offline real-model sweeps.",
             "Heavy-offline stages that are not run stay explicit in the report instead of being silently omitted.",
         ],
-    }
+        support_scope="research-only",
+        heavy_offline_requested=args.include_heavy_offline,
+        llama_model=args.llama_model or None,
+        gemma_model=args.gemma_model or None,
+        tier_counts=tier_counts,
+        stages=stages,
+        companion_artifacts=[SUMMARY_JSON, SUMMARY_MD],
+    )
 
     summary_path = output_dir / SUMMARY_JSON
     markdown_path = output_dir / SUMMARY_MD

@@ -25,6 +25,11 @@ if str(_ROOT) not in sys.path:
 import mlx.core as mx
 import numpy as np
 
+from benchmarks.runtime_cert.research_report_schema import (
+    build_artifact_paths,
+    build_research_report,
+    build_run_id,
+)
 from benchmarks.runtime_cert.utils import collect_environment_metadata, ensure_artifact_dir, write_json
 from benchmarks.vector_search.dataset_loader import (
     DEFAULT_DATASET_PATH,
@@ -172,6 +177,8 @@ def _recall_at_k(dataset, topk_indices: list[list[int]], k: int) -> float:
 
 def _write_metrics_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     fieldnames = [
+        "run_id",
+        "family",
         "method",
         "classification",
         "index_bytes",
@@ -210,6 +217,9 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
         "",
         "## Dataset",
         "",
+        f"- run_id: `{payload['run_id']}`",
+        f"- preset group: `{payload['preset']}`",
+        f"- family: `{payload['family']}`",
         f"- dataset: `{dataset['dataset_name']}`",
         f"- selector: `{selector}`",
         f"- license: `{dataset['license']}`",
@@ -255,6 +265,15 @@ def main() -> int:
     args = _parse_args()
     output_dir = ensure_artifact_dir(args.output_dir)
     dataset, dataset_meta = _load_requested_dataset(args)
+    environment = collect_environment_metadata(
+        model=str(dataset.dataset_name),
+        mode="vector_search",
+    )
+    run_id = build_run_id(
+        timestamp=str(environment["timestamp"]),
+        label=f"{dataset.dataset_name}_{'_'.join(args.presets)}",
+        mode="vector_search",
+    )
     doc_np, query_np = embed_dataset(dataset, dim=args.embedding_dim)
     doc_embeddings = mx.array(doc_np[None, ...], dtype=mx.float32)
     query_embeddings = mx.array(query_np[None, ...], dtype=mx.float32)
@@ -266,6 +285,8 @@ def main() -> int:
 
     rows: list[dict[str, Any]] = [
         {
+            "run_id": run_id,
+            "family": "not-applicable",
             "method": "dense",
             "classification": "reference",
             "index_bytes": dense_index_bytes,
@@ -288,6 +309,8 @@ def main() -> int:
         top1 = _topk_indices(scores, 1)
         top3 = _topk_indices(scores, 3)
         row = {
+            "run_id": run_id,
+            "family": "not-applicable",
             "method": preset,
             "classification": TurboQuantConfig.preset_metadata(preset)["classification"],
             "index_bytes": index_bytes,
@@ -318,16 +341,38 @@ def main() -> int:
             "Vector-search results remain explicitly outside the supported Apple-MLX product contract.",
         ]
 
-    payload = {
-        "schema_version": "1",
-        "metric_family": "vector_search",
-        "support_scope": "research-only",
-        "status": "ok",
-        "environment": collect_environment_metadata(
-            model="vector-search-mini",
-            mode="vector_search",
-        ),
-        "dataset": {
+    artifact_paths = build_artifact_paths(
+        summary_json=SUMMARY_JSON,
+        metrics_csv=METRICS_CSV,
+        summary_markdown=SUMMARY_MD,
+    )
+    best_compressed = max(
+        (row for row in rows if row["method"] != "dense"),
+        key=lambda row: float(row["recall_at_1"]),
+        default=rows[0],
+    )
+
+    payload = build_research_report(
+        schema_version="1",
+        metric_family="vector_search",
+        run_id=run_id,
+        environment=environment,
+        preset=args.presets[0] if len(args.presets) == 1 else "mixed",
+        family="not-applicable",
+        scope="research-only",
+        mode="vector_search",
+        status="ok",
+        metrics={
+            "evaluation_count": len(rows),
+            "dense_recall_at_1": float(rows[0]["recall_at_1"]),
+            "best_compressed_recall_at_1": float(best_compressed["recall_at_1"]),
+            "best_compressed_method": str(best_compressed["method"]),
+        },
+        artifact_paths=artifact_paths,
+        notes=notes,
+        support_scope="research-only",
+        presets=list(args.presets),
+        dataset={
             "dataset_name": dataset.dataset_name,
             "license": dataset.license,
             "description": dataset.description,
@@ -339,10 +384,9 @@ def main() -> int:
             "embedding_dim": args.embedding_dim,
             "top_k": list(args.top_k),
         },
-        "evaluations": rows,
-        "companion_artifacts": [SUMMARY_JSON, METRICS_CSV, SUMMARY_MD],
-        "notes": notes,
-    }
+        evaluations=rows,
+        companion_artifacts=[SUMMARY_JSON, METRICS_CSV, SUMMARY_MD],
+    )
 
     summary_path = output_dir / SUMMARY_JSON
     csv_path = output_dir / METRICS_CSV
