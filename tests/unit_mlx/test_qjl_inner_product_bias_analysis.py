@@ -131,3 +131,14 @@ def test_inner_product_bias_lane_is_bounded_and_distinct():
         "paper_mse and paper_prod_qjl should produce distinguishable score-error "
         "profiles on the fixed synthetic workload"
     )
+
+
+def test_inner_product_bias_lane_is_reproducible_on_fixed_fixture():
+    for preset in ("paper_mse", "paper_prod"):
+        first = _score_stats(TurboQuantConfig.from_preset(preset))
+        second = _score_stats(TurboQuantConfig.from_preset(preset))
+        for key in first:
+            assert second[key] == pytest.approx(first[key], abs=1e-7), (
+                f"inner-product bias metric '{key}' drifted across repeated "
+                f"runs for preset {preset!r} on the fixed synthetic fixture"
+            )

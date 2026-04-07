@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# flake8: noqa: E402
 """Emit a research-only inner-product bias summary into a runtime-cert artifact.
 
 This script measures the current paper-facing score-estimation behavior on a
@@ -15,9 +16,11 @@ release gate by itself.
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import sys
 from pathlib import Path
+from typing import Any
 
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
@@ -30,6 +33,10 @@ from turboquant.config import TurboQuantConfig
 from turboquant.core.pipeline import TurboQuantPipeline
 from turboquant.core.rotation import FixedRotation
 from turboquant.runtime.attention import score_block
+
+SUMMARY_JSON = "inner_product_bias_summary.json"
+METRICS_CSV = "inner_product_bias_metrics.csv"
+SUMMARY_MD = "inner_product_bias_summary.md"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -102,6 +109,84 @@ def _score_stats(config: TurboQuantConfig, q: mx.array, k: mx.array) -> dict[str
     }
 
 
+def _write_metrics_csv(path: Path, rows: list[dict[str, float | str]]) -> None:
+    fieldnames = [
+        "algorithm",
+        "residual_mode",
+        "quantizer_mode",
+        "mean_signed_error",
+        "mean_abs_error",
+        "error_variance",
+        "q95_abs_error",
+        "mean_abs_true",
+        "normalized_mean_bias",
+        "normalized_mean_abs_error",
+    ]
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+
+def _render_markdown_summary(payload: dict[str, Any]) -> str:
+    workload = payload["workload"]
+    algorithms = payload["algorithms"]
+    comparison = payload["comparison"]
+
+    lines = [
+        "# Inner-Product Bias Summary",
+        "",
+        "This is a research-only score diagnostic for the paper-facing scalar-only and two-stage paths.",
+        "It is not a release gate and it does not by itself prove unbiasedness.",
+        "",
+        "## Workload",
+        "",
+        f"- batch: `{workload['batch']}`",
+        f"- q_len: `{workload['q_len']}`",
+        f"- k_len: `{workload['k_len']}`",
+        f"- d_head: `{workload['d_head']}`",
+        f"- q_seed: `{workload['q_seed']}`",
+        f"- k_seed: `{workload['k_seed']}`",
+        f"- source: `{workload['vector_source']}`",
+        "",
+        "## Metrics",
+        "",
+        "| Algorithm | Residual | Mean signed error | Mean abs error | Normalized mean bias | Normalized mean abs error | Error variance | 95th pct abs error |",
+        "| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for item in algorithms:
+        lines.append(
+            "| "
+            f"`{item['algorithm']}` | `{item['residual_mode']}` | "
+            f"{float(item['mean_signed_error']):.4f} | "
+            f"{float(item['mean_abs_error']):.4f} | "
+            f"{float(item['normalized_mean_bias']):.4f} | "
+            f"{float(item['normalized_mean_abs_error']):.4f} | "
+            f"{float(item['error_variance']):.4f} | "
+            f"{float(item['q95_abs_error']):.4f} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Honest Takeaway",
+            "",
+            f"- `paper_prod_qjl` differs from `paper_mse` by a normalized mean-abs-error delta of {float(comparison['normalized_mean_abs_error_delta']):+.4f} on this fixed workload.",
+            f"- The signed-bias delta on the same workload is {float(comparison['normalized_mean_bias_delta']):+.4f}.",
+            f"- The absolute signed-bias magnitude delta is {float(comparison['normalized_mean_bias_magnitude_delta']):+.4f}.",
+            "- These numbers make the two-stage path directly measurable, but they do not justify a theorem-level unbiasedness claim here.",
+            "",
+            "## Companion Artifacts",
+            "",
+            f"- `{SUMMARY_JSON}` — structured research summary",
+            f"- `{METRICS_CSV}` — row-oriented metric table",
+            f"- `{SUMMARY_MD}` — human-readable summary",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     args = _parse_args()
     output_dir = ensure_artifact_dir(args.output_dir)
@@ -123,7 +208,7 @@ def main() -> int:
     prod = by_algorithm["paper_prod_qjl"]
 
     payload = {
-        "schema_version": "1",
+        "schema_version": "2",
         "metric_family": "inner_product_bias",
         "status": "ok",
         "environment": collect_environment_metadata(
@@ -137,6 +222,7 @@ def main() -> int:
             "d_head": args.d_head,
             "q_seed": args.q_seed,
             "k_seed": args.k_seed,
+            "vector_source": "synthetic",
             "description": (
                 "Synthetic rotated-space attention-score workload used to compare "
                 "the scalar-only paper_mse path against the paper_prod_qjl two-stage path."
@@ -152,16 +238,30 @@ def main() -> int:
                 float(prod["normalized_mean_bias"])
                 - float(baseline["normalized_mean_bias"])
             ),
+            "normalized_mean_bias_magnitude_delta": (
+                abs(float(prod["normalized_mean_bias"]))
+                - abs(float(baseline["normalized_mean_bias"]))
+            ),
         },
+        "companion_artifacts": [SUMMARY_JSON, METRICS_CSV, SUMMARY_MD],
         "notes": [
             "This is a research validation metric, not a release gate.",
             "The repo keeps the unbiased-inner-product claim explicitly open until stronger retained evidence exists.",
+            "The fixed synthetic workload is intended to keep score-estimation changes reproducible and comparable across commits.",
         ],
     }
 
-    output_path = output_dir / "inner_product_bias_summary.json"
-    write_json(output_path, payload)
-    print(output_path)
+    summary_path = output_dir / SUMMARY_JSON
+    csv_path = output_dir / METRICS_CSV
+    markdown_path = output_dir / SUMMARY_MD
+
+    write_json(summary_path, payload)
+    _write_metrics_csv(csv_path, results)
+    markdown_path.write_text(_render_markdown_summary(payload), encoding="utf-8")
+
+    print(summary_path)
+    print(csv_path)
+    print(markdown_path)
     return 0
 
 

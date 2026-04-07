@@ -233,7 +233,7 @@ def render_snapshot(artifact_dir: Path, artifact_uri: str) -> str:
             f"- `hardware`: `{preflight['platform']}`",
             "- `script`: `bash scripts/certify_apple_runtime.sh`",
             "- `args`: certification script invoked `benchmarks/runtime_cert/run_dense_vs_tq.py` for each model with `--prompt-file benchmarks/runtime_cert/prompts/{short,medium,long}.jsonl --max-new-tokens 64 --seed 42 --mode both`",
-            "- `extra_research_metrics`: optional `benchmarks/runtime_cert/run_inner_product_bias_eval.py` output when retained in the same artifact directory",
+            "- `extra_research_metrics`: optional `benchmarks/runtime_cert/run_inner_product_bias_eval.py` outputs (`inner_product_bias_summary.json`, `inner_product_bias_metrics.csv`, `inner_product_bias_summary.md`) when retained in the same artifact directory",
             "",
             "## Addressable Evidence",
             "",

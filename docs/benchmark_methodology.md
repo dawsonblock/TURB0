@@ -75,10 +75,17 @@ python benchmarks/runtime_cert/run_inner_product_bias_eval.py \
 ```
 
 This synthetic lane compares `paper_mse` against `paper_prod_qjl` on a fixed
-attention-score workload and emits `inner_product_bias_summary.json`.
+attention-score workload and emits:
+
+- `inner_product_bias_summary.json`
+- `inner_product_bias_metrics.csv`
+- `inner_product_bias_summary.md`
+
 Use it to make the paper-facing scalar-only and two-stage paths directly
-measurable. Do not present it as proof of unbiasedness unless stronger retained
-evidence supports that claim.
+measurable. The JSON is the structured record, the CSV is the tabular metric
+surface, and the Markdown file is the human-review summary. Do not present any
+of them as proof of unbiasedness unless stronger retained evidence supports
+that claim.
 
 ## Reproduction rules
 

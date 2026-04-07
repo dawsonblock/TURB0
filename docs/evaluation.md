@@ -66,15 +66,23 @@ true rotated-space dot products on a fixed synthetic workload.
 What it tells you:
 
 - whether the paper-facing two-stage `paper_prod_qjl` path behaves differently
-	from the scalar-only `paper_mse` baseline
+- from the scalar-only `paper_mse` baseline
 - whether the residual sketch is measurably changing signed error, absolute
-	error, and error variance rather than only existing in code
+- error, and error variance rather than only existing in code
 
 Illustrative use:
 
-- retain `inner_product_bias_summary.json` from
-	`benchmarks/runtime_cert/run_inner_product_bias_eval.py` as a research metric,
-	not a certification gate
+- retain `inner_product_bias_summary.json`, `inner_product_bias_metrics.csv`,
+- and `inner_product_bias_summary.md` from
+- `benchmarks/runtime_cert/run_inner_product_bias_eval.py` as research metrics,
+- not certification gates
+
+Interpretation rule:
+
+- use the JSON and CSV outputs to track metric movement across commits
+- use the Markdown summary for human review and artifact handoff
+- do not translate directional bias changes on one fixed workload into a proof
+- of unbiasedness for the full two-stage path
 
 ## Recommended local workflow
 
@@ -84,8 +92,8 @@ Illustrative use:
 4. Check perplexity delta with `perplexity_report(...)`.
 5. If you need a batch-quality reference, compare against `paper_mse`.
 6. If you need a paper-facing score diagnostic, run the inner-product bias lane
-	and compare `paper_prod_qjl` against `paper_mse` on the retained synthetic
-	workload.
+   and compare `paper_prod_qjl` against `paper_mse` on the retained synthetic
+   workload, then read the Markdown summary and CSV companion outputs together.
 
 ## Interpreting exploratory results
 
