@@ -26,7 +26,8 @@ python benchmarks/runtime_cert/run_kv_paper_eval.py \
     --output-dir artifacts/runtime-cert/manual_kv_eval \
     --include-heavy-offline \
     --llama-model mlx-community/Llama-3.2-1B-Instruct-4bit \
-    --gemma-model mlx-community/gemma-2-2b-it-4bit
+  --gemma-model mlx-community/gemma-2-2b-it-4bit \
+  --include-gemma-quality-research
 ```
 
 ## Tiers
@@ -55,10 +56,12 @@ It currently consolidates:
 
 - dense-versus-TurboQuant sweep artifacts from `run_dense_vs_tq.py`
 - Llama `paper_mse` quality summaries from `run_quality_eval.py`
+- optional Gemma `paper_mse` observational summaries from `run_quality_eval.py`
 
 Gemma remains narrower here on purpose. The stronger `paper_mse` quality
-guardrail remains Llama-scoped, so Gemma heavy-quality stages are reported as
-not configured rather than fabricated into symmetry.
+guardrail remains Llama-scoped. When `--include-gemma-quality-research` is set,
+the bundle records a separate Gemma observational tranche, but it stays marked
+as research-only rather than being fabricated into symmetry.
 
 ## Output Files
 
@@ -78,5 +81,7 @@ and any measured benchmark or quality aggregates returned by the heavier stages.
   `not_requested` or `not_configured` in the report.
 - Heavy-offline results are still research evidence, not automatic product
   support expansion.
+- A captured Gemma observational tranche records `paper_mse` metrics without
+  promoting Gemma into a symmetric release guardrail.
 - Read the unified bundle together with the narrower contract docs and
   certification artifacts.

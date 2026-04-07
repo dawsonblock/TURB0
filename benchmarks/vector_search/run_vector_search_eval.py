@@ -26,7 +26,14 @@ import mlx.core as mx
 import numpy as np
 
 from benchmarks.runtime_cert.utils import collect_environment_metadata, ensure_artifact_dir, write_json
-from benchmarks.vector_search.dataset_loader import DEFAULT_DATASET_PATH, embed_dataset, load_dataset
+from benchmarks.vector_search.dataset_loader import (
+    DEFAULT_DATASET_PATH,
+    DEFAULT_PUBLIC_CORPUS_CACHE,
+    PUBLIC_CORPUS_SPECS,
+    embed_dataset,
+    load_dataset,
+    load_public_corpus,
+)
 from turboquant.config import TurboQuantConfig
 from turboquant.core.pipeline import TurboQuantPipeline
 from turboquant.runtime.attention import score_block
@@ -48,8 +55,33 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--dataset",
-        default=str(DEFAULT_DATASET_PATH),
-        help="Path to the bundled or user-supplied vector-search dataset JSON.",
+        default="mini",
+        help=(
+            "Dataset selector. Use `mini` for the bundled dataset, a public corpus "
+            f"name such as {', '.join(sorted(PUBLIC_CORPUS_SPECS))}, or a path to a custom dataset JSON."
+        ),
+    )
+    parser.add_argument(
+        "--download-public-corpus",
+        action="store_true",
+        help="Allow explicit download of a supported third-party public corpus when --dataset selects one.",
+    )
+    parser.add_argument(
+        "--public-corpus-cache-dir",
+        default=str(DEFAULT_PUBLIC_CORPUS_CACHE),
+        help="Cache directory for explicitly downloaded public corpora.",
+    )
+    parser.add_argument(
+        "--public-corpus-max-docs",
+        type=int,
+        default=None,
+        help="Optional deterministic doc cap for public corpora.",
+    )
+    parser.add_argument(
+        "--public-corpus-max-queries",
+        type=int,
+        default=None,
+        help="Optional deterministic query cap for public corpora.",
     )
     parser.add_argument(
         "--presets",
@@ -97,6 +129,38 @@ def _topk_indices(scores: mx.array, k: int) -> list[list[int]]:
     return [[int(item) for item in row] for row in topk[0]]
 
 
+def _load_requested_dataset(args: argparse.Namespace):
+    dataset_value = str(args.dataset)
+    dataset_path = Path(dataset_value)
+    if dataset_value == "mini":
+        return load_dataset(DEFAULT_DATASET_PATH), {
+            "dataset_selector": "mini",
+            "dataset_path": str(DEFAULT_DATASET_PATH.resolve()),
+            "downloaded": False,
+        }
+    if dataset_value in PUBLIC_CORPUS_SPECS:
+        return load_public_corpus(
+            dataset_value,
+            cache_dir=args.public_corpus_cache_dir,
+            allow_download=args.download_public_corpus,
+            max_docs=args.public_corpus_max_docs,
+            max_queries=args.public_corpus_max_queries,
+        ), {
+            "dataset_selector": dataset_value,
+            "dataset_path": str(Path(args.public_corpus_cache_dir).resolve() / dataset_value),
+            "downloaded": bool(args.download_public_corpus),
+        }
+    if dataset_path.is_file():
+        return load_dataset(dataset_path), {
+            "dataset_selector": "custom-path",
+            "dataset_path": str(dataset_path.resolve()),
+            "downloaded": False,
+        }
+    raise SystemExit(
+        f"Unknown dataset '{dataset_value}'. Use `mini`, one of {sorted(PUBLIC_CORPUS_SPECS)}, or a path to a dataset JSON."
+    )
+
+
 def _recall_at_k(dataset, topk_indices: list[list[int]], k: int) -> float:
     hits = 0
     for query, predicted in zip(dataset.queries, topk_indices):
@@ -126,19 +190,32 @@ def _write_metrics_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def _render_markdown_summary(payload: dict[str, Any]) -> str:
+    dataset = payload["dataset"]
+    selector = str(dataset.get("selector", "unknown"))
+    intro = (
+        "This is a research-only vector-search evaluation on the bundled mini public dataset."
+        if selector == "mini"
+        else "This is a research-only vector-search evaluation on an explicitly downloaded public corpus slice."
+    )
+    takeaway = (
+        "This bundled mini dataset is meant to make vector-search measurement reproducible, not authoritative."
+        if selector == "mini"
+        else "This explicit public-corpus slice is retained as research context only; it is not a release-facing retrieval benchmark claim."
+    )
     lines = [
         "# Vector Search Summary",
         "",
-        "This is a research-only vector-search evaluation on the bundled mini public dataset.",
+        intro,
         "It does not make vector search part of the supported product contract.",
         "",
         "## Dataset",
         "",
-        f"- dataset: `{payload['dataset']['dataset_name']}`",
-        f"- license: `{payload['dataset']['license']}`",
-        f"- docs: `{payload['dataset']['doc_count']}`",
-        f"- queries: `{payload['dataset']['query_count']}`",
-        f"- embedding dim: `{payload['dataset']['embedding_dim']}`",
+        f"- dataset: `{dataset['dataset_name']}`",
+        f"- selector: `{selector}`",
+        f"- license: `{dataset['license']}`",
+        f"- docs: `{dataset['doc_count']}`",
+        f"- queries: `{dataset['query_count']}`",
+        f"- embedding dim: `{dataset['embedding_dim']}`",
         "",
         "## Results",
         "",
@@ -159,7 +236,7 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
             "",
             "## Honest Takeaways",
             "",
-            "- This bundled mini dataset is meant to make vector-search measurement reproducible, not authoritative.",
+            f"- {takeaway}",
             "- The dense baseline defines the uncompressed retrieval reference on this dataset.",
             "- Compressed rows show how recall, memory, index-build time, and query behavior move under the current preset surfaces.",
             "- These results are research-only and should not be read as supported runtime claims.",
@@ -177,7 +254,7 @@ def _render_markdown_summary(payload: dict[str, Any]) -> str:
 def main() -> int:
     args = _parse_args()
     output_dir = ensure_artifact_dir(args.output_dir)
-    dataset = load_dataset(args.dataset)
+    dataset, dataset_meta = _load_requested_dataset(args)
     doc_np, query_np = embed_dataset(dataset, dim=args.embedding_dim)
     doc_embeddings = mx.array(doc_np[None, ...], dtype=mx.float32)
     query_embeddings = mx.array(query_np[None, ...], dtype=mx.float32)
@@ -228,6 +305,19 @@ def main() -> int:
                 raise SystemExit(f"non-finite vector-search metric for {preset}: {row}")
         rows.append(row)
 
+    notes = [
+        "This bundled mini dataset is a reproducible research entry point, not a production retrieval benchmark.",
+        "Recall is measured against bundled relevance labels, not against a larger public leaderboard.",
+        "Vector-search results remain explicitly outside the supported Apple-MLX product contract.",
+    ]
+
+    if dataset_meta["dataset_selector"] in PUBLIC_CORPUS_SPECS:
+        notes = [
+            "This explicit public-corpus run is a research-only retrieval evaluation. The repo does not redistribute the third-party dataset.",
+            "Any third-party corpus terms remain upstream responsibilities; review them before using the downloaded data.",
+            "Vector-search results remain explicitly outside the supported Apple-MLX product contract.",
+        ]
+
     payload = {
         "schema_version": "1",
         "metric_family": "vector_search",
@@ -241,7 +331,9 @@ def main() -> int:
             "dataset_name": dataset.dataset_name,
             "license": dataset.license,
             "description": dataset.description,
-            "path": str(Path(args.dataset).resolve()),
+            "path": dataset_meta["dataset_path"],
+            "selector": dataset_meta["dataset_selector"],
+            "downloaded": dataset_meta["downloaded"],
             "doc_count": len(dataset.doc_ids),
             "query_count": len(dataset.queries),
             "embedding_dim": args.embedding_dim,
@@ -249,11 +341,7 @@ def main() -> int:
         },
         "evaluations": rows,
         "companion_artifacts": [SUMMARY_JSON, METRICS_CSV, SUMMARY_MD],
-        "notes": [
-            "This bundled mini dataset is a reproducible research entry point, not a production retrieval benchmark.",
-            "Recall is measured against bundled relevance labels, not against a larger public leaderboard.",
-            "Vector-search results remain explicitly outside the supported Apple-MLX product contract.",
-        ],
+        "notes": notes,
     }
 
     summary_path = output_dir / SUMMARY_JSON

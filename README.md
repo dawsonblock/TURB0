@@ -70,7 +70,7 @@ Important boundaries:
 - `upgrade_cache_list(...)` is the canonical support-gated entry point.
 - `TurboQuantKCache(...)`, `KVCache._to_turboquant()`, and `KVCache.to_turboquant()` remain compatibility or eval surfaces, not peer public runtime APIs.
 - The canonical decode path returns runtime-upgrade events, but it does not automatically persist `events.jsonl`.
-- Evidence depth is intentionally asymmetric today: Llama coverage is stronger; Gemma remains narrower overall because the conservative `paper_mse` batch quality guardrail is still Llama-scoped even though PolarQuant runtime and quality stages now run on both families.
+- Evidence depth is intentionally asymmetric today: Llama coverage is stronger; Gemma remains narrower overall because the conservative `paper_mse` batch quality guardrail is still Llama-scoped even though PolarQuant runtime and quality stages now run on both families, and the unified KV bundle only records Gemma `paper_mse` as a research-only observational tranche when explicitly requested.
 
 The supported public cache-state persistence format is
 `TurboQuantKVCache.state()` with `schema_version == 4`.
@@ -221,7 +221,7 @@ For the full evidence model, read
 | [docs/preset_modes.md](docs/preset_modes.md) | Generated preset taxonomy with paper-facing, non-paper-facing, and compatibility-only tags |
 | [docs/bit_budget_sweep.md](docs/bit_budget_sweep.md) | Research-only bit-budget sweep command, schema, and interpretation guide |
 | [docs/kv_paper_eval.md](docs/kv_paper_eval.md) | Unified research-only KV report command with explicit fast-check vs heavy-offline tiers |
-| [docs/vector_search.md](docs/vector_search.md) | Research-only vector-search benchmark lane on a bundled mini dataset |
+| [docs/vector_search.md](docs/vector_search.md) | Research-only vector-search benchmark lane on a bundled mini dataset plus an explicit larger public-corpus path |
 | [docs/product_contract.md](docs/product_contract.md) | Generated top-level product boundary |
 | [docs/supported-surface.md](docs/supported-surface.md) | Generated canonical vs secondary surface definition |
 | [docs/support_matrix.md](docs/support_matrix.md) | Generated family and preset matrix |

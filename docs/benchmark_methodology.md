@@ -134,6 +134,16 @@ lightweight fast checks and which are heavier offline research evaluations.
 See [docs/kv_paper_eval.md](docs/kv_paper_eval.md) for the tier definitions and
 interpretation rules.
 
+If you want those retained research summaries to appear in a dated benchmark
+history snapshot, you can pass them to the snapshot renderer explicitly:
+
+```bash
+python scripts/render_benchmark_snapshot.py \
+    --artifact-dir artifacts/runtime-cert/<certification-timestamp> \
+    --kv-paper-eval-summary artifacts/runtime-cert/<kv-bundle>/kv_paper_eval_summary.json \
+    --vector-search-summary artifacts/runtime-cert/<vector-search-bundle>/vector_search_summary.json
+```
+
 ### Vector-search research lane
 
 The repo also includes a bundled mini vector-search evaluation path under
@@ -154,6 +164,10 @@ Use it to compare dense retrieval against the current paper-facing and
 non-paper-facing preset surfaces on a bundled mini dataset. This lane is
 research-only and should not be described as part of the supported runtime
 product surface. See [docs/vector_search.md](docs/vector_search.md).
+
+For larger retrieval evidence, the same driver supports an explicit public
+corpus download lane behind `--download-public-corpus` so the repo does not
+ship third-party data by default.
 
 ## Reproduction rules
 

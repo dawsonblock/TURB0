@@ -11,7 +11,7 @@ source archive alone proves a current PASS.
 - Supported MLX range: `>= 0.30.0` and `< 1.0.0`.
 - Canonical runtime path: `upgrade_cache_list(...)` inside the `mlx_lm` decode flow.
 - Supported families: `llama` and `gemma`.
-- Evidence depth is asymmetric: Llama is stronger; Gemma remains narrower overall because the conservative `paper_mse` batch quality guardrail remains Llama-scoped even though PolarQuant runtime and quality gates now run on both families.
+- Evidence depth is asymmetric: Llama is stronger; Gemma remains narrower overall because the conservative `paper_mse` batch quality guardrail remains Llama-scoped even though PolarQuant runtime and quality gates now run on both families, and the unified KV bundle only records Gemma `paper_mse` as a research-only observational tranche when explicitly requested.
 
 The machine-readable source of truth is `turboquant/contract.json`.
 

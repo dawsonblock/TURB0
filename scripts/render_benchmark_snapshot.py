@@ -151,13 +151,100 @@ def _render_inner_product_bias_section(
     return lines
 
 
-def render_snapshot(artifact_dir: Path, artifact_uri: str) -> str:
+def _render_kv_paper_eval_section(summary: JsonDict | None) -> list[str]:
+    if summary is None:
+        return []
+
+    stages = cast(list[JsonDict], summary.get("stages", []))
+    if not stages:
+        return []
+
+    lines = [
+        "",
+        "## KV Research Rollup",
+        "",
+        "This snapshot also records the retained unified KV research bundle when one is supplied.",
+        "It complements the certification sweep; it does not replace the product release gate.",
+        "",
+        "| Stage | Tier | Status | Notes |",
+        "| :--- | :--- | :--- | :--- |",
+    ]
+    for stage in stages:
+        note = "; ".join(cast(list[str], stage.get("notes", []))) or "-"
+        lines.append(
+            f"| {stage['name']} | `{stage['tier']}` | `{stage['status']}` | {note} |"
+        )
+
+    tier_counts = cast(JsonDict, summary.get("tier_counts", {}))
+    heavy = cast(JsonDict, tier_counts.get("heavy-offline", {}))
+    fast = cast(JsonDict, tier_counts.get("fast-check", {}))
+    lines.extend(
+        [
+            "",
+            "KV rollup takeaway:",
+            f"The retained bundle executed {int(fast.get('executed', 0))} fast-check stages and {int(heavy.get('executed', 0))} heavy-offline stages.",
+            "Any Gemma paper_mse tranche reported here remains observational research unless and until the repo promotes it into a symmetric guardrail.",
+        ]
+    )
+    return lines
+
+
+def _render_vector_search_section(summary: JsonDict | None) -> list[str]:
+    if summary is None:
+        return []
+
+    evaluations = cast(list[JsonDict], summary.get("evaluations", []))
+    if not evaluations:
+        return []
+
+    dataset = cast(JsonDict, summary.get("dataset", {}))
+    lines = [
+        "",
+        "## Vector-Search Research Snapshot",
+        "",
+        "This snapshot can also carry an optional research-only retrieval rollup.",
+        "It remains outside the supported Apple-MLX product contract.",
+        "",
+        f"Dataset selector: `{dataset.get('selector', 'unknown')}` with `{dataset.get('doc_count', 0)}` docs and `{dataset.get('query_count', 0)}` queries.",
+        "",
+        "| Method | Classification | Recall@1 | Recall@3 | Compression ratio | Query ms/query |",
+        "| :--- | :--- | ---: | ---: | ---: | ---: |",
+    ]
+    for row in evaluations:
+        lines.append(
+            "| "
+            f"`{row['method']}` | {row['classification']} | "
+            f"{float(row['recall_at_1']):.3f} | {float(row['recall_at_3']):.3f} | "
+            f"{float(row['compression_ratio']):.2f}x | {float(row['query_ms_per_query']):.2f} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "Vector-search takeaway:",
+            "These retrieval metrics are retained as research context only. They do not promote vector search into the release-gated product surface.",
+        ]
+    )
+    return lines
+
+
+def render_snapshot(
+    artifact_dir: Path,
+    artifact_uri: str,
+    *,
+    kv_paper_eval_summary: Path | None = None,
+    vector_search_summary: Path | None = None,
+) -> str:
     summary = _read_json(artifact_dir / "certification_summary.json")
     manifest = _read_json(artifact_dir / "cert_manifest.json")
     preflight = _read_json(artifact_dir / "preflight.json")
     rows = _load_rows(artifact_dir / "aggregate_runs.csv")
     inner_product_bias = _read_optional_json(
         artifact_dir / "inner_product_bias_summary.json"
+    )
+    kv_rollup = _read_optional_json(kv_paper_eval_summary) if kv_paper_eval_summary else None
+    vector_rollup = (
+        _read_optional_json(vector_search_summary) if vector_search_summary else None
     )
 
     memory_deltas = cast(list[JsonDict], summary["memory_deltas"])
@@ -211,6 +298,8 @@ def render_snapshot(artifact_dir: Path, artifact_uri: str) -> str:
             expected_commit=commit,
         )
     )
+    lines.extend(_render_kv_paper_eval_section(kv_rollup))
+    lines.extend(_render_vector_search_section(vector_rollup))
     lines.extend(
         [
             "",
@@ -233,7 +322,7 @@ def render_snapshot(artifact_dir: Path, artifact_uri: str) -> str:
             f"- `hardware`: `{preflight['platform']}`",
             "- `script`: `bash scripts/certify_apple_runtime.sh`",
             "- `args`: certification script invoked `benchmarks/runtime_cert/run_dense_vs_tq.py` for each model with `--prompt-file benchmarks/runtime_cert/prompts/{short,medium,long}.jsonl --max-new-tokens 64 --seed 42 --mode both`",
-            "- `extra_research_metrics`: optional `benchmarks/runtime_cert/run_inner_product_bias_eval.py` outputs (`inner_product_bias_summary.json`, `inner_product_bias_metrics.csv`, `inner_product_bias_summary.md`) when retained in the same artifact directory",
+            "- `extra_research_metrics`: optional `benchmarks/runtime_cert/run_inner_product_bias_eval.py` outputs (`inner_product_bias_summary.json`, `inner_product_bias_metrics.csv`, `inner_product_bias_summary.md`) when retained in the same artifact directory, plus optional `kv_paper_eval_summary.json` and `vector_search_summary.json` sidecars when supplied to the renderer",
             "",
             "## Addressable Evidence",
             "",
@@ -260,6 +349,16 @@ def main() -> int:
         default="",
         help="Output Markdown path. Defaults to docs/history/BENCHMARK_SNAPSHOT_<timestamp>.md",
     )
+    parser.add_argument(
+        "--kv-paper-eval-summary",
+        default="",
+        help="Optional path to a kv_paper_eval_summary.json sidecar to roll into the snapshot.",
+    )
+    parser.add_argument(
+        "--vector-search-summary",
+        default="",
+        help="Optional path to a vector_search_summary.json sidecar to roll into the snapshot.",
+    )
     args = parser.parse_args()
 
     artifact_dir = Path(args.artifact_dir).resolve()
@@ -274,7 +373,20 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     artifact_uri = args.artifact_uri or str(artifact_dir)
-    content = render_snapshot(artifact_dir, artifact_uri)
+    content = render_snapshot(
+        artifact_dir,
+        artifact_uri,
+        kv_paper_eval_summary=(
+            Path(args.kv_paper_eval_summary).resolve()
+            if args.kv_paper_eval_summary
+            else None
+        ),
+        vector_search_summary=(
+            Path(args.vector_search_summary).resolve()
+            if args.vector_search_summary
+            else None
+        ),
+    )
     output_path.write_text(content, encoding="utf-8")
     print(output_path)
     return 0

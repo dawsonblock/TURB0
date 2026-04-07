@@ -103,6 +103,11 @@ def _parse_args() -> argparse.Namespace:
         default=["short", "medium"],
         help="Prompt classes to use for heavy quality evaluation.",
     )
+    parser.add_argument(
+        "--include-gemma-quality-research",
+        action="store_true",
+        help="Run a research-only observational paper_mse quality tranche for Gemma in the heavy-offline bundle.",
+    )
     parser.add_argument("--max-new-tokens", type=int, default=64)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
@@ -334,11 +339,17 @@ def _run_dense_vs_tq_stage(
 
 def _run_quality_eval_stage(
     *,
+    stage_id: str,
+    name: str,
     family: str,
     model_id: str,
     prompt_classes: list[str],
     output_dir: Path,
     env: dict[str, str],
+    artifact_label: str = "",
+    max_delta_ppl: float = 20.0,
+    max_mean_kl: float = 5.0,
+    research_only: bool = False,
 ) -> dict[str, Any]:
     family_dir = ensure_artifact_dir(output_dir / f"{family}_quality_eval")
     stage_commands: list[str] = []
@@ -346,6 +357,7 @@ def _run_quality_eval_stage(
     status = "passed"
     summaries: list[dict[str, Any]] = []
     artifacts: list[str] = []
+    observation_statuses: list[str] = []
 
     for prompt_class in prompt_classes:
         prompt_file = f"benchmarks/runtime_cert/prompts/{prompt_class}.jsonl"
@@ -367,25 +379,49 @@ def _run_quality_eval_stage(
             "--min-prompt-tokens",
             "32",
             "--max-delta-ppl",
-            "20.0",
+            str(max_delta_ppl),
             "--max-mean-kl",
-            "5.0",
+            str(max_mean_kl),
             "--seed",
             "42",
         ]
+        if artifact_label:
+            command.extend(["--artifact-label", artifact_label])
         completed = _run_command(command, env=env)
         stage_commands.append(" ".join(command))
-        summary_path = family_dir / f"quality_eval_{prompt_class}_summary.json"
+        summary_name = (
+            f"quality_eval_{artifact_label}_{prompt_class}_summary.json"
+            if artifact_label
+            else f"quality_eval_{prompt_class}_summary.json"
+        )
+        summary_path = family_dir / summary_name
         if summary_path.is_file():
-            summaries.append(json.loads(summary_path.read_text(encoding="utf-8")))
+            summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            summaries.append(summary_payload)
             artifacts.append(_display_path(summary_path))
-        if completed.returncode != 0:
+            observation_statuses.append(str(summary_payload.get("status", "unknown")))
+        if completed.returncode != 0 and not research_only:
             status = "failed"
             stage_notes.append(f"quality eval for prompt class '{prompt_class}' failed")
 
+    if research_only:
+        if len(summaries) == len(prompt_classes):
+            status = "captured"
+        else:
+            status = "failed"
+        observed = ", ".join(
+            f"{prompt_class}:{observation_status}"
+            for prompt_class, observation_status in zip(prompt_classes, observation_statuses)
+        )
+        stage_notes.append(
+            "Research-only observational tranche; this does not promote Gemma to a symmetric release guardrail."
+        )
+        if observed:
+            stage_notes.append(f"Observed paper_mse gate outcomes: {observed}.")
+
     stage: dict[str, Any] = {
-        "stage_id": f"{family}_quality_eval",
-        "name": f"paper_mse quality evaluation ({family})",
+        "stage_id": stage_id,
+        "name": name,
         "tier": "heavy-offline",
         "status": status,
         "commands": stage_commands,
@@ -393,6 +429,13 @@ def _run_quality_eval_stage(
         "notes": stage_notes,
         "model": model_id,
         "prompt_classes": prompt_classes,
+        "evaluation_mode": (
+            "research-only-observational" if research_only else "guardrail"
+        ),
+        "thresholds": {
+            "max_delta_ppl": max_delta_ppl,
+            "max_mean_kl": max_mean_kl,
+        },
     }
     if summaries:
         stage["quality_summary"] = {
@@ -401,6 +444,7 @@ def _run_quality_eval_stage(
             "mean_kl": sum(float(item["mean_kl"]) for item in summaries)
             / len(summaries),
         }
+        stage["observation_statuses"] = observation_statuses
     return stage
 
 
@@ -502,6 +546,8 @@ def main() -> int:
             )
             stages.append(
                 _run_quality_eval_stage(
+                    stage_id="llama_quality_eval",
+                    name="paper_mse quality evaluation (llama)",
                     family="llama",
                     model_id=args.llama_model,
                     prompt_classes=list(args.quality_prompt_classes),
@@ -532,15 +578,33 @@ def main() -> int:
                     env=heavy_env,
                 )
             )
-            stages.append(
-                _stage_stub(
-                    stage_id="gemma_quality_eval",
-                    name="paper_mse quality evaluation (gemma)",
-                    tier="heavy-offline",
-                    status="not_configured",
-                    notes=["The current stronger paper_mse quality guardrail remains Llama-scoped; Gemma quality remains narrower and is not automatically run here."],
+            if args.include_gemma_quality_research:
+                stages.append(
+                    _run_quality_eval_stage(
+                        stage_id="gemma_quality_eval_research",
+                        name="paper_mse quality evaluation (gemma research-only)",
+                        family="gemma",
+                        model_id=args.gemma_model,
+                        prompt_classes=list(args.quality_prompt_classes),
+                        output_dir=heavy_dir,
+                        env=heavy_env,
+                        artifact_label="gemma_research",
+                        research_only=True,
+                    )
                 )
-            )
+            else:
+                stages.append(
+                    _stage_stub(
+                        stage_id="gemma_quality_eval_research",
+                        name="paper_mse quality evaluation (gemma research-only)",
+                        tier="heavy-offline",
+                        status="not_requested",
+                        notes=[
+                            "Gemma paper_mse quality remains a research-only observational tranche. "
+                            "Run again with --include-gemma-quality-research to collect it explicitly."
+                        ],
+                    )
+                )
         else:
             stages.append(
                 _stage_stub(
