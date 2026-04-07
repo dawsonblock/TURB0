@@ -73,6 +73,8 @@ def test_readme_tracks_primary_contract_story() -> None:
     assert "docs/bit_budget_sweep.md" in content
     assert "docs/kv_paper_eval.md" in content
     assert "docs/vector_search.md" in content
+    assert "docs/benchmark_index.md" in content
+    assert "docs/family_evidence_matrix.md" in content
     assert "legacy_topk" in content
     assert "compatibility-only" in lowered or "compatibility only" in lowered
     assert "artifacts/runtime-cert/" in content
@@ -143,6 +145,8 @@ def test_evaluation_and_benchmark_docs_are_non_certification_guides() -> None:
     assert "not certification gates" in eval_content
     assert "heuristic" in eval_content
     assert "not part of the certified product contract" in bench_content
+    assert "docs/benchmark_index.md" in bench_content
+    assert "docs/family_evidence_matrix.md" in bench_content
     for field in (
         "artifact_uri_or_manifest_digest",
         "git_commit",

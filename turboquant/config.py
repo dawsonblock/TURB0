@@ -60,7 +60,7 @@ _PRESET_REGISTRY: dict[str, dict[str, Any]] = {
         "paper_facing": True,
         "canonical_preset": "paper_prod_qjl",
         "comparison_role": "paper-facing alias for the full two-stage path",
-        "notes": "Paper-facing alias preset for the primary `paper_prod_qjl` path.",
+        "notes": "Paper-facing production-style preset using a 1-bit QJL residual.",
         "algorithm_aliases": ("paper_prod_qjl", "turboquant_prod"),
     },
     "polarquant_exp": {
@@ -144,7 +144,7 @@ _PRESET_REGISTRY: dict[str, dict[str, Any]] = {
         "paper_facing": False,
         "canonical_preset": "paper_prod_qjl",
         "comparison_role": "legacy alias for the two-stage paper path",
-        "notes": "Legacy convenience alias for the primary `paper_prod_qjl` path.",
+        "notes": "Legacy convenience alias for the QJL production-style preset.",
         "algorithm_aliases": ("paper_prod_qjl", "turboquant_prod"),
     },
 }

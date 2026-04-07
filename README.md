@@ -222,6 +222,8 @@ For the full evidence model, read
 | [docs/bit_budget_sweep.md](docs/bit_budget_sweep.md) | Research-only bit-budget sweep command, schema, and interpretation guide |
 | [docs/kv_paper_eval.md](docs/kv_paper_eval.md) | Unified research-only KV report command with explicit fast-check vs heavy-offline tiers |
 | [docs/vector_search.md](docs/vector_search.md) | Research-only vector-search benchmark lane on a bundled mini dataset plus an explicit larger public-corpus path |
+| [docs/benchmark_index.md](docs/benchmark_index.md) | Generated index of benchmark/report surfaces, stable outputs, and lane boundaries |
+| [docs/family_evidence_matrix.md](docs/family_evidence_matrix.md) | Generated family-by-family split between release-gated evidence and research-only adjunct evidence |
 | [docs/product_contract.md](docs/product_contract.md) | Generated top-level product boundary |
 | [docs/supported-surface.md](docs/supported-surface.md) | Generated canonical vs secondary surface definition |
 | [docs/support_matrix.md](docs/support_matrix.md) | Generated family and preset matrix |

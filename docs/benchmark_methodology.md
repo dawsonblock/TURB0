@@ -28,6 +28,7 @@ not in the primary docs.
 - Benchmark commands remain documented here.
 - Release evidence should carry the raw benchmark outputs, not just prose summaries.
 - Source archives do not embed `artifacts/runtime-cert/<timestamp>/`; they document the workflow shape only.
+- Generated benchmark and family evidence indexes live in `docs/benchmark_index.md` and `docs/family_evidence_matrix.md` so the research lane stays explicit without becoming release truth.
 
 ## Benchmark categories
 

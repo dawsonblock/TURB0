@@ -24,6 +24,8 @@ This document belongs to the research lane. When a code path is shared by both
 lanes, the theory-facing claim still stays research-scoped unless the product
 contract explicitly says otherwise.
 
+Generated research indexes live in `docs/benchmark_index.md` and `docs/family_evidence_matrix.md`; they summarize retained research evidence without widening the product contract.
+
 ## Status Labels
 
 | Label | Meaning |

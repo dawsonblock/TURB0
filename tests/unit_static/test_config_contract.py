@@ -124,7 +124,7 @@ def test_contract_presets_match_runtime_registry_metadata():
     registry = TurboQuantConfig.preset_registry()
     contract_presets = _load_contract_presets()
 
-    assert set(contract_presets).issubset(registry)
+    assert set(contract_presets) == set(registry)
 
     for name, contract in contract_presets.items():
         runtime = registry[name]
@@ -132,6 +132,7 @@ def test_contract_presets_match_runtime_registry_metadata():
         assert runtime["paper_facing"] == contract["paper_facing"]
         assert runtime["classification"] == contract["classification"]
         assert runtime["canonical_preset"] == contract["canonical_preset"]
+        assert runtime["notes"] == contract["notes"]
         assert runtime["k_bits"] == contract["k_bits"]
         assert runtime["k_group_size"] == contract["k_group_size"]
         assert runtime["v_bits"] == contract["v_bits"]
@@ -139,11 +140,46 @@ def test_contract_presets_match_runtime_registry_metadata():
         assert tuple(runtime["algorithm_aliases"]) == tuple(
             contract.get("algorithm_aliases", [])
         )
+        assert runtime["constructor"] == f'TurboQuantConfig.from_preset("{name}")'
+
+        if contract["algorithm"] == "polarquant_exp":
+            assert runtime["quantizer_mode"] == "polar"
+        else:
+            assert runtime["quantizer_mode"] == "scalar"
 
         if contract["residual_kind"] == "qjl":
+            assert runtime["residual_mode"] == "qjl"
             assert runtime["qjl_proj_dim"] == contract["qjl_dim"]
-        if contract["residual_kind"] == "topk":
+        elif contract["residual_kind"] == "topk":
+            assert runtime["residual_mode"] == "topk"
             assert runtime["residual_topk"] == contract["residual_topk"]
+        else:
+            assert runtime["residual_mode"] == "none"
+
+
+def test_preset_registry_metadata_is_explicit() -> None:
+    required_fields = {
+        "name",
+        "factory",
+        "classification",
+        "paper_facing",
+        "canonical_preset",
+        "comparison_role",
+        "notes",
+        "algorithm_aliases",
+        "algorithm",
+        "quantizer_mode",
+        "residual_mode",
+        "rotation",
+        "constructor",
+    }
+
+    for name, metadata in TurboQuantConfig.preset_registry().items():
+        assert required_fields.issubset(metadata)
+        assert metadata["name"] == name
+        assert metadata["comparison_role"]
+        assert metadata["notes"]
+        assert metadata["constructor"] == f'TurboQuantConfig.from_preset("{name}")'
 
 
 # ── effective_bits_per_channel formulae ──────────────────────────────────────
