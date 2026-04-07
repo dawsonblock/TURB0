@@ -9,104 +9,77 @@ this source tree alone.
 The goal here is narrower: make the paper-facing path explicit, checkable, and
 auditable.
 
-## Scope
+## Lane Separation
 
-TurboQuant currently has two distinct stories:
+TurboQuant currently has two distinct lanes:
 
-- Product contract: a narrow Apple-Silicon MLX runtime path for allowlisted
-  Llama and Gemma families.
-- Research traceability: a paper-facing scalar-plus-residual path and an
-  experimental PolarQuant path that can be measured and compared without
-  broadening support.
+- Product lane: a narrow Apple-Silicon MLX runtime path for allowlisted Llama
+  and Gemma families, release-gated by the machine-readable contract and
+  runtime-cert evidence.
+- Research lane: theory traceability, paper-facing presets, bias analysis,
+  ablations, and future vector-search work used to measure alignment with the
+  paper without widening support.
 
-This document covers the second story. It should answer:
+This document belongs to the research lane. When a code path is shared by both
+lanes, the theory-facing claim still stays research-scoped unless the product
+contract explicitly says otherwise.
 
-- which modules implement the paper-facing ideas
-- which tests and benchmarks currently measure them
-- which claims are implemented, which are only measured empirically, and which
-  are still open
+## Status Labels
 
-## The Paper-Facing Two-Stage Path
-
-The repo's paper-facing production-style path is `paper_prod_qjl`.
-
-At a high level it does four things:
-
-1. Precondition keys with a deterministic orthogonal rotation.
-2. Quantize the rotated keys with a scalar quantizer.
-3. Form a residual in rotated space: `residual = rotated_key - scalar_reconstruction`.
-4. Estimate residual score contributions with a 1-bit QJL sign sketch plus the
-   stored residual norm.
-
-The scalar-only comparison path is `paper_mse`. It uses the same scalar stage
-but stops after step 2 and therefore has no residual correction stage.
-
-The relationship between the two paths is important:
-
-- `paper_mse` measures what the scalar stage alone does to distortion.
-- `paper_prod_qjl` measures what changes when the residual QJL stage is added
-  back into inner-product scoring.
-
-That relationship is implemented today and directly measurable. What is not yet
-promoted to a repo-level invariant is the stronger claim that the combined
-two-stage path is already demonstrated here to be an unbiased inner-product
-estimator. The repo now has a named bias-analysis lane for that question, but it
-should stay an empirical result until repeated evidence supports a stronger
-claim.
-
-## Theorem-To-Code Map
-
-| Claim or mechanism | Primary module | Validation surface | Current repo status |
-| :--- | :--- | :--- | :--- |
-| Orthogonal preconditioning of keys and queries | `turboquant/core/rotation.py` | `tests/unit_mlx/test_rotation_roundtrip.py` | Implemented and directly checked by roundtrip and orthogonality-style tests |
-| Scalar quantization main stage for paper-facing presets | `turboquant/core/quantizer.py` | `tests/unit_mlx/test_mse_pipeline_roundtrip.py` | Implemented and measured through bounded reconstruction error checks |
-| Paper-facing preset wiring for scalar-only vs scalar-plus-QJL modes | `turboquant/config.py` | `tests/unit_static/test_config_contract.py`, `tests/unit_static/test_algorithm_modes.py` | Implemented and contract-checked |
-| Residual QJL sign sketch, norm storage, and residual score estimation | `turboquant/core/qjl.py` | `tests/unit_mlx/test_qjl.py`, `tests/unit_mlx/test_qjl_unbiasedness.py` | Implemented and empirically measured; current repo story is sign correlation and scale response, not proven unbiasedness |
-| Two-stage paper attention scoring (`main_scores + residual_scores`) | `turboquant/core/residual_codec.py`, `turboquant/runtime/attention.py` | `tests/unit_mlx/test_attention_score_block_qjl.py`, `tests/unit_mlx/test_qjl_inner_product_bias_analysis.py` | Implemented and now measured as a named bias-analysis lane |
-| Experimental PolarQuant path | `turboquant/core/polar_quant.py` | `tests/unit_mlx/test_polar_pipeline_roundtrip.py`, `tests/integration_mlx/test_polar_long_context_runtime.py`, `tests/integration_mlx/test_polar_gemma_runtime.py` | Implemented and supported as a non-paper-facing experimental branch |
-| KV-cache runtime and benchmark evidence | `benchmarks/runtime_cert/run_dense_vs_tq.py`, `benchmarks/runtime_cert/run_quality_eval.py` | `scripts/certify_apple_runtime.sh`, runtime-cert artifacts, dated benchmark snapshots under `docs/history/` | Implemented with provenance-backed artifacts |
-| Vector-search evidence | not yet implemented | planned research lane only | Open; no current repo evidence |
-
-## Measured Versus Proven
-
-The repo should stay explicit about what it knows today.
-
-| Topic | Repo status today |
+| Label | Meaning |
 | :--- | :--- |
-| Rotation preserves structure well enough for the supported path | Implemented and directly checked |
-| Scalar stage has bounded empirical reconstruction error in current tests | Measured empirically |
-| QJL sign sketch captures useful residual score signal | Measured empirically |
-| The combined two-stage path is already proven unbiased in this repo | Open; do not claim this yet |
-| PolarQuant is part of the paper-facing preset story | No; it is a supported non-paper-facing experimental branch |
-| The repo reproduces the full breadth of the original TurboQuant framing, including vector search | No; current product and evidence remain KV-cache-first |
+| `implemented` | The code path exists and is directly exercised by a named repo surface. |
+| `empirical` | The repo measures the behavior with tests or benchmarks, but it is still an observed result rather than a theorem-level proof. |
+| `partial` | Some implementation and evidence exist, but the surface is narrower than the full paper framing or still missing important evidence. |
+| `not yet shown` | The repo does not currently provide the implementation or retained evidence needed for the claim. |
 
-## Named Validation Lanes
+## Claims Status Table
 
-These are the current repo surfaces that check the theory-facing pieces.
+| Paper idea | Repo module(s) | Benchmark or test coverage | Status | Scope | Current repo claim |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Random rotation stage | `turboquant/core/rotation.py`, `turboquant/core/pipeline.py` | `tests/unit_mlx/test_rotation_roundtrip.py` | `implemented` | `research-only` | The repo has an explicit rotation stage with direct roundtrip and orthogonality-style checks, but it does not promote a theorem claim from implementation alone. |
+| Scalar MSE stage | `turboquant/core/quantizer.py`, `turboquant/core/pipeline.py` | `tests/unit_mlx/test_mse_pipeline_roundtrip.py` | `empirical` | `research-only` | The scalar stage is implemented and bounded by empirical reconstruction checks on the current validation slice. |
+| Residual 1-bit QJL stage | `turboquant/core/qjl.py`, `turboquant/core/residual_codec.py` | `tests/unit_mlx/test_qjl.py`, `tests/unit_mlx/test_qjl_unbiasedness.py` | `empirical` | `research-only` | The sign sketch and residual norm bookkeeping are implemented and measurably affect score estimates, but the repo does not yet claim unbiasedness. |
+| Scalar-only paper path (`paper_mse`) | `turboquant/config.py`, `turboquant/core/quantizer.py` | `tests/unit_static/test_config_contract.py`, `tests/unit_static/test_algorithm_modes.py`, `tests/unit_mlx/test_mse_pipeline_roundtrip.py` | `empirical` | `research-only` | `paper_mse` is an explicit scalar-only comparison path and a valid baseline for bias and quality experiments. |
+| Full two-stage paper path (`paper_prod_qjl`) | `turboquant/config.py`, `turboquant/core/qjl.py`, `turboquant/core/residual_codec.py`, `turboquant/runtime/attention.py` | `tests/unit_static/test_config_contract.py`, `tests/unit_mlx/test_attention_score_block_qjl.py`, `tests/unit_mlx/test_qjl_inner_product_bias_analysis.py` | `partial` | `research-only` | The path is implemented and benchmarkable, but the stronger theorem-style claim about unbiased inner-product restoration remains open here. |
+| Current inner-product-bias evidence | `benchmarks/runtime_cert/run_inner_product_bias_eval.py`, `tests/unit_mlx/test_qjl_inner_product_bias_analysis.py` | `inner_product_bias_summary.json`, dated benchmark snapshots under `docs/history/`, MLX bias tests | `empirical` | `research-only` | The repo retains signed-error, absolute-error, and variance measurements for scalar-only versus two-stage scoring, but treats them as research diagnostics rather than release truth. |
+| Current KV-cache evidence | `benchmarks/runtime_cert/run_dense_vs_tq.py`, `benchmarks/runtime_cert/run_quality_eval.py`, `scripts/certify_apple_runtime.sh` | runtime-cert artifacts, `tests/integration_mlx/test_long_context_stability.py`, dated benchmark snapshots under `docs/history/` | `partial` | `product` | The repo has addressable Apple-MLX evidence for allowlisted families, but that evidence is narrow, family-scoped, and does not imply universal speed or quality wins. |
+| Missing vector-search evidence | not yet implemented | none | `not yet shown` | `research-only` | The repo does not yet have a retained vector-search benchmark lane, recall results, or memory-and-latency evidence for that part of the paper framing. |
 
-- `tests/unit_mlx/test_mse_pipeline_roundtrip.py`: bounded error checks for the
-  scalar main stage.
-- `tests/unit_mlx/test_qjl.py`: QJL packing, encode, decode, and shape checks.
-- `tests/unit_mlx/test_qjl_unbiasedness.py`: current isolated QJL sketch checks;
-  sign correlation and scale response, with an explicit note that the sketch is
-  not treated as a proven unbiased estimator here.
-- `tests/unit_mlx/test_qjl_inner_product_bias_analysis.py`: deterministic bias
-  snapshot for the actual two-stage `paper_prod_qjl` attention estimator versus
-  the scalar-only `paper_mse` baseline.
-- `benchmarks/runtime_cert/run_dense_vs_tq.py`: paired dense-vs-TurboQuant
-  runtime sweeps used for dated benchmark snapshots and release-proof bundles.
+## Code-To-Claim Mapping
 
-## Open Claims
+| Code surface | Claim exercised here | Primary presets or lane | Evidence surface | Current limit |
+| :--- | :--- | :--- | :--- | :--- |
+| `turboquant/config.py` | Preset wiring and algorithm taxonomy for scalar-only, two-stage, and non-paper experimental paths | `paper_mse`, `paper_prod_qjl`, `polarquant_exp` | `tests/unit_static/test_config_contract.py`, `tests/unit_static/test_algorithm_modes.py` | It defines the reachable surfaces; it does not itself prove distortion, bias, or quality properties. |
+| `turboquant/core/rotation.py` | Orthogonal preconditioning stage | paper-facing presets and `polarquant_exp` | `tests/unit_mlx/test_rotation_roundtrip.py` | Rotation is implemented and checked, but downstream paper claims remain empirical. |
+| `turboquant/core/quantizer.py` | Scalar quantization main stage | `paper_mse`, `paper_prod_qjl` | `tests/unit_mlx/test_mse_pipeline_roundtrip.py` | Reconstruction bounds are measured on the repo's current fixtures, not proved for all settings. |
+| `turboquant/core/qjl.py` | Residual 1-bit sign sketch and norm scaling | `paper_prod_qjl` | `tests/unit_mlx/test_qjl.py`, `tests/unit_mlx/test_qjl_unbiasedness.py` | The repo keeps the stronger unbiasedness claim explicitly open. |
+| `turboquant/core/residual_codec.py`, `turboquant/runtime/attention.py` | Two-stage score composition: scalar main scores plus residual score estimate | `paper_prod_qjl` | `tests/unit_mlx/test_attention_score_block_qjl.py`, `tests/unit_mlx/test_qjl_inner_product_bias_analysis.py`, `benchmarks/runtime_cert/run_inner_product_bias_eval.py` | Current evidence is measurement, not theorem-level proof. |
+| `turboquant/core/polar_quant.py` | PolarQuant-only non-paper branch | `polarquant_exp` | `tests/unit_mlx/test_polar_pipeline_roundtrip.py`, `tests/integration_mlx/test_polar_long_context_runtime.py`, `tests/integration_mlx/test_polar_gemma_runtime.py` | This branch is supported as experimental and explicitly outside the paper-facing preset story. |
+| `benchmarks/runtime_cert/run_dense_vs_tq.py` | KV-cache memory and throughput tradeoff on the allowlisted Apple-MLX path | `product` lane | runtime-cert artifacts, `docs/history/BENCHMARK_SNAPSHOT_*.md` | The retained story is memory relief on a narrow hardware and family slice; throughput can regress materially. |
+| `benchmarks/runtime_cert/run_quality_eval.py` | Family-scoped quality guardrails used during certification and research comparison | `product` lane, family-scoped | `quality_eval_*_summary.json` artifacts | These guardrails catch regressions; they do not prove generalized quality improvement. |
+| `benchmarks/runtime_cert/run_inner_product_bias_eval.py` | Retained bias snapshot for scalar-only versus two-stage scoring | `research` lane | `inner_product_bias_summary.json`, dated benchmark snapshots | The current retained workload is synthetic; real KV-derived bias evidence is not yet retained here. |
+| `benchmarks/vector_search/` | Vector-search recall, memory, and indexing claims | planned research lane only | none yet | Not implemented in this repo today. |
+
+## Still Not Proven Here
 
 These are the important theory-facing questions that remain open in this repo.
 
-1. Whether the combined two-stage residual path is unbiased enough to be stated
-   as a repo-level invariant rather than only a measured empirical result.
+1. Whether the combined two-stage residual path is strong enough to promote a
+   repo-level unbiased-inner-product claim rather than only an empirical bias
+   measurement lane.
 2. Whether the current paper-facing path generalizes beyond the narrow
-   allowlisted runtime slice without widening support prematurely.
+   allowlisted Apple-MLX runtime slice without widening support prematurely.
 3. Whether vector-search outcomes can be added as research validation without
-   confusing them with the supported Apple runtime contract.
+   confusing them with the supported product lane.
+4. Whether the current evidence depth for Gemma should ever be described as
+   equal to Llama; today it should not.
+5. Whether TurboQuant should ever be described here as a throughput win on the
+   current uncompiled Apple-MLX path; current retained evidence does not
+   justify that claim.
 
-Until those are answered with retained evidence, the strongest honest claim is
-that the repo contains a bounded, measurable TurboQuant-style implementation
-with explicit traceability from theory-facing ideas to code and tests.
+Until those questions are answered with retained evidence, the strongest honest
+statement is that the repo contains a bounded, measurable TurboQuant-style
+implementation with explicit traceability from paper-facing ideas to code,
+tests, and research artifacts, while the supported product contract remains
+narrower than the research story.
