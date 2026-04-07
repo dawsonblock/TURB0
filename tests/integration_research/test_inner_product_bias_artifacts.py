@@ -23,7 +23,7 @@ def test_inner_product_bias_artifacts_align(tmp_path: Path) -> None:
         "--k-len",
         "4",
         "--d-head",
-        "32",
+        "64",
     )
 
     assert result.returncode == 0, result.stderr or result.stdout

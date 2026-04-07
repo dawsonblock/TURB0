@@ -74,6 +74,28 @@ def _synthetic_queries_and_keys(args: argparse.Namespace) -> tuple[mx.array, mx.
     return queries, keys
 
 
+def _validate_workload(args: argparse.Namespace, algorithms: list[TurboQuantConfig]) -> None:
+    prod_group_sizes = sorted(
+        {
+            int(config.k_group_size)
+            for config in algorithms
+            if config.is_prod_mode()
+        }
+    )
+    if not prod_group_sizes:
+        return
+
+    incompatible = [size for size in prod_group_sizes if args.d_head % size != 0]
+    if incompatible:
+        expected = ", ".join(str(size) for size in prod_group_sizes)
+        raise SystemExit(
+            "inner_product_bias synthetic workload requires --d-head to be a multiple "
+            "of the prod-mode k_group_size values used by the compared presets "
+            f"([{expected}]); got d_head={args.d_head}. This keeps the research-only "
+            "score path in the same rotated dimension as the encoded residual."
+        )
+
+
 def _true_scores(config: TurboQuantConfig, q: mx.array, k: mx.array) -> mx.array:
     rotation = FixedRotation.from_config(config, int(q.shape[-1]))
     q_rot = rotation.apply(q.astype(mx.float32))
@@ -210,12 +232,13 @@ def main() -> int:
         label="paper_mse_vs_paper_prod_qjl",
         mode="inner_product_bias",
     )
-    queries, keys = _synthetic_queries_and_keys(args)
 
     algorithms = [
         TurboQuantConfig.from_preset("paper_mse"),
         TurboQuantConfig.from_preset("paper_prod"),
     ]
+    _validate_workload(args, algorithms)
+    queries, keys = _synthetic_queries_and_keys(args)
     results = [_score_stats(config, queries, keys) for config in algorithms]
     for result in results:
         result["run_id"] = run_id
