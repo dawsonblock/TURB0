@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tests.helpers.mlx_env import MLX_SKIP_MARKER
 from tests.integration_research.helpers import (
     assert_common_research_fields,
     load_csv_rows,
     load_json,
     run_script,
 )
+
+pytestmark = MLX_SKIP_MARKER
 
 
 def test_inner_product_bias_artifacts_align(tmp_path: Path) -> None:

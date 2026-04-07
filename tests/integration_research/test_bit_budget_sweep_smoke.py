@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tests.helpers.mlx_env import MLX_SKIP_MARKER
 from tests.integration_research.helpers import (
     assert_common_research_fields,
     load_json,
     run_script,
 )
+
+pytestmark = MLX_SKIP_MARKER
 
 
 def test_bit_budget_sweep_smoke(tmp_path: Path) -> None:

@@ -75,6 +75,7 @@ def render_benchmark_index(contract: JsonDict) -> str:
         "",
         "- Product-certification surfaces can contribute to release truth only when they travel inside an addressable certification bundle with the required manifest and provenance fields.",
         "- Research-only surfaces emit stable report bundles for comparison and archaeology, but they do not weaken the release gate or promote research into support truth.",
+        "- Real execution of these research-only surfaces still requires an MLX-capable Apple environment; see [docs/supported-surface.md](docs/supported-surface.md) for the exact environment contract.",
         "",
         "## Product-Certification Surfaces",
         "",
