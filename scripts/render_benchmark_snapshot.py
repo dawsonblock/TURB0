@@ -1,0 +1,217 @@
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import json
+from pathlib import Path
+from typing import Any, Iterable, cast
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+GENERATED_HEADER = (
+    "<!-- Generated from runtime-cert artifacts by "
+    "scripts/render_benchmark_snapshot.py. Do not edit by hand. -->"
+)
+JsonDict = dict[str, Any]
+
+
+def _read_json(path: Path) -> JsonDict:
+    return cast(JsonDict, json.loads(path.read_text(encoding="utf-8")))
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _format_mib(value: float) -> str:
+    return f"{value / (1024 * 1024):.2f} MiB"
+
+
+def _format_ratio(dense_value: float, tq_value: float) -> str:
+    if tq_value <= 0:
+        return "n/a"
+    return f"{dense_value / tq_value:.1f}x smaller"
+
+
+def _slug_from_artifact_dir(artifact_dir: Path) -> str:
+    return f"BENCHMARK_SNAPSHOT_{artifact_dir.name}.md"
+
+
+def _load_rows(csv_path: Path) -> list[dict[str, str]]:
+    with csv_path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _rows_by_key(
+    rows: Iterable[dict[str, str]],
+) -> dict[tuple[str, str, str], list[dict[str, str]]]:
+    grouped: dict[tuple[str, str, str], list[dict[str, str]]] = {}
+    for row in rows:
+        key = (row["model"], row["prompt_class"], row["mode"])
+        grouped.setdefault(key, []).append(row)
+    return grouped
+
+
+def _avg_float(rows: list[dict[str, str]], field: str) -> float:
+    values = [float(row[field]) for row in rows]
+    return sum(values) / len(values)
+
+
+def _render_table(rows: list[dict[str, str]]) -> list[str]:
+    grouped = _rows_by_key(rows)
+    models = sorted({row["model"] for row in rows})
+    prompt_classes = ["short", "medium", "long"]
+
+    lines = [
+        "| Model | Prompt class | Dense peak | TurboQuant peak | Memory reduction | Dense TPS | TurboQuant TPS | Throughput delta |",
+        "| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for model in models:
+        for prompt_class in prompt_classes:
+            dense = grouped.get((model, prompt_class, "dense"), [])
+            tq = grouped.get((model, prompt_class, "turboquant"), [])
+            if dense is None or tq is None:
+                continue
+            if not dense or not tq:
+                continue
+
+            dense_peak = _avg_float(dense, "peak_memory_bytes")
+            tq_peak = _avg_float(tq, "peak_memory_bytes")
+            dense_tps = _avg_float(dense, "tokens_per_second")
+            tq_tps = _avg_float(tq, "tokens_per_second")
+            reduction_pct = (1 - tq_peak / dense_peak) * 100 if dense_peak > 0 else 0.0
+            delta_pct = (tq_tps / dense_tps - 1) * 100 if dense_tps > 0 else 0.0
+            lines.append(
+                "| "
+                f"`{model}` | `{prompt_class}` | {_format_mib(dense_peak)} | "
+                f"{_format_mib(tq_peak)} | {reduction_pct:.1f}% ({_format_ratio(dense_peak, tq_peak)}) | "
+                f"{dense_tps:.2f} | {tq_tps:.2f} | {delta_pct:.1f}% |"
+            )
+    return lines
+
+
+def render_snapshot(artifact_dir: Path, artifact_uri: str) -> str:
+    summary = _read_json(artifact_dir / "certification_summary.json")
+    manifest = _read_json(artifact_dir / "cert_manifest.json")
+    preflight = _read_json(artifact_dir / "preflight.json")
+    rows = _load_rows(artifact_dir / "aggregate_runs.csv")
+
+    memory_deltas = cast(list[JsonDict], summary["memory_deltas"])
+    speed_deltas = cast(list[JsonDict], summary["speed_deltas"])
+    min_memory_reduction = min(float(item["reduction_pct"]) for item in memory_deltas)
+    max_memory_reduction = max(float(item["reduction_pct"]) for item in memory_deltas)
+    worst_speed_delta = min(float(item["delta_pct"]) for item in speed_deltas)
+    best_speed_delta = max(float(item["delta_pct"]) for item in speed_deltas)
+
+    commit = next((row["commit"] for row in rows if row.get("commit")), "unknown")
+    models = cast(list[str], summary["models"])
+    prompt_classes = cast(list[str], summary["prompt_classes"])
+    manifest_sha = _sha256(artifact_dir / "cert_manifest.json")
+    platform = cast(str, manifest["platform"])
+    families = cast(list[str], manifest["certification_scope"]["families"])
+
+    lines = [
+        GENERATED_HEADER,
+        f"# Benchmark Snapshot {artifact_dir.name}",
+        "",
+        "This is a dated benchmark snapshot, not a timeless product claim.",
+        "It summarizes the dense-vs-TurboQuant sweep retained in one runtime-cert evidence bundle.",
+        "",
+        "## What This Helps With",
+        "",
+        "TurboQuant helps when KV-cache memory pressure is the bottleneck on the Apple-Silicon MLX path.",
+        f"In this run, peak benchmark memory dropped by {min_memory_reduction:.1f}% to {max_memory_reduction:.1f}% across the allowlisted Llama and Gemma sweeps.",
+        "That makes it useful for fitting longer prompts or reducing KV footprint on the supported runtime path.",
+        "",
+        "It does not help raw decode throughput in the current uncompiled path.",
+        f"In this same run, TurboQuant throughput was {abs(best_speed_delta):.1f}% to {abs(worst_speed_delta):.1f}% lower than dense baselines.",
+        "If your bottleneck is tokens-per-second or per-token latency rather than memory, these numbers argue against using it as a speed optimization.",
+        "",
+        "## Honest Takeaway",
+        "",
+        "On this commit and hardware, TurboQuant behaves like a memory-saving tradeoff rather than a speedup.",
+        "The strongest honest claim from this snapshot is:",
+        "",
+        f"- It preserved the supported Apple runtime path for `{', '.join(families)}` with a `PASS` manifest on `{platform}`.",
+        f"- It cut measured peak benchmark memory by roughly {min_memory_reduction:.1f}% to {max_memory_reduction:.1f}%.",
+        f"- It reduced measured decode throughput by roughly {abs(best_speed_delta):.1f}% to {abs(worst_speed_delta):.1f}%.",
+        "- It is therefore a memory-footprint tool first, not a throughput benchmark winner.",
+        "",
+        "## Sweep Summary",
+        "",
+    ]
+    lines.extend(_render_table(rows))
+    lines.extend(
+        [
+            "",
+            "## Scope And Limits",
+            "",
+            f"- Commit under test: `{commit}`",
+            f"- Models: {', '.join(f'`{model}`' for model in models)}",
+            f"- Prompt classes: {', '.join(f'`{item}`' for item in prompt_classes)}",
+            "- Decode length: `64` new tokens per paired run",
+            "- Benchmark mode: paired `dense` vs `turboquant` sweeps",
+            "- This snapshot does not prove a universal speedup, broad model-family support, or non-Apple portability.",
+            "- The quality stages in the certification bundle are guardrails against catastrophic regressions; they are not evidence that TurboQuant improves model quality.",
+            "",
+            "## Provenance",
+            "",
+            f"- `artifact_uri_or_manifest_digest`: `{artifact_uri}` and `sha256:{manifest_sha}`",
+            f"- `git_commit`: `{commit}`",
+            f"- `model_ids`: {', '.join(f'`{model}`' for model in models)}",
+            f"- `mlx_version`: `{preflight['mlx_version']}`",
+            f"- `hardware`: `{preflight['platform']}`",
+            "- `script`: `bash scripts/certify_apple_runtime.sh`",
+            "- `args`: certification script invoked `benchmarks/runtime_cert/run_dense_vs_tq.py` for each model with `--prompt-file benchmarks/runtime_cert/prompts/{short,medium,long}.jsonl --max-new-tokens 64 --seed 42 --mode both`",
+            "",
+            "## Addressable Evidence",
+            "",
+            f"- Local artifact directory: `{artifact_dir}`",
+            f"- Local portable artifact: `{artifact_dir}.zip`",
+            f"- Manifest: `{artifact_dir / 'cert_manifest.json'}`",
+            "- Hosted GitHub Actions evidence is still preferable for release-facing publication once a self-hosted Apple runner completes the queued workflow run.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Render a dated benchmark snapshot from a runtime-cert artifact.")
+    parser.add_argument("--artifact-dir", required=True, help="Path to a runtime-cert artifact directory.")
+    parser.add_argument(
+        "--artifact-uri",
+        default="",
+        help="Artifact URI or manifest digest label to record in the provenance block.",
+    )
+    parser.add_argument(
+        "--output",
+        default="",
+        help="Output Markdown path. Defaults to docs/history/BENCHMARK_SNAPSHOT_<timestamp>.md",
+    )
+    args = parser.parse_args()
+
+    artifact_dir = Path(args.artifact_dir).resolve()
+    if not artifact_dir.is_dir():
+        raise SystemExit(f"artifact-dir does not exist: {artifact_dir}")
+
+    output_path = (
+        Path(args.output).resolve()
+        if args.output
+        else REPO_ROOT / "docs" / "history" / _slug_from_artifact_dir(artifact_dir)
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    artifact_uri = args.artifact_uri or str(artifact_dir)
+    content = render_snapshot(artifact_dir, artifact_uri)
+    output_path.write_text(content, encoding="utf-8")
+    print(output_path)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
