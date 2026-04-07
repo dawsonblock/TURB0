@@ -56,6 +56,62 @@ def _format_deviation(deviation: JsonDict) -> str:
     return f"- **{deviation['title']}** — {deviation['description']}"
 
 
+def _preset_quantizer(preset: JsonDict) -> str:
+    if preset["algorithm"] == "polarquant_exp":
+        return "polar"
+    return "scalar"
+
+
+def _preset_constructor(preset: JsonDict) -> str:
+    return f"TurboQuantConfig.from_preset(\"{preset['name']}\")"
+
+
+def render_preset_modes(contract: JsonDict) -> str:
+    lines = [
+        GENERATED_HEADER,
+        "# Preset Modes",
+        "",
+        "This preset reference maps the runtime preset surface to the contract labels used by the repo.",
+        "It does not widen the supported product contract. Paper-facing, supported non-paper-facing, and compatibility-only presets stay explicitly separated here.",
+        "",
+        "## Stable Preset Table",
+        "",
+        "| Preset | Classification | Canonical preset | Algorithm family | Quantizer | Residual | Stable constructor | Notes |",
+        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+    ]
+    for preset in contract["presets"]:
+        lines.append(
+            f"| `{preset['name']}` | {preset['classification']} | `{preset['canonical_preset']}` | "
+            f"`{preset['algorithm']}` | `{_preset_quantizer(preset)}` | `{preset['residual_kind']}` | "
+            f"`{_preset_constructor(preset)}` | {preset['notes']} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Recommended Comparison Set",
+            "",
+            "- `paper_mse` — scalar-only paper baseline.",
+            "- `paper_prod_qjl` — primary two-stage paper-facing preset.",
+            "- `polarquant_exp` — closest available first-stage-only non-paper research path.",
+            "- `legacy_topk`, `balanced`, `max_quality`, and `high_compression` — compatibility-only surfaces for historical comparisons and older config loading.",
+            "",
+            "## Alias Discipline",
+            "",
+            "- `paper_prod_qjl` is the primary two-stage preset name for new comparisons.",
+            "- `paper_prod` remains a paper-facing alias for compatibility.",
+            "- `high_compression` remains a compatibility alias and should not be treated as a separate paper-facing method.",
+            "",
+            "## Scope",
+            "",
+            "- Paper-facing does not mean product-supported beyond the current bounded Apple-MLX contract.",
+            "- Supported non-paper-facing means the branch is addressable in the repo and may have family-scoped runtime evidence, but it is outside the paper-facing story.",
+            "- Compatibility-only means the preset remains available for historical configs or comparisons, not as the primary algorithm narrative.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def render_support_matrix(contract: JsonDict) -> str:
     runtime = contract["canonical_runtime"]
     lines = [
@@ -68,14 +124,14 @@ def render_support_matrix(contract: JsonDict) -> str:
         "",
         "## Algorithm Presets",
         "",
-        "| Preset | Canonical algorithm | Residual | "
+        "| Preset | Classification | Canonical preset | Canonical algorithm | Residual | "
         "Effective K bpc (d=128) | Average KV bpc (d=128) | "
         "Notes |",
-        "| :--- | :--- | :--- | :---: | :---: | :--- |",
+        "| :--- | :--- | :--- | :--- | :--- | :---: | :---: | :--- |",
     ]
     for preset in contract["presets"]:
         lines.append(
-            f"| `{preset['display_name']}` | `{preset['algorithm']}` | "
+            f"| `{preset['display_name']}` | {preset['classification']} | `{preset['canonical_preset']}` | `{preset['algorithm']}` | "
             f"`{preset['residual_kind']}` | {_k_bpc_d128(preset)} | "
             f"{_avg_kv_bpc_d128(preset)} | {preset['notes']} |"
         )
@@ -83,9 +139,10 @@ def render_support_matrix(contract: JsonDict) -> str:
     lines.extend(
         [
             "",
-            "Paper-facing presets are `paper_mse` and `paper_prod` (the "
-            "`paper_prod_qjl` algorithm family). Legacy top-k presets remain "
-            "available only as compatibility surfaces.",
+            "Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the "
+            "paper-facing alias `paper_prod`. `polarquant_exp` remains the "
+            "supported non-paper-facing branch. Legacy top-k presets and "
+            "legacy aliases remain compatibility surfaces.",
             "",
             "## Exact deviations from the paper-facing story",
             "",
@@ -144,6 +201,7 @@ def render_supported_surface(contract: JsonDict) -> str:
         f"(recommended {runtime['python']['recommended']})",
         f"- MLX >= {runtime['mlx']['min']} and < {runtime['mlx']['max_exclusive']}",
         f"- Canonical runtime entry point: `{runtime['entrypoint']}(...)`",
+        "- Stable preset reference: `docs/preset_modes.md`",
         "- Research and local evaluation workflows only",
         "",
         "## Model Support Matrix",
@@ -257,9 +315,13 @@ def render_product_contract(contract: JsonDict) -> str:
             "",
             "## 4. Paper-facing presets and exact deviations",
             "",
-            "Paper-facing presets are `paper_mse` and "
-            "`paper_prod`/`paper_prod_qjl`. Legacy top-k presets remain "
-            "compatibility paths, not the main algorithm story.",
+            "Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the "
+            "paper-facing alias `paper_prod`. `polarquant_exp` is the supported "
+            "non-paper-facing branch. `legacy_topk`, `balanced`, `max_quality`, "
+            "and `high_compression` remain compatibility-only surfaces rather "
+            "than the main algorithm story.",
+            "",
+            "Generated preset taxonomy: `docs/preset_modes.md`.",
             "",
         ]
     )
@@ -288,6 +350,7 @@ def render_docs() -> dict[Path, str]:
     contract = load_contract()
     return {
         REPO_ROOT / "docs" / "support_matrix.md": render_support_matrix(contract),
+        REPO_ROOT / "docs" / "preset_modes.md": render_preset_modes(contract),
         REPO_ROOT / "docs" / "supported-surface.md": render_supported_surface(contract),
         REPO_ROOT / "docs" / "product_contract.md": render_product_contract(contract),
     }

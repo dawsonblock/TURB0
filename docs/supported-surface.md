@@ -10,6 +10,7 @@ Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeo
 - Python 3.9 through 3.11 (recommended 3.11)
 - MLX >= 0.30.0 and < 1.0.0
 - Canonical runtime entry point: `upgrade_cache_list(...)`
+- Stable preset reference: `docs/preset_modes.md`
 - Research and local evaluation workflows only
 
 ## Model Support Matrix

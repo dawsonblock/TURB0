@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, cast
 
 _CANONICAL_ALGORITHMS = frozenset(
     {"paper_mse", "paper_prod_qjl", "legacy_topk", "polarquant_exp"}
@@ -9,6 +10,143 @@ _LEGACY_ALGORITHM_ALIASES = {
     "turboquant_mse": "paper_mse",
     "turboquant_prod": "paper_prod_qjl",
     "paper_prod": "paper_prod_qjl",
+}
+
+_PRESET_REGISTRY: dict[str, dict[str, Any]] = {
+    "paper_mse": {
+        "factory": "paper_mse",
+        "kwargs": {
+            "k_bits": 3,
+            "k_group_size": 64,
+            "v_bits": 4,
+            "v_group_size": 64,
+            "rotation": "hadamard",
+        },
+        "classification": "paper-facing",
+        "paper_facing": True,
+        "canonical_preset": "paper_mse",
+        "comparison_role": "scalar-only paper baseline",
+        "notes": "Paper-facing MSE stage.",
+        "algorithm_aliases": ("turboquant_mse",),
+    },
+    "paper_prod_qjl": {
+        "factory": "paper_prod_qjl",
+        "kwargs": {
+            "k_bits": 3,
+            "k_group_size": 64,
+            "v_bits": 4,
+            "v_group_size": 64,
+            "rotation": "hadamard",
+            "qjl_proj_dim": 64,
+        },
+        "classification": "paper-facing",
+        "paper_facing": True,
+        "canonical_preset": "paper_prod_qjl",
+        "comparison_role": "full two-stage paper path",
+        "notes": "Primary paper-facing two-stage preset using a 1-bit QJL residual.",
+        "algorithm_aliases": ("turboquant_prod",),
+    },
+    "paper_prod": {
+        "factory": "paper_prod_qjl",
+        "kwargs": {
+            "k_bits": 3,
+            "k_group_size": 64,
+            "v_bits": 4,
+            "v_group_size": 64,
+            "rotation": "hadamard",
+            "qjl_proj_dim": 64,
+        },
+        "classification": "paper-facing",
+        "paper_facing": True,
+        "canonical_preset": "paper_prod_qjl",
+        "comparison_role": "paper-facing alias for the full two-stage path",
+        "notes": "Paper-facing alias preset for the primary `paper_prod_qjl` path.",
+        "algorithm_aliases": ("paper_prod_qjl", "turboquant_prod"),
+    },
+    "polarquant_exp": {
+        "factory": "polarquant_exp",
+        "kwargs": {
+            "k_bits": 3,
+            "k_group_size": 64,
+            "v_bits": 4,
+            "v_group_size": 64,
+            "rotation": "random_orthogonal",
+        },
+        "classification": "supported non-paper-facing",
+        "paper_facing": False,
+        "canonical_preset": "polarquant_exp",
+        "comparison_role": "closest available first-stage-only research path",
+        "notes": "Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification.",
+        "algorithm_aliases": (),
+    },
+    "legacy_topk": {
+        "factory": "legacy_topk",
+        "kwargs": {
+            "k_bits": 4,
+            "k_group_size": 32,
+            "v_bits": 4,
+            "v_group_size": 32,
+            "rotation": "hadamard",
+            "residual_topk": 2,
+        },
+        "classification": "compatibility-only",
+        "paper_facing": False,
+        "canonical_preset": "legacy_topk",
+        "comparison_role": "explicit legacy top-k compatibility surface",
+        "notes": "Explicit legacy top-k compatibility preset; not part of the paper-facing contract.",
+        "algorithm_aliases": (),
+    },
+    "balanced": {
+        "factory": "legacy_topk",
+        "kwargs": {
+            "k_bits": 4,
+            "k_group_size": 32,
+            "v_bits": 4,
+            "v_group_size": 32,
+            "rotation": "hadamard",
+            "residual_topk": 2,
+        },
+        "classification": "compatibility-only",
+        "paper_facing": False,
+        "canonical_preset": "balanced",
+        "comparison_role": "legacy top-k comparison preset",
+        "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract.",
+        "algorithm_aliases": (),
+    },
+    "max_quality": {
+        "factory": "legacy_topk",
+        "kwargs": {
+            "k_bits": 4,
+            "k_group_size": 16,
+            "v_bits": 8,
+            "v_group_size": 16,
+            "rotation": "hadamard",
+            "residual_topk": 4,
+        },
+        "classification": "compatibility-only",
+        "paper_facing": False,
+        "canonical_preset": "max_quality",
+        "comparison_role": "higher-precision legacy top-k comparison preset",
+        "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract.",
+        "algorithm_aliases": (),
+    },
+    "high_compression": {
+        "factory": "paper_prod_qjl",
+        "kwargs": {
+            "k_bits": 3,
+            "k_group_size": 64,
+            "v_bits": 4,
+            "v_group_size": 64,
+            "rotation": "hadamard",
+            "qjl_proj_dim": 64,
+        },
+        "classification": "compatibility-only",
+        "paper_facing": False,
+        "canonical_preset": "paper_prod_qjl",
+        "comparison_role": "legacy alias for the two-stage paper path",
+        "notes": "Legacy convenience alias for the primary `paper_prod_qjl` path.",
+        "algorithm_aliases": ("paper_prod_qjl", "turboquant_prod"),
+    },
 }
 
 
@@ -202,76 +340,58 @@ class TurboQuantConfig:
         )
 
     @classmethod
-    def from_preset(cls, name: str) -> TurboQuantConfig:
-        presets = {
-            "paper_mse": cls.paper_mse(
-                k_bits=3,
-                k_group_size=64,
-                v_bits=4,
-                v_group_size=64,
-                rotation="hadamard",
-            ),
-            "paper_prod_qjl": cls.paper_prod_qjl(
-                k_bits=3,
-                k_group_size=64,
-                v_bits=4,
-                v_group_size=64,
-                rotation="hadamard",
-                qjl_proj_dim=64,
-            ),
-            "legacy_topk": cls.legacy_topk(
-                k_bits=4,
-                k_group_size=32,
-                v_bits=4,
-                v_group_size=32,
-                rotation="hadamard",
-                residual_topk=2,
-            ),
-            "polarquant_exp": cls.polarquant_exp(
-                k_bits=3,
-                k_group_size=64,
-                v_bits=4,
-                v_group_size=64,
-                rotation="random_orthogonal",
-            ),
-            "paper_prod": cls.paper_prod_qjl(
-                k_bits=3,
-                k_group_size=64,
-                v_bits=4,
-                v_group_size=64,
-                rotation="hadamard",
-                qjl_proj_dim=64,
-            ),
-            "high_compression": cls.paper_prod_qjl(
-                k_bits=3,
-                k_group_size=64,
-                v_bits=4,
-                v_group_size=64,
-                rotation="hadamard",
-                qjl_proj_dim=64,
-            ),
-            "balanced": cls.legacy_topk(
-                k_bits=4,
-                k_group_size=32,
-                v_bits=4,
-                v_group_size=32,
-                rotation="hadamard",
-                residual_topk=2,
-            ),
-            "max_quality": cls.legacy_topk(
-                k_bits=4,
-                k_group_size=16,
-                v_bits=8,
-                v_group_size=16,
-                rotation="hadamard",
-                residual_topk=4,
-            ),
-        }
-        if name not in presets:
+    def preset_names(cls) -> tuple[str, ...]:
+        return tuple(_PRESET_REGISTRY.keys())
+
+    @classmethod
+    def preset_metadata(cls, name: str) -> dict[str, Any]:
+        if name not in _PRESET_REGISTRY:
             raise ValueError(
-                f"Unknown preset '{name}'. Available: {list(presets.keys())}"
+                f"Unknown preset '{name}'. Available: {list(_PRESET_REGISTRY.keys())}"
             )
-        return presets[name]
+
+        spec = _PRESET_REGISTRY[name]
+        cfg = cls.from_preset(name)
+        return {
+            "name": name,
+            "factory": spec["factory"],
+            "classification": spec["classification"],
+            "paper_facing": spec["paper_facing"],
+            "canonical_preset": spec["canonical_preset"],
+            "comparison_role": spec["comparison_role"],
+            "notes": spec["notes"],
+            "algorithm_aliases": tuple(spec["algorithm_aliases"]),
+            "algorithm": cfg.algorithm_family(),
+            "quantizer_mode": cfg.quantizer_mode,
+            "residual_mode": cfg.residual_mode,
+            "rotation": cfg.rotation,
+            "k_bits": cfg.k_bits,
+            "k_group_size": cfg.k_group_size,
+            "v_bits": cfg.v_bits,
+            "v_group_size": cfg.v_group_size,
+            "v_enabled": cfg.v_enabled,
+            "qjl_proj_dim": cfg.qjl_proj_dim if cfg.residual_mode == "qjl" else None,
+            "residual_topk": (
+                cfg.residual_topk if cfg.residual_mode == "topk" else None
+            ),
+            "constructor": f'TurboQuantConfig.from_preset("{name}")',
+        }
+
+    @classmethod
+    def preset_registry(cls) -> dict[str, dict[str, Any]]:
+        return {name: cls.preset_metadata(name) for name in cls.preset_names()}
+
+    @classmethod
+    def from_preset(cls, name: str) -> TurboQuantConfig:
+        if name not in _PRESET_REGISTRY:
+            raise ValueError(
+                f"Unknown preset '{name}'. Available: {list(_PRESET_REGISTRY.keys())}"
+            )
+
+        spec = _PRESET_REGISTRY[name]
+        factory = getattr(cls, str(spec["factory"]))
+        kwargs = dict(spec["kwargs"])
+        return cast(TurboQuantConfig, factory(**kwargs))
 
     @classmethod
     def from_legacy_kwargs(cls, **kwargs) -> TurboQuantConfig:

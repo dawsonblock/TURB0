@@ -69,6 +69,7 @@ def test_readme_tracks_primary_contract_story() -> None:
     assert "TinyModel" in content
     assert "schema_version == 4" in content
     assert "paper_prod" in content and "paper_mse" in content
+    assert "docs/preset_modes.md" in content
     assert "legacy_topk" in content
     assert "compatibility-only" in lowered or "compatibility only" in lowered
     assert "artifacts/runtime-cert/" in content

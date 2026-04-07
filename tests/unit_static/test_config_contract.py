@@ -5,9 +5,20 @@ No MLX required — all assertions are pure-Python dataclass logic.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from turboquant.config import TurboQuantConfig
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CONTRACT_PATH = REPO_ROOT / "turboquant" / "contract.json"
+
+
+def _load_contract_presets() -> dict[str, dict]:
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    return {preset["name"]: preset for preset in payload["presets"]}
 
 # ── Preset helpers ────────────────────────────────────────────────────────────
 
@@ -20,6 +31,12 @@ def test_paper_mse_preset_is_mse_mode():
 
 def test_paper_prod_preset_is_prod_mode():
     cfg = TurboQuantConfig.from_preset("paper_prod")
+    assert cfg.is_prod_mode()
+    assert not cfg.is_mse_mode()
+
+
+def test_paper_prod_qjl_preset_is_prod_mode():
+    cfg = TurboQuantConfig.from_preset("paper_prod_qjl")
     assert cfg.is_prod_mode()
     assert not cfg.is_mse_mode()
 
@@ -83,6 +100,50 @@ def test_paper_mse_validate_passes():
 
 def test_paper_prod_validate_passes():
     TurboQuantConfig.from_preset("paper_prod").validate()
+
+
+def test_every_registered_preset_builds_and_validates():
+    for name in TurboQuantConfig.preset_names():
+        TurboQuantConfig.from_preset(name).validate()
+
+
+def test_preset_registry_exposes_required_comparison_surfaces():
+    registry = TurboQuantConfig.preset_registry()
+
+    assert registry["paper_mse"]["classification"] == "paper-facing"
+    assert registry["paper_prod_qjl"]["classification"] == "paper-facing"
+    assert registry["paper_prod"]["classification"] == "paper-facing"
+    assert (
+        registry["polarquant_exp"]["classification"]
+        == "supported non-paper-facing"
+    )
+    assert registry["legacy_topk"]["classification"] == "compatibility-only"
+
+
+def test_contract_presets_match_runtime_registry_metadata():
+    registry = TurboQuantConfig.preset_registry()
+    contract_presets = _load_contract_presets()
+
+    assert set(contract_presets).issubset(registry)
+
+    for name, contract in contract_presets.items():
+        runtime = registry[name]
+        assert runtime["algorithm"] == contract["algorithm"]
+        assert runtime["paper_facing"] == contract["paper_facing"]
+        assert runtime["classification"] == contract["classification"]
+        assert runtime["canonical_preset"] == contract["canonical_preset"]
+        assert runtime["k_bits"] == contract["k_bits"]
+        assert runtime["k_group_size"] == contract["k_group_size"]
+        assert runtime["v_bits"] == contract["v_bits"]
+        assert runtime["v_group_size"] == contract["v_group_size"]
+        assert tuple(runtime["algorithm_aliases"]) == tuple(
+            contract.get("algorithm_aliases", [])
+        )
+
+        if contract["residual_kind"] == "qjl":
+            assert runtime["qjl_proj_dim"] == contract["qjl_dim"]
+        if contract["residual_kind"] == "topk":
+            assert runtime["residual_topk"] == contract["residual_topk"]
 
 
 # ── effective_bits_per_channel formulae ──────────────────────────────────────

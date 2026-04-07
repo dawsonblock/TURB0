@@ -6,16 +6,18 @@ Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeo
 
 ## Algorithm Presets
 
-| Preset | Canonical algorithm | Residual | Effective K bpc (d=128) | Average KV bpc (d=128) | Notes |
-| :--- | :--- | :--- | :---: | :---: | :--- |
-| `paper_mse` | `paper_mse` | `none` | 3.25 | 3.75 | Paper-facing MSE stage. |
-| `paper_prod (preset alias)` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Paper-facing production-style preset using a 1-bit QJL residual. |
-| `high_compression (legacy alias)` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Legacy convenience alias for the QJL production-style preset. |
-| `balanced (legacy)` | `legacy_topk` | `topk` | legacy / compatibility-only | legacy / compatibility-only | Legacy top-k compatibility preset; not part of the paper-facing contract. |
-| `max_quality (legacy)` | `legacy_topk` | `topk` | legacy / compatibility-only | legacy / compatibility-only | Legacy top-k compatibility preset; not part of the paper-facing contract. |
-| `polarquant_exp (supported non-paper-facing)` | `polarquant_exp` | `none` | 3.25 | 3.75 | Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification. |
+| Preset | Classification | Canonical preset | Canonical algorithm | Residual | Effective K bpc (d=128) | Average KV bpc (d=128) | Notes |
+| :--- | :--- | :--- | :--- | :--- | :---: | :---: | :--- |
+| `paper_mse` | paper-facing | `paper_mse` | `paper_mse` | `none` | 3.25 | 3.75 | Paper-facing MSE stage. |
+| `paper_prod_qjl` | paper-facing | `paper_prod_qjl` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Primary paper-facing two-stage preset using a 1-bit QJL residual. |
+| `paper_prod (preset alias)` | paper-facing | `paper_prod_qjl` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Paper-facing production-style preset using a 1-bit QJL residual. |
+| `polarquant_exp (supported non-paper-facing)` | supported non-paper-facing | `polarquant_exp` | `polarquant_exp` | `none` | 3.25 | 3.75 | Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification. |
+| `legacy_topk` | compatibility-only | `legacy_topk` | `legacy_topk` | `topk` | legacy / compatibility-only | legacy / compatibility-only | Explicit legacy top-k compatibility preset; not part of the paper-facing contract. |
+| `high_compression (legacy alias)` | compatibility-only | `paper_prod_qjl` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Legacy convenience alias for the QJL production-style preset. |
+| `balanced (legacy)` | compatibility-only | `balanced` | `legacy_topk` | `topk` | legacy / compatibility-only | legacy / compatibility-only | Legacy top-k compatibility preset; not part of the paper-facing contract. |
+| `max_quality (legacy)` | compatibility-only | `max_quality` | `legacy_topk` | `topk` | legacy / compatibility-only | legacy / compatibility-only | Legacy top-k compatibility preset; not part of the paper-facing contract. |
 
-Paper-facing presets are `paper_mse` and `paper_prod` (the `paper_prod_qjl` algorithm family). Legacy top-k presets remain available only as compatibility surfaces.
+Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the paper-facing alias `paper_prod`. `polarquant_exp` remains the supported non-paper-facing branch. Legacy top-k presets and legacy aliases remain compatibility surfaces.
 
 ## Exact deviations from the paper-facing story
 

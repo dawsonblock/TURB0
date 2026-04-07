@@ -2,6 +2,7 @@
   "schema_version": 1,
   "generated_docs": [
     "docs/product_contract.md",
+    "docs/preset_modes.md",
     "docs/support_matrix.md",
     "docs/supported-surface.md"
   ],
@@ -87,6 +88,8 @@
       "name": "paper_mse",
       "display_name": "paper_mse",
       "algorithm": "paper_mse",
+      "classification": "paper-facing",
+      "canonical_preset": "paper_mse",
       "algorithm_aliases": [
         "turboquant_mse"
       ],
@@ -99,9 +102,29 @@
       "notes": "Paper-facing MSE stage."
     },
     {
+      "name": "paper_prod_qjl",
+      "display_name": "paper_prod_qjl",
+      "algorithm": "paper_prod_qjl",
+      "classification": "paper-facing",
+      "canonical_preset": "paper_prod_qjl",
+      "algorithm_aliases": [
+        "turboquant_prod"
+      ],
+      "k_bits": 3,
+      "k_group_size": 64,
+      "v_bits": 4,
+      "v_group_size": 64,
+      "residual_kind": "qjl",
+      "qjl_dim": 64,
+      "paper_facing": true,
+      "notes": "Primary paper-facing two-stage preset using a 1-bit QJL residual."
+    },
+    {
       "name": "paper_prod",
       "display_name": "paper_prod (preset alias)",
       "algorithm": "paper_prod_qjl",
+      "classification": "paper-facing",
+      "canonical_preset": "paper_prod_qjl",
       "algorithm_aliases": [
         "paper_prod_qjl",
         "turboquant_prod"
@@ -116,9 +139,42 @@
       "notes": "Paper-facing production-style preset using a 1-bit QJL residual."
     },
     {
+      "name": "polarquant_exp",
+      "display_name": "polarquant_exp (supported non-paper-facing)",
+      "algorithm": "polarquant_exp",
+      "classification": "supported non-paper-facing",
+      "canonical_preset": "polarquant_exp",
+      "algorithm_aliases": [],
+      "k_bits": 3,
+      "k_group_size": 64,
+      "v_bits": 4,
+      "v_group_size": 64,
+      "residual_kind": "none",
+      "paper_facing": false,
+      "notes": "Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification."
+    },
+    {
+      "name": "legacy_topk",
+      "display_name": "legacy_topk",
+      "algorithm": "legacy_topk",
+      "classification": "compatibility-only",
+      "canonical_preset": "legacy_topk",
+      "algorithm_aliases": [],
+      "k_bits": 4,
+      "k_group_size": 32,
+      "v_bits": 4,
+      "v_group_size": 32,
+      "residual_kind": "topk",
+      "residual_topk": 2,
+      "paper_facing": false,
+      "notes": "Explicit legacy top-k compatibility preset; not part of the paper-facing contract."
+    },
+    {
       "name": "high_compression",
       "display_name": "high_compression (legacy alias)",
       "algorithm": "paper_prod_qjl",
+      "classification": "compatibility-only",
+      "canonical_preset": "paper_prod_qjl",
       "algorithm_aliases": [
         "paper_prod_qjl",
         "turboquant_prod"
@@ -136,6 +192,8 @@
       "name": "balanced",
       "display_name": "balanced (legacy)",
       "algorithm": "legacy_topk",
+      "classification": "compatibility-only",
+      "canonical_preset": "balanced",
       "k_bits": 4,
       "k_group_size": 32,
       "v_bits": 4,
@@ -149,6 +207,8 @@
       "name": "max_quality",
       "display_name": "max_quality (legacy)",
       "algorithm": "legacy_topk",
+      "classification": "compatibility-only",
+      "canonical_preset": "max_quality",
       "k_bits": 4,
       "k_group_size": 16,
       "v_bits": 8,
@@ -157,19 +217,6 @@
       "residual_topk": 4,
       "paper_facing": false,
       "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract."
-    },
-    {
-      "name": "polarquant_exp",
-      "display_name": "polarquant_exp (supported non-paper-facing)",
-      "algorithm": "polarquant_exp",
-      "algorithm_aliases": [],
-      "k_bits": 3,
-      "k_group_size": 64,
-      "v_bits": 4,
-      "v_group_size": 64,
-      "residual_kind": "none",
-      "paper_facing": false,
-      "notes": "Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification."
     }
   ],
   "secondary_surfaces": [

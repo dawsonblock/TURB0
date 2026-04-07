@@ -218,6 +218,7 @@ For the full evidence model, read
 | Document | Purpose |
 |---|---|
 | [docs/theory.md](docs/theory.md) | Theory-facing map of paper claims, implementation anchors, and current evidence limits |
+| [docs/preset_modes.md](docs/preset_modes.md) | Generated preset taxonomy with paper-facing, non-paper-facing, and compatibility-only tags |
 | [docs/product_contract.md](docs/product_contract.md) | Generated top-level product boundary |
 | [docs/supported-surface.md](docs/supported-surface.md) | Generated canonical vs secondary surface definition |
 | [docs/support_matrix.md](docs/support_matrix.md) | Generated family and preset matrix |
@@ -254,7 +255,8 @@ TurboQuantX1/
 1. Run `make test-static` on any platform.
 2. On Apple Silicon, run `make test-mlx` and `make test-structural` before widening claims.
 3. If you change runtime-contract or evidence wording, update `turboquant/contract.json` and regenerate the derived docs.
-4. If you add a model family or preset to the supported story, extend the certification surface before updating the README.
+4. If you change the preset registry or preset classifications, update `turboquant/config.py`, `turboquant/contract.json`, and regenerate the derived docs together.
+5. If you add a model family or preset to the supported story, extend the certification surface before updating the README.
 
 ## License
 

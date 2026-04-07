@@ -32,7 +32,9 @@ Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeo
 
 ## 4. Paper-facing presets and exact deviations
 
-Paper-facing presets are `paper_mse` and `paper_prod`/`paper_prod_qjl`. Legacy top-k presets remain compatibility paths, not the main algorithm story.
+Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the paper-facing alias `paper_prod`. `polarquant_exp` is the supported non-paper-facing branch. `legacy_topk`, `balanced`, `max_quality`, and `high_compression` remain compatibility-only surfaces rather than the main algorithm story.
+
+Generated preset taxonomy: `docs/preset_modes.md`.
 
 - **Non-power-of-two Hadamard handling** — The implementation uses an exact Hadamard transform only for power-of-two head dimensions and a deterministic orthogonal fallback otherwise.
 - **Legacy compatibility knobs** — Legacy aliases, residual_topk, and block_tokens remain for compatibility, but they are not part of the paper-facing preset contract.
