@@ -22,6 +22,8 @@ def test_collect_run_artifacts_ignores_non_run_json(tmp_path: Path) -> None:
         "preflight.json": {"apple_silicon": True},
         "quality_eval_short_summary.json": {"status": "PASS", "model": "demo"},
         "cert_manifest.json": {"result": "PASS"},
+        "bit_budget_sweep_summary.json": {"metric_family": "bit_budget_sweep"},
+        "inner_product_bias_summary.json": {"metric_family": "inner_product_bias"},
     }.items():
         (tmp_path / name).write_text(json.dumps(payload), encoding="utf-8")
 

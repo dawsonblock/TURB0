@@ -94,6 +94,9 @@ Interpretation rule:
 6. If you need a paper-facing score diagnostic, run the inner-product bias lane
    and compare `paper_prod_qjl` against `paper_mse` on the retained synthetic
    workload, then read the Markdown summary and CSV companion outputs together.
+7. If you need a multi-point research comparison across several operating
+   points, run the bit-budget sweep and compare its JSON, CSV, and Markdown
+   outputs together.
 
 ## Interpreting exploratory results
 

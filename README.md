@@ -219,6 +219,7 @@ For the full evidence model, read
 |---|---|
 | [docs/theory.md](docs/theory.md) | Theory-facing map of paper claims, implementation anchors, and current evidence limits |
 | [docs/preset_modes.md](docs/preset_modes.md) | Generated preset taxonomy with paper-facing, non-paper-facing, and compatibility-only tags |
+| [docs/bit_budget_sweep.md](docs/bit_budget_sweep.md) | Research-only bit-budget sweep command, schema, and interpretation guide |
 | [docs/product_contract.md](docs/product_contract.md) | Generated top-level product boundary |
 | [docs/supported-surface.md](docs/supported-surface.md) | Generated canonical vs secondary surface definition |
 | [docs/support_matrix.md](docs/support_matrix.md) | Generated family and preset matrix |

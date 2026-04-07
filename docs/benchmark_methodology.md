@@ -87,6 +87,29 @@ surface, and the Markdown file is the human-review summary. Do not present any
 of them as proof of unbiasedness unless stronger retained evidence supports
 that claim.
 
+### Research-only bit-budget sweeps
+
+The runtime-cert benchmark area also includes a synthetic bit-budget sweep
+driver for research-only operating-point comparisons.
+
+```bash
+python benchmarks/runtime_cert/run_bit_budget_sweep.py \
+    --output-dir artifacts/runtime-cert/manual_bit_budget_sweep
+```
+
+This driver emits:
+
+- `bit_budget_sweep_summary.json`
+- `bit_budget_sweep_metrics.csv`
+- `bit_budget_sweep_summary.md`
+
+Use it to compare measured compression, memory reduction, distortion,
+inner-product bias, and cache-update latency across a stable preset and bit
+matrix. The downstream-quality fields remain nullable in this synthetic sweep;
+real-model quality evidence still belongs to the runtime-cert quality lanes.
+See [docs/bit_budget_sweep.md](docs/bit_budget_sweep.md) for the schema and
+interpretation rules.
+
 ## Reproduction rules
 
 - Synchronize compute before timing.
