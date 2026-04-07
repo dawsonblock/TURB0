@@ -97,6 +97,9 @@ Interpretation rule:
 7. If you need a multi-point research comparison across several operating
    points, run the bit-budget sweep and compare its JSON, CSV, and Markdown
    outputs together.
+8. If you need one consolidated KV report bundle, run the unified KV paper
+   evaluation command and read its stage statuses by tier instead of treating
+   all evidence as equally strong.
 
 ## Interpreting exploratory results
 

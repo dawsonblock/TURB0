@@ -110,6 +110,30 @@ real-model quality evidence still belongs to the runtime-cert quality lanes.
 See [docs/bit_budget_sweep.md](docs/bit_budget_sweep.md) for the schema and
 interpretation rules.
 
+### Unified KV paper evaluation bundle
+
+The runtime-cert benchmark area also includes a unified research-only KV report
+driver that consolidates fast runtime-path checks and optional heavy real-model
+stages.
+
+```bash
+python benchmarks/runtime_cert/run_kv_paper_eval.py \
+    --output-dir artifacts/runtime-cert/manual_kv_eval
+```
+
+By default this runs only the `fast-check` tier. Add
+`--include-heavy-offline` plus model ids to run the heavier real-model stages.
+
+It emits:
+
+- `kv_paper_eval_summary.json`
+- `kv_paper_eval_summary.md`
+
+Use it when you want one report bundle that states clearly which KV results are
+lightweight fast checks and which are heavier offline research evaluations.
+See [docs/kv_paper_eval.md](docs/kv_paper_eval.md) for the tier definitions and
+interpretation rules.
+
 ## Reproduction rules
 
 - Synchronize compute before timing.
