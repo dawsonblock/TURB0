@@ -19,7 +19,8 @@ def _rotate_queries(
 
     rotation = FixedRotation.from_config(config, orig_dim)
     q_fp32 = q if q.dtype == mx.float32 else q.astype(mx.float32)
-    return rotation.apply(q_fp32).astype(q.dtype)
+    rotated = rotation.apply(q_fp32)
+    return rotated if q.dtype == mx.float32 else rotated.astype(q.dtype)
 
 
 def _repeat_kv_heads(x: mx.array, target_heads: int) -> mx.array:
