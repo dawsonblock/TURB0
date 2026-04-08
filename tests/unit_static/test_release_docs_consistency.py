@@ -81,6 +81,30 @@ def test_release_candidate_notes_distinguish_structure_from_release_proof() -> N
     assert "cannot prove a current apple runtime pass" in normalized
     assert "manifest digest" in normalized
     assert "self-hosted" in normalized
+    assert "python tools/verify_dist_contents.py" in content
+    assert "not runtime proof" in normalized
+
+
+def test_release_checklist_documents_clean_source_export_requirements() -> None:
+    content = _read("docs/release-checklist.md")
+    normalized = " ".join(content.lower().split())
+
+    assert "python -m pytest tests/unit_static -q" in content
+    assert "python tools/verify_dist_contents.py" in content
+    assert "not proof of apple runtime certification" in normalized
+    assert "__pycache__/" in content
+    assert "*.pyc" in content
+    assert "make export-source-zip TQ_SOURCE_EXPORT_REF=<commit-or-tag>" in content
+    assert "git archive" in content
+
+
+def test_makefile_has_clean_source_export_target() -> None:
+    content = _read("Makefile")
+
+    assert "export TQ_SOURCE_EXPORT_REF" in content
+    assert "export-source-zip:" in content
+    assert 'ref="$${TQ_SOURCE_EXPORT_REF}"' in content
+    assert "git archive --format=zip" in content
 
 
 def test_release_checklist_matches_contract_required_artifacts() -> None:

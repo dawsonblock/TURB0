@@ -1,7 +1,8 @@
 PYTHON ?= python3
 PIP ?= uv pip
+export TQ_SOURCE_EXPORT_REF
 
-.PHONY: help install-dev install-apple compile lint typecheck test test-static test-mlx test-structural test-path-proof test-smoke-llama test-smoke-gemma test-long-context certify-apple-runtime certify-structural build-dist validate-apple clean
+.PHONY: help install-dev install-apple compile lint typecheck test test-static test-mlx test-unit-mlx test-structural test-path-proof test-smoke-llama test-smoke-gemma test-long-context certify-apple-runtime certify-structural build-dist export-source-zip validate-apple clean
 
 help:
 	@printf "Targets:\n"
@@ -21,6 +22,7 @@ help:
 	@printf "  certify-apple-runtime    Full Apple-Silicon runtime certification\n"
 	@printf "  certify-structural       Structural cert only (no model weights needed)\n"
 	@printf "  build-dist               Build wheel and sdist\n"
+	@printf "  export-source-zip        Create a clean tracked-files source zip from HEAD or TQ_SOURCE_EXPORT_REF\n"
 	@printf "  validate-apple           Run Apple Silicon runtime validation script\n"
 	@printf "  clean                    Remove build artifacts\n"
 
@@ -81,6 +83,25 @@ certify-apple-runtime:
 
 build-dist:
 	$(PYTHON) -m build
+
+export-source-zip:
+	@mkdir -p dist
+	@ref="$${TQ_SOURCE_EXPORT_REF}"; \
+	if [ -z "$$ref" ]; then ref="HEAD"; fi; \
+	case "$$ref" in \
+		*[!A-Za-z0-9._/-]*) \
+			printf 'ERROR: TQ_SOURCE_EXPORT_REF must be a commit, tag, or ref path using only [A-Za-z0-9._/-]\n' >&2; \
+			exit 1 ;; \
+	esac; \
+	commit_sha="$$(git rev-parse --verify --quiet "$$ref^{commit}")" || { \
+		printf 'ERROR: %s is not a resolvable commit or tag\n' "$$ref" >&2; \
+		exit 1; \
+	}; \
+	safe_ref="$$(printf '%s' "$$ref" | tr '/:' '__')"; \
+	out="dist/turboquant-source-$${safe_ref}-$${commit_sha}.zip"; \
+	rm -f "$$out"; \
+	git archive --format=zip --output="$$out" "$$ref"; \
+	printf 'Created clean source export %s from %s (commit %s)\n' "$$out" "$$ref" "$$commit_sha"
 
 validate-apple:
 	./scripts/validate_apple_silicon.sh
