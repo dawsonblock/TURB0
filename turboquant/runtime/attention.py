@@ -18,7 +18,8 @@ def _rotate_queries(
     from turboquant.core.rotation import FixedRotation
 
     rotation = FixedRotation.from_config(config, orig_dim)
-    return rotation.apply(q.astype(mx.float32)).astype(q.dtype)
+    q_fp32 = q if q.dtype == mx.float32 else q.astype(mx.float32)
+    return rotation.apply(q_fp32).astype(q.dtype)
 
 
 def _repeat_kv_heads(x: mx.array, target_heads: int) -> mx.array:
