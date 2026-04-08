@@ -92,15 +92,15 @@ export-source-zip:
 			printf 'ERROR: TQ_SOURCE_EXPORT_REF must be a commit, tag, or ref path using only [A-Za-z0-9._/-]\n' >&2; \
 			exit 1 ;; \
 	esac; \
-	git rev-parse --verify --quiet "$$ref^{commit}" >/dev/null || { \
+	commit_sha="$$(git rev-parse --verify --quiet "$$ref^{commit}")" || { \
 		printf 'ERROR: %s is not a resolvable commit or tag\n' "$$ref" >&2; \
 		exit 1; \
 	}; \
 	safe_ref="$$(printf '%s' "$$ref" | tr '/:' '__')"; \
-	out="dist/turboquant-source-$${safe_ref}.zip"; \
+	out="dist/turboquant-source-$${safe_ref}-$${commit_sha}.zip"; \
 	rm -f "$$out"; \
 	git archive --format=zip --output="$$out" "$$ref"; \
-	printf 'Created clean source export %s from %s\n' "$$out" "$$ref"
+	printf 'Created clean source export %s from %s (commit %s)\n' "$$out" "$$ref" "$$commit_sha"
 
 validate-apple:
 	./scripts/validate_apple_silicon.sh
