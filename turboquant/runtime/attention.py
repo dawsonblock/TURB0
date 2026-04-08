@@ -297,59 +297,6 @@ def _fast_streaming_attention(
     return acc / mx.maximum(denom, mx.array(math.exp(-20), dtype=denom.dtype))
 
 
-def _legacy_streaming_attention(
-    queries,
-    keys_view,
-    *,
-    scale=1.0,
-    mask=None,
-    softcap=None,
-):
-    cache = keys_view.cache
-    impl = getattr(cache, "_impl", cache)
-    config = impl.config
-    dequantize_main = impl.dequantize_main
-
-    scores = _legacy_streaming_scores(
-        queries * scale,
-        cache=impl,
-        config=config,
-        dequantize_main=dequantize_main,
-    )
-    scores = mx.concatenate(scores, axis=-1)
-
-    if softcap is not None:
-        scores = mx.tanh(scores / softcap) * softcap
-
-    if mask == "causal":
-        q_len = queries.shape[-2]
-        k_len = int(scores.shape[-1])
-        if q_len > 1:
-            inds = mx.arange(k_len)[None, None, :]
-            q_inds = mx.arange(k_len - q_len, k_len)[None, :, None]
-            mask = mx.where(
-                inds > q_inds,
-                mx.array(-1e9, dtype=scores.dtype),
-                mx.array(0.0, dtype=scores.dtype),
-            )
-        else:
-            mask = None
-    if mask is not None:
-        scores = scores + mask
-
-    if getattr(impl, "storage_mode", "k_only") == "paper_kv" and impl.v_blocks:
-        vals = mx.concatenate(
-            [impl.decode_v_block(i) for i in range(len(impl.v_blocks))],
-            axis=-2,
-        )
-    else:
-        vals = mx.concatenate(cache.v_cache, axis=-2)
-
-    attn = mx.softmax(scores, axis=-1)
-    vals = _repeat_kv_heads(vals, int(queries.shape[-3]))
-    return attn @ vals
-
-
 def turboquant_streaming_attention(
     queries, keys_view, scale=1.0, mask=None, softcap=None
 ):
@@ -373,10 +320,64 @@ def turboquant_streaming_attention(
             mask=mask,
             softcap=softcap,
         )
-    return _legacy_streaming_attention(
-        queries,
-        keys_view,
-        scale=scale,
-        mask=mask,
-        softcap=softcap,
+
+    config = impl.config
+    dequantize_main = impl.dequantize_main
+    q_scaled = queries * scale
+
+    batch, n_heads, q_len, d_head = queries.shape
+    running_max = mx.full((batch, n_heads, q_len, 1), -float("inf"), dtype=mx.float32)
+    running_denom = mx.zeros((batch, n_heads, q_len, 1), dtype=mx.float32)
+    running_out = mx.zeros((batch, n_heads, q_len, d_head), dtype=mx.float32)
+
+    k_offset = 0
+    paper_mode = getattr(impl, "storage_mode", "k_only") == "paper_kv"
+
+    for i, block in enumerate(impl.iter_blocks()):
+        scores = score_block(
+            q_scaled,
+            block,
+            config=config,
+            dequantize_main=dequantize_main,
+        )
+        k_len = int(scores.shape[-1])
+
+        if paper_mode and impl.v_blocks:
+            v_chunk = impl.decode_v_block(i)
+        else:
+            v_chunk = impl.v_cache[i]
+
+        v_chunk = _repeat_kv_heads(v_chunk, int(queries.shape[-3]))
+
+        if softcap is not None:
+            scores = mx.tanh(scores / softcap) * softcap
+
+        if mask == "causal":
+            if q_len > 1:
+                q_inds = mx.arange(keys_view.end - q_len, keys_view.end)[None, :, None]
+                k_inds = mx.arange(k_offset, k_offset + k_len)[None, None, :]
+                block_mask = mx.where(
+                    q_inds >= k_inds,
+                    mx.array(0.0, dtype=scores.dtype),
+                    mx.array(-1e9, dtype=scores.dtype),
+                )
+                scores = scores + block_mask
+        elif mask is not None:
+            scores = scores + mask[..., k_offset : k_offset + k_len]
+
+        block_max = mx.max(scores, axis=-1, keepdims=True)
+        next_max = mx.maximum(running_max, block_max)
+        alpha = mx.exp(running_max - next_max)
+        block_probs = mx.exp(scores - next_max)
+
+        running_denom = running_denom * alpha + mx.sum(
+            block_probs, axis=-1, keepdims=True
+        )
+        running_out = running_out * alpha + (block_probs @ v_chunk)
+        running_max = next_max
+        k_offset += k_len
+
+    attn_out = running_out / mx.maximum(
+        running_denom, mx.array(1e-6, dtype=mx.float32)
     )
+    return attn_out.astype(queries.dtype)
