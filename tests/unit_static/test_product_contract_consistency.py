@@ -120,6 +120,7 @@ def test_runtime_certification_doc_tracks_scope_and_artifacts() -> None:
     """runtime-certification.md must describe the evidence contract."""
     content = _read("docs/runtime-certification.md")
     lowered = content.lower()
+    normalized = " ".join(lowered.split())
 
     assert (
         "artifacts/runtime-cert/<timestamp>/" in content
@@ -135,6 +136,7 @@ def test_runtime_certification_doc_tracks_scope_and_artifacts() -> None:
     assert "llama" in lowered and "gemma" in lowered
     assert "stronger" in lowered and "narrower" in lowered
     assert "built wheels and source distributions do not ship" in lowered
+    assert "does not claim that a source archive alone proves a current pass" in normalized
 
 
 def test_evaluation_and_benchmark_docs_are_non_certification_guides() -> None:
@@ -203,6 +205,8 @@ def test_vendored_doc_describes_patch_layer() -> None:
     content = _read("VENDORED_MLX_LM.md")
     lowered = content.lower()
 
+    assert "filename is retained for continuity" in lowered
+    assert "does not vendor `mlx_lm`" in content or "does not vendor mlx_lm" in lowered
     assert "monkey-patch" in lowered or "monkey patch" in lowered
     assert "upstream `mlx_lm`" in content or "upstream mlx_lm" in lowered
     assert "upgrade_cache_list(...)" in content

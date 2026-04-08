@@ -2,10 +2,21 @@
 
 TurboQuant no longer ships a vendored `mlx_lm/` tree in this repository.
 
+This is the canonical human architecture explainer. `VENDORED_MLX_LM.md`
+remains only as a short continuity stub for compatibility with existing tests
+and tooling.
+
 Instead, TurboQuant integrates with upstream `mlx_lm` through a narrow
 import-time/runtime patch layer. The canonical runtime entry point remains
-`turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)`, and the patch
-layer routes supported decode flows back to that allowlisted upgrade path.
+`turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)`, and
+`turboquant.patch.apply_mlx_lm_patches()` routes supported decode flows back to
+that allowlisted upgrade path.
+
+## Patched upstream hooks
+
+- `mlx_lm.models.base.scaled_dot_product_attention`
+- `mlx_lm.models.cache.make_prompt_cache`
+- `mlx_lm.generate.generate_step`
 
 ## Supported scope
 

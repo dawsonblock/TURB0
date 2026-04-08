@@ -1,198 +1,288 @@
 #!/usr/bin/env python3
 """
-tools/audit_vendored_surface.py — vendored mlx_lm surface governance audit.
+tools/audit_vendored_surface.py — mlx_lm integration-boundary audit.
 
-This script cross-references ``VENDORED_MLX_LM.md`` against the ``mlx_lm/``
-source tree to detect:
+This repo no longer vendors an in-tree ``mlx_lm/`` source tree. This script
+audits the retained boundary docs instead:
 
-  1. **Missing patches** — files documented as TQ-modified that no longer
-     contain any TurboQuant-specific identifiers.
-  2. **Undocumented modifications** — files in ``mlx_lm/`` that contain
-     TurboQuant-specific identifiers but are not listed as modified in the
-     documentation.
-  3. **Missing files** — files documented as modified that do not exist on
-     disk (e.g. after an upstream refactor).
+  1. ``VENDORED_MLX_LM.md`` must explicitly describe continuity-only naming and
+     the current upstream monkey-patching model.
+  2. ``docs/vendored-upstream-boundary.md`` must remain the canonical explainer
+     and must list the same patched upstream hooks as the continuity stub.
+  3. The canonical integration entry point must still exist.
+  4. Declared live repo paths in the boundary docs must exist and must not
+     point at a nonexistent in-tree ``mlx_lm/`` checkout.
 
 Usage
 -----
     python tools/audit_vendored_surface.py           # human-readable
     python tools/audit_vendored_surface.py --json    # machine-readable
-
-Exit codes
-----------
-  0  No violations found.
-  1  One or more violations found (check output / JSON for details).
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-# Repository root is the directory that contains this script's parent.
 REPO_ROOT = Path(__file__).resolve().parents[1]
+CONTINUITY_DOC = REPO_ROOT / "VENDORED_MLX_LM.md"
+BOUNDARY_DOC = REPO_ROOT / "docs" / "vendored-upstream-boundary.md"
+PATCH_MODULE = REPO_ROOT / "turboquant" / "patch.py"
+ENTRY_MODULE = REPO_ROOT / "turboquant" / "integrations" / "mlx" / "upgrade.py"
 
-VENDORED_DOC = REPO_ROOT / "VENDORED_MLX_LM.md"
-MLX_LM_DIR = REPO_ROOT / "mlx_lm"
-
-# Identifiers that unambiguously mark TurboQuant-specific code.
-TQ_MARKERS: tuple[str, ...] = (
-    "TurboQuant",
-    "turboquant",
-    "TurboQuantKCache",
-    "TurboQuantKeysView",
-    "maybe_turboquant",
-    "upgrade_cache_list",
-    "turboquant_streaming_attention",
+REQUIRED_HOOKS: tuple[str, ...] = (
+    "mlx_lm.models.base.scaled_dot_product_attention",
+    "mlx_lm.models.cache.make_prompt_cache",
+    "mlx_lm.generate.generate_step",
 )
-
-# ---------------------------------------------------------------------------
-# Parse VENDORED_MLX_LM.md for the documented modified files
-# ---------------------------------------------------------------------------
-
-_MODIFIED_HEADER_RE = re.compile(
-    r"^###\s+`(mlx_lm/[^`]+)`",
-    re.MULTILINE,
+REQUIRED_ENTRY = "turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)"
+REQUIRED_REPO_PATHS: tuple[str, ...] = (
+    "turboquant/patch.py",
+    "turboquant/integrations/mlx/upgrade.py",
 )
+CODE_TOKEN_RE = re.compile(r"`([^`]+)`")
+ORDERED_LIST_RE = re.compile(r"^\d+\. ")
 
 
-def parse_documented_modifications(doc: Path) -> set[str]:
-    """Return set of repo-relative paths documented as TQ-modified."""
-    text = doc.read_text(encoding="utf-8")
-    return {m.group(1) for m in _MODIFIED_HEADER_RE.finditer(text)}
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
 
 
-# ---------------------------------------------------------------------------
-# Scan mlx_lm/ for files that contain TQ markers
-# ---------------------------------------------------------------------------
-
-
-def has_tq_marker(path: Path) -> bool:
-    """Return True if *path* contains any TurboQuant-specific identifier."""
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return False
-    return any(marker in text for marker in TQ_MARKERS)
-
-
-def scan_mlx_lm(root: Path) -> set[str]:
-    """Return repo-relative paths of .py files in mlx_lm/ with TQ markers."""
-    result: set[str] = set()
-    for py in root.rglob("*.py"):
-        if "__pycache__" in py.parts:
+def _extract_section_tokens(text: str, section_name: str) -> list[str]:
+    in_section = False
+    body: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if in_section:
+                break
+            in_section = line[3:].strip().lower() == section_name.lower()
             continue
-        if has_tq_marker(py):
-            result.add(str(py.relative_to(REPO_ROOT)))
-    return result
+        if in_section:
+            body.append(line)
+
+    tokens: list[str] = []
+    for line in body:
+        if not _is_list_item(line):
+            continue
+        if line.count("`") % 2 != 0:
+            continue
+        tokens.extend(CODE_TOKEN_RE.findall(line))
+    return tokens
 
 
-# ---------------------------------------------------------------------------
-# Audit logic
-# ---------------------------------------------------------------------------
+def _is_list_item(line: str) -> bool:
+    stripped = line.lstrip()
+    if stripped.startswith(("- ", "* ")):
+        return True
+
+    return bool(ORDERED_LIST_RE.match(stripped))
 
 
-def run_audit() -> dict:
-    """Run the full audit and return a structured results dict."""
-    if not VENDORED_DOC.exists():
-        return {
-            "ok": False,
-            "error": f"VENDORED_MLX_LM.md not found at {VENDORED_DOC}",
-            "documented_modified": [],
-            "missing_files": [],
-            "missing_markers": [],
-            "undocumented_modifications": [],
-        }
+def _find_phrase_violations(text: str, phrases: tuple[str, ...]) -> list[str]:
+    normalized = " ".join(text.lower().split())
+    normalized_phrases = {
+        phrase: " ".join(phrase.lower().split()) for phrase in phrases
+    }
+    return [
+        phrase
+        for phrase, normalized_phrase in normalized_phrases.items()
+        if normalized_phrase not in normalized
+    ]
 
-    documented = parse_documented_modifications(VENDORED_DOC)
-    actual = scan_mlx_lm(MLX_LM_DIR) if MLX_LM_DIR.exists() else set()
 
-    # Files documented as modified but not found on disk.
-    missing_files = sorted(p for p in documented if not (REPO_ROOT / p).exists())
+def _module_has_top_level_function(path: Path, function_name: str) -> bool:
+    if not path.exists():
+        return False
 
-    # Files documented as modified but no TQ marker detected on disk.
-    missing_markers = sorted(
-        p
-        for p in documented
-        if (REPO_ROOT / p).exists() and not has_tq_marker(REPO_ROOT / p)
+    try:
+        module = ast.parse(_read(path), filename=str(path))
+    except SyntaxError:
+        return False
+
+    return any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == function_name
+        for node in module.body
     )
 
-    # Files with TQ markers that are NOT in the documented set.
-    undocumented = sorted(actual - documented)
 
-    ok = not (missing_files or missing_markers or undocumented)
+def run_audit() -> dict[str, object]:
+    canonical_entry_exists = _module_has_top_level_function(
+        ENTRY_MODULE, "upgrade_cache_list"
+    )
+    missing_docs = [
+        str(path.relative_to(REPO_ROOT))
+        for path in (CONTINUITY_DOC, BOUNDARY_DOC)
+        if not path.exists()
+    ]
+    if missing_docs:
+        return {
+            "ok": False,
+            "missing_docs": missing_docs,
+            "doc_violations": [],
+            "documented_hooks": {},
+            "missing_hooks": [],
+            "mismatched_hooks": False,
+            "canonical_entry": REQUIRED_ENTRY,
+            "canonical_entry_exists": canonical_entry_exists,
+            "declared_repo_paths": [],
+            "missing_repo_paths": [],
+            "forbidden_repo_paths": [],
+        }
+
+    continuity_text = _read(CONTINUITY_DOC)
+    boundary_text = _read(BOUNDARY_DOC)
+
+    doc_violations: list[str] = []
+    for phrase in _find_phrase_violations(
+        continuity_text,
+        (
+            "filename is retained for continuity",
+            "does not vendor `mlx_lm`",
+            "canonical human architecture explainer",
+            "turboquant.patch.apply_mlx_lm_patches()",
+            "upgrade_cache_list(...)",
+        ),
+    ):
+        doc_violations.append(f"VENDORED_MLX_LM.md missing phrase: {phrase}")
+
+    for phrase in _find_phrase_violations(
+        boundary_text,
+        (
+            "canonical human architecture explainer",
+            "VENDORED_MLX_LM.md",
+            "turboquant.patch.apply_mlx_lm_patches()",
+            "upgrade_cache_list(...)",
+        ),
+    ):
+        doc_violations.append(
+            f"docs/vendored-upstream-boundary.md missing phrase: {phrase}"
+        )
+
+    continuity_hooks = _extract_section_tokens(continuity_text, "Patched upstream hooks")
+    boundary_hooks = _extract_section_tokens(boundary_text, "Patched upstream hooks")
+    hook_sets_match = set(continuity_hooks) == set(boundary_hooks)
+    missing_hooks = sorted(
+        (set(REQUIRED_HOOKS) - set(continuity_hooks))
+        | (set(REQUIRED_HOOKS) - set(boundary_hooks))
+    )
+
+    declared_repo_paths = _extract_section_tokens(continuity_text, "Active repo touchpoints")
+    missing_repo_paths = sorted(
+        path for path in declared_repo_paths if not (REPO_ROOT / path).exists()
+    )
+    forbidden_repo_paths = sorted(
+        path for path in declared_repo_paths if path == "mlx_lm" or path.startswith("mlx_lm/")
+    )
+    if sorted(declared_repo_paths) != sorted(REQUIRED_REPO_PATHS):
+        doc_violations.append(
+            "VENDORED_MLX_LM.md Active repo touchpoints must enumerate the current bounded repo paths."
+        )
+
+    if not _module_has_top_level_function(PATCH_MODULE, "apply_mlx_lm_patches"):
+        doc_violations.append("turboquant/patch.py no longer exposes apply_mlx_lm_patches().")
+    if not canonical_entry_exists:
+        doc_violations.append(
+            "turboquant/integrations/mlx/upgrade.py no longer defines upgrade_cache_list."
+        )
+
+    ok = not (
+        missing_docs
+        or doc_violations
+        or missing_hooks
+        or not hook_sets_match
+        or missing_repo_paths
+        or forbidden_repo_paths
+        or not canonical_entry_exists
+    )
 
     return {
         "ok": ok,
-        "documented_modified": sorted(documented),
-        "missing_files": missing_files,
-        "missing_markers": missing_markers,
-        "undocumented_modifications": undocumented,
+        "missing_docs": missing_docs,
+        "doc_violations": doc_violations,
+        "documented_hooks": {
+            "VENDORED_MLX_LM.md": continuity_hooks,
+            "docs/vendored-upstream-boundary.md": boundary_hooks,
+        },
+        "missing_hooks": missing_hooks,
+        "mismatched_hooks": not hook_sets_match,
+        "canonical_entry": REQUIRED_ENTRY,
+        "canonical_entry_exists": canonical_entry_exists,
+        "declared_repo_paths": declared_repo_paths,
+        "missing_repo_paths": missing_repo_paths,
+        "forbidden_repo_paths": forbidden_repo_paths,
     }
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-
-def _print_human(result: dict) -> None:
-    print("=== TurboQuant Vendored Surface Audit ===")
+def _print_human(result: dict[str, object]) -> None:
+    print("=== TurboQuant mlx_lm Integration-Boundary Audit ===")
     print(f"Status: {'OK' if result['ok'] else 'VIOLATIONS FOUND'}")
     print()
 
-    if result.get("error"):
-        print(f"ERROR: {result['error']}")
-        return
+    if result["missing_docs"]:
+        print("Missing docs:")
+        for path in result["missing_docs"]:
+            print(f"  {path}")
 
-    print(f"Documented modified files ({len(result['documented_modified'])}):")
-    for p in result["documented_modified"]:
-        print(f"  {p}")
+    hooks = result["documented_hooks"]
+    if isinstance(hooks, dict):
+        for doc_path, values in hooks.items():
+            print(f"Patched upstream hooks in {doc_path}:")
+            for hook in values:
+                print(f"  {hook}")
 
-    if result["missing_files"]:
-        print("\nMISSING FILES (documented but absent on disk):")
-        for p in result["missing_files"]:
-            print(f"  MISSING  {p}")
+    if result["doc_violations"]:
+        print("\nDocument violations:")
+        for violation in result["doc_violations"]:
+            print(f"  {violation}")
 
-    if result["missing_markers"]:
-        print("\nMISSING MARKERS (documented as modified, no TQ code found):")
-        for p in result["missing_markers"]:
-            print(f"  NO-TQ    {p}")
+    if result["missing_hooks"]:
+        print("\nMissing required hooks:")
+        for hook in result["missing_hooks"]:
+            print(f"  {hook}")
 
-    if result["undocumented_modifications"]:
-        print("\nUNDOCUMENTED MODIFICATIONS (TQ markers present, not listed):")
-        for p in result["undocumented_modifications"]:
-            print(f"  UNLISTED {p}")
+    if result["mismatched_hooks"]:
+        print("\nHook lists do not match between the two boundary docs.")
 
-    if result["ok"]:
-        print("\nAll documented modifications are accounted for.")
+    print(f"\nCanonical entry: {result['canonical_entry']}")
+    print(f"Canonical entry exists: {result['canonical_entry_exists']}")
+
+    if result["declared_repo_paths"]:
+        print("\nDeclared active repo touchpoints:")
+        for path in result["declared_repo_paths"]:
+            print(f"  {path}")
+
+    if result["missing_repo_paths"]:
+        print("\nMissing declared repo paths:")
+        for path in result["missing_repo_paths"]:
+            print(f"  {path}")
+
+    if result["forbidden_repo_paths"]:
+        print("\nForbidden in-tree mlx_lm repo paths:")
+        for path in result["forbidden_repo_paths"]:
+            print(f"  {path}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description=("Audit vendored mlx_lm surface against VENDORED_MLX_LM.md")
+        description="Audit the current mlx_lm integration boundary against its live docs."
     )
     parser.add_argument(
         "--json",
         action="store_true",
-        help=("Emit machine-readable JSON instead of human-readable output."),
+        help="Emit machine-readable JSON instead of human-readable output.",
     )
     args = parser.parse_args()
 
     result = run_audit()
-
     if args.json:
         print(json.dumps(result, indent=2))
     else:
         _print_human(result)
-
     return 0 if result["ok"] else 1
 
 

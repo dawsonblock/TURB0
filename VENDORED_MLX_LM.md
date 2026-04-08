@@ -1,6 +1,11 @@
 # `mlx_lm` Integration Boundary
 
-TurboQuant no longer ships a vendored `mlx_lm` tree.
+This filename is retained for continuity and tooling compatibility, but this
+checkout does not vendor `mlx_lm`.
+
+This document is the short continuity boundary stub. The canonical human
+architecture explainer is
+[`docs/vendored-upstream-boundary.md`](docs/vendored-upstream-boundary.md).
 
 ## Current model
 
@@ -15,6 +20,11 @@ TurboQuant no longer ships a vendored `mlx_lm` tree.
 - `mlx_lm.models.base.scaled_dot_product_attention`
 - `mlx_lm.models.cache.make_prompt_cache`
 - `mlx_lm.generate.generate_step`
+
+## Active repo touchpoints
+
+- `turboquant/patch.py`
+- `turboquant/integrations/mlx/upgrade.py`
 
 ## Support boundary
 
