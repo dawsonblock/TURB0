@@ -62,17 +62,20 @@ def _extract_section_tokens(text: str, section_name: str) -> list[str]:
 
     tokens: list[str] = []
     for line in body:
-        stripped = line.lstrip()
-        if not (
-            stripped.startswith("- ")
-            or stripped.startswith("* ")
-            or (stripped[:2].isdigit() and stripped[2:4] == ". ")
-            or (stripped[:1].isdigit() and stripped[1:3] == ". ")
-        ):
+        if not _is_list_item(line):
             continue
         parts = line.split("`")
         tokens.extend(parts[index] for index in range(1, len(parts), 2))
     return tokens
+
+
+def _is_list_item(line: str) -> bool:
+    stripped = line.lstrip()
+    if stripped.startswith(("- ", "* ")):
+        return True
+
+    number, dot, remainder = stripped.partition(".")
+    return bool(number) and number.isdigit() and remainder.startswith(" ")
 
 
 def _find_phrase_violations(text: str, phrases: tuple[str, ...]) -> list[str]:
