@@ -1,5 +1,6 @@
 PYTHON ?= python3
 PIP ?= uv pip
+export TQ_SOURCE_EXPORT_REF
 
 .PHONY: help install-dev install-apple compile lint typecheck test test-static test-mlx test-unit-mlx test-structural test-path-proof test-smoke-llama test-smoke-gemma test-long-context certify-apple-runtime certify-structural build-dist export-source-zip validate-apple clean
 
@@ -85,7 +86,7 @@ build-dist:
 
 export-source-zip:
 	@mkdir -p dist
-	@ref="$(TQ_SOURCE_EXPORT_REF)"; \
+	@ref="$${TQ_SOURCE_EXPORT_REF}"; \
 	if [ -z "$$ref" ]; then ref="HEAD"; fi; \
 	case "$$ref" in \
 		*[!A-Za-z0-9._/-]*) \

@@ -101,7 +101,9 @@ def test_release_checklist_documents_clean_source_export_requirements() -> None:
 def test_makefile_has_clean_source_export_target() -> None:
     content = _read("Makefile")
 
+    assert "export TQ_SOURCE_EXPORT_REF" in content
     assert "export-source-zip:" in content
+    assert 'ref="$${TQ_SOURCE_EXPORT_REF}"' in content
     assert "git archive --format=zip" in content
 
 
