@@ -19,7 +19,7 @@ class MockCache:
 def test_upgrade_cache_list_idempotence():
     """Upgrading an already converted cache list should be idempotent."""
     from turboquant.config import TurboQuantConfig
-    from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
+    from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache
 
     batch, heads, seq, d_head = 1, 2, 8, 32
     cfg = TurboQuantConfig(
@@ -83,7 +83,7 @@ def test_upgrade_cache_list_unsupported_model():
 def test_upgrade_cache_list_supports_experimental_polar_mode():
     """PolarQuant configs should flow through the upgrade path."""
     from turboquant.config import TurboQuantConfig
-    from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache
+    from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache
 
     batch, heads, seq, d_head = 1, 2, 8, 128
     cfg = TurboQuantConfig.polarquant_exp(rotation="random_orthogonal")

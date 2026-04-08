@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from turboquant.config import TurboQuantConfig
@@ -7,6 +8,12 @@ from turboquant.runtime.state import STATE_SCHEMA_VERSION, validate_state
 
 if TYPE_CHECKING:
     from turboquant.core.pipeline import EncodedKeyBlock
+
+
+@dataclass(slots=True)
+class RuntimeChunk:
+    start: int
+    stop: int
 
 
 class TurboQuantKVCache:
@@ -65,6 +72,19 @@ class TurboQuantKVCache:
         self._v_quantize: Any | None
         self._v_dequantize: Any | None
         self._v_config: TurboQuantConfig | None
+        self._runtime_chunks: list[RuntimeChunk] = []
+        self._runtime_orig_dim: int = 0
+        self._runtime_d_rot: int = 0
+        self._k_packed_flat = None
+        self._k_scales_flat = None
+        self._k_topk_vals_flat = None
+        self._k_topk_idx_flat = None
+        self._k_qjl_bits_flat = None
+        self._k_qjl_norms_flat = None
+        self._k_qjl_meta: dict[str, Any] | None = None
+        self._v_packed_flat = None
+        self._v_scales_flat = None
+        self._v_dense_flat = None
 
         if self.storage_mode == "paper_kv":
             from turboquant.core.quantizer import LloydMaxScalarQuantizer
@@ -96,6 +116,19 @@ class TurboQuantKVCache:
         self._offset = 0
         self._d_head = 0
         self._d_pad = 0
+        self._runtime_chunks.clear()
+        self._runtime_orig_dim = 0
+        self._runtime_d_rot = 0
+        self._k_packed_flat = None
+        self._k_scales_flat = None
+        self._k_topk_vals_flat = None
+        self._k_topk_idx_flat = None
+        self._k_qjl_bits_flat = None
+        self._k_qjl_norms_flat = None
+        self._k_qjl_meta = None
+        self._v_packed_flat = None
+        self._v_scales_flat = None
+        self._v_dense_flat = None
 
     def append_keys(self, k):
         """
@@ -116,6 +149,7 @@ class TurboQuantKVCache:
             dequantize_main=self.dequantize_main,
         )
         self._blocks.append(block)
+        self._append_runtime_k_block(block, int(k.shape[-2]))
         # Track cumulative token offset and head dimensions.
         shape = k.shape
         if len(shape) >= 2:
@@ -125,12 +159,25 @@ class TurboQuantKVCache:
 
     def append_encoded_block(self, block: EncodedKeyBlock) -> None:
         self._blocks.append(block)
+        self._append_runtime_k_block(block, self._infer_block_seq_len(block))
 
     def block(self, index: int) -> EncodedKeyBlock:
         return cast("EncodedKeyBlock", self._blocks[index])
 
     def iter_blocks(self):
         yield from self._blocks
+
+    def iter_runtime_chunks(self):
+        yield from self._runtime_chunks
+
+    def runtime_fastpath_supported(self) -> bool:
+        return (
+            not self.config.is_polar_mode()
+            and self.config.residual_mode != "topk"
+            and self._k_packed_flat is not None
+            and self._k_scales_flat is not None
+            and bool(self._runtime_chunks)
+        )
 
     def decode_block_full(self, index: int):
         from turboquant.core.pipeline import decode_k_block
@@ -224,10 +271,12 @@ class TurboQuantKVCache:
                 dequantize_main=self._v_dequantize,
             )
             self.v_blocks.append(v_block)
+            self._append_runtime_v_block(v_block)
             # v_cache stays empty in paper mode.
             # Attention uses decode_v_block().
         else:
             self.v_cache.append(values)
+            self._v_dense_flat = self._append_seq_tensor(self._v_dense_flat, values)
 
         return TurboQuantKeysView(self, start, self._offset), values
 
@@ -413,7 +462,77 @@ class TurboQuantKVCache:
         cache._offset = offset
         cache._d_head = d_head
         cache._d_pad = d_pad
+        cache._rebuild_runtime_layout()
         return cache
+
+    def _infer_block_seq_len(self, block: EncodedKeyBlock) -> int:
+        if block.packed_main is not None:
+            return int(block.packed_main.shape[-2])
+        if getattr(block, "polar", None) is not None:
+            return int(block.polar.final_radii.shape[-2])
+        raise ValueError("Cannot infer sequence length for encoded block.")
+
+    def _append_seq_tensor(self, existing, new_tensor):
+        import mlx.core as mx
+
+        if new_tensor is None:
+            return existing
+        if existing is None:
+            return new_tensor
+        return existing if int(new_tensor.shape[-2]) == 0 else mx.concatenate(
+            [existing, new_tensor], axis=-2
+        )
+
+    def _append_runtime_k_block(self, block: EncodedKeyBlock, seq_len: int) -> None:
+        start = self._runtime_chunks[-1].stop if self._runtime_chunks else 0
+        self._runtime_chunks.append(RuntimeChunk(start=start, stop=start + seq_len))
+        self._runtime_orig_dim = block.orig_dim if block.orig_dim > 0 else block.d_head
+        self._runtime_d_rot = block.d_rot
+        self._k_packed_flat = self._append_seq_tensor(
+            self._k_packed_flat, block.packed_main
+        )
+        self._k_scales_flat = self._append_seq_tensor(self._k_scales_flat, block.scales)
+        if block.residual.mode == "topk":
+            self._k_topk_vals_flat = self._append_seq_tensor(
+                self._k_topk_vals_flat, block.residual.data["vals"]
+            )
+            self._k_topk_idx_flat = self._append_seq_tensor(
+                self._k_topk_idx_flat, block.residual.data["idx"]
+            )
+        elif block.residual.mode == "qjl":
+            self._k_qjl_bits_flat = self._append_seq_tensor(
+                self._k_qjl_bits_flat, block.residual.data["bits"]
+            )
+            self._k_qjl_norms_flat = self._append_seq_tensor(
+                self._k_qjl_norms_flat, block.residual.data["norms"]
+            )
+            if self._k_qjl_meta is None:
+                self._k_qjl_meta = cast(dict[str, Any], block.residual.data["meta"])
+
+    def _append_runtime_v_block(self, block: EncodedKeyBlock) -> None:
+        self._v_packed_flat = self._append_seq_tensor(self._v_packed_flat, block.packed_main)
+        self._v_scales_flat = self._append_seq_tensor(self._v_scales_flat, block.scales)
+
+    def _rebuild_runtime_layout(self) -> None:
+        self._runtime_chunks.clear()
+        self._runtime_orig_dim = 0
+        self._runtime_d_rot = 0
+        self._k_packed_flat = None
+        self._k_scales_flat = None
+        self._k_topk_vals_flat = None
+        self._k_topk_idx_flat = None
+        self._k_qjl_bits_flat = None
+        self._k_qjl_norms_flat = None
+        self._k_qjl_meta = None
+        self._v_packed_flat = None
+        self._v_scales_flat = None
+        self._v_dense_flat = None
+        for block in self._blocks:
+            self._append_runtime_k_block(block, self._infer_block_seq_len(block))
+        for block in self.v_blocks:
+            self._append_runtime_v_block(block)
+        for values in self.v_cache:
+            self._v_dense_flat = self._append_seq_tensor(self._v_dense_flat, values)
 
 
 # Shim for mlx_lm compatibility

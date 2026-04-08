@@ -25,21 +25,19 @@ Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeo
 - Canonical runtime path: `upgrade_cache_list(...)`
 - Secondary surfaces remain available only for compatibility or eval use:
   - `turboquant.integrations.mlx._cache_adapter.TurboQuantKCache` (internal) — bypasses the model-family allowlist
-  - `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache` (compatibility shim) — bypasses the model-family allowlist
-  - `mlx_lm.models.cache.KVCache._to_turboquant()` (private compatibility helper) — bypasses the model-family allowlist
-  - `mlx_lm.models.cache.KVCache.to_turboquant()` (deprecated public alias) — bypasses the model-family allowlist
+  - `turboquant.patch.apply_mlx_lm_patches()` (internal patch bootstrap) — monkey-patches upstream mlx_lm in memory for TurboQuant dispatch
   - `turboquant.eval.compare._collect_logits_compressed()` (internal eval helper) — constructs TurboQuantKCache directly for comparison harnesses
 
 ## 4. Paper-facing presets and exact deviations
 
-Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the paper-facing alias `paper_prod`. `polarquant_exp` is the supported non-paper-facing branch. `legacy_topk`, `balanced`, `max_quality`, and `high_compression` remain compatibility-only surfaces rather than the main algorithm story.
+Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the paper-facing alias `paper_prod`. `polarquant_exp` is the supported non-paper-facing branch.
 
 Generated preset taxonomy: `docs/preset_modes.md`.
 
 - **Non-power-of-two Hadamard handling** — The implementation uses an exact Hadamard transform only for power-of-two head dimensions and a deterministic orthogonal fallback otherwise.
-- **Legacy compatibility knobs** — Legacy aliases, residual_topk, and block_tokens remain for compatibility, but they are not part of the paper-facing preset contract.
-- **Vendored tree wider than support boundary** — The vendored mlx_lm tree contains many model files, but only the allowlisted families in this contract are supported by the canonical upgrade path.
+- **Legacy compatibility knobs** — residual_topk and block_tokens remain as narrow compatibility knobs, but compatibility presets are no longer part of the product contract.
 - **Compatibility and non-paper-facing branches** — legacy_topk remains a compatibility branch, while polarquant_exp is now a supported non-paper-facing branch: PolarQuant works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and family-scoped batch quality guardrails, but it remains outside the paper-facing preset story.
+- **Monkey-patched upstream mlx_lm integration** — TurboQuant now patches upstream mlx_lm at import time instead of shipping a vendored fork, while keeping the allowlisted upgrade_cache_list gate as the canonical runtime path.
 
 ## 5. Release evidence and benchmarks
 

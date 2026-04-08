@@ -25,7 +25,7 @@ jobs:
         run: python scripts/preflight.py
 
       - name: Compileall
-        run: python -m compileall turboquant mlx_lm tests
+        run: python -m compileall turboquant tests
 
       - name: Static tests
         run: python -m pytest tests/unit_static -q
@@ -45,20 +45,8 @@ jobs:
           name: turboquant-dist
           path: dist/*
 
-  verify-vendored-surface:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Audit vendored mlx_lm surface
-        run: python tools/audit_vendored_surface.py
-
   certify-apple-runtime:
-    needs: [verify-static, verify-vendored-surface]
+    needs: [verify-static]
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 60
     env:
@@ -194,7 +182,7 @@ jobs:
           PY
 
   publish:
-    needs: [verify-static, verify-vendored-surface, certify-apple-runtime]
+    needs: [verify-static, certify-apple-runtime]
     if: ${{ !contains(github.ref_name, '-rc') }}
     runs-on: ubuntu-latest
     permissions:

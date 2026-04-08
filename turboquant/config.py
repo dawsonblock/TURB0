@@ -79,74 +79,6 @@ _PRESET_REGISTRY: dict[str, dict[str, Any]] = {
         "notes": "Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification.",
         "algorithm_aliases": (),
     },
-    "legacy_topk": {
-        "factory": "legacy_topk",
-        "kwargs": {
-            "k_bits": 4,
-            "k_group_size": 32,
-            "v_bits": 4,
-            "v_group_size": 32,
-            "rotation": "hadamard",
-            "residual_topk": 2,
-        },
-        "classification": "compatibility-only",
-        "paper_facing": False,
-        "canonical_preset": "legacy_topk",
-        "comparison_role": "explicit legacy top-k compatibility surface",
-        "notes": "Explicit legacy top-k compatibility preset; not part of the paper-facing contract.",
-        "algorithm_aliases": (),
-    },
-    "balanced": {
-        "factory": "legacy_topk",
-        "kwargs": {
-            "k_bits": 4,
-            "k_group_size": 32,
-            "v_bits": 4,
-            "v_group_size": 32,
-            "rotation": "hadamard",
-            "residual_topk": 2,
-        },
-        "classification": "compatibility-only",
-        "paper_facing": False,
-        "canonical_preset": "balanced",
-        "comparison_role": "legacy top-k comparison preset",
-        "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract.",
-        "algorithm_aliases": (),
-    },
-    "max_quality": {
-        "factory": "legacy_topk",
-        "kwargs": {
-            "k_bits": 4,
-            "k_group_size": 16,
-            "v_bits": 8,
-            "v_group_size": 16,
-            "rotation": "hadamard",
-            "residual_topk": 4,
-        },
-        "classification": "compatibility-only",
-        "paper_facing": False,
-        "canonical_preset": "max_quality",
-        "comparison_role": "higher-precision legacy top-k comparison preset",
-        "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract.",
-        "algorithm_aliases": (),
-    },
-    "high_compression": {
-        "factory": "paper_prod_qjl",
-        "kwargs": {
-            "k_bits": 3,
-            "k_group_size": 64,
-            "v_bits": 4,
-            "v_group_size": 64,
-            "rotation": "hadamard",
-            "qjl_proj_dim": 64,
-        },
-        "classification": "compatibility-only",
-        "paper_facing": False,
-        "canonical_preset": "paper_prod_qjl",
-        "comparison_role": "legacy alias for the two-stage paper path",
-        "notes": "Legacy convenience alias for the QJL production-style preset.",
-        "algorithm_aliases": ("paper_prod_qjl", "turboquant_prod"),
-    },
 }
 
 
@@ -400,12 +332,17 @@ class TurboQuantConfig:
         if residual_mode_kw is None:
             residual_mode_kw = "qjl" if residual_topk == 0 else "topk"
 
-        if residual_mode_kw == "topk":
-            default_algorithm = "legacy_topk"
-        elif residual_mode_kw == "none":
+        if residual_mode_kw == "none":
             default_algorithm = "paper_mse"
-        else:
+        elif residual_mode_kw == "qjl":
             default_algorithm = "paper_prod_qjl"
+        else:
+            default_algorithm = kwargs.get("algorithm")
+            if default_algorithm is None:
+                raise ValueError(
+                    "Top-k residual configs must now specify algorithm='legacy_topk' "
+                    "explicitly; compatibility presets are no longer inferred."
+                )
 
         cfg = cls(
             k_bits=kwargs.get("k_bits", 3),

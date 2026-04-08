@@ -25,7 +25,7 @@ import pytest
 # Platform gate.
 mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
 
-from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache  # noqa: E402
+from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache  # noqa: E402
 
 
 def test_gemma_runtime_smoke(tmp_path):

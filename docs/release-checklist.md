@@ -6,8 +6,7 @@ This checklist is the minimum bar for calling a tagged snapshot technically cred
 ## Static gate
 
 - `python scripts/preflight.py` passes
-- `python tools/audit_vendored_surface.py` passes
-- `python -m compileall turboquant mlx_lm tests` passes
+- `python -m compileall turboquant tests` passes
 - `python -m build` produces both sdist and wheel
 - `python tools/verify_dist_contents.py` passes
 - `python -m pytest tests/unit_static -q` passes
@@ -67,7 +66,7 @@ Final tagged publish is stricter than a family-scoped local run:
 - legacy compatibility helpers still warn instead of silently widening the supported surface
 - state save or restore still rejects config drift
 - `block_tokens` remains compatibility-only rather than becoming an undocumented live control
-- the `generate()` convenience defaults remain aligned to the paper-facing QJL path
+- the upstream `mlx_lm` monkey-patch layer remains aligned to the support-gated runtime path
 
 ## Documentation gate
 

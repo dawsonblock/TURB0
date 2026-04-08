@@ -9,7 +9,7 @@ import time
 import mlx.core as mx
 
 from turboquant import TurboQuantConfig
-from turboquant.integrations.mlx.cache_adapter import (
+from turboquant.integrations.mlx._cache_adapter import (
     dummy_dequantize_main,
     dummy_quantize_main,
 )

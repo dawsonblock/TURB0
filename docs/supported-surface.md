@@ -27,9 +27,7 @@ These surfaces exist, but they are not peer public runtime entry points:
 | Surface | Status | Why it is secondary | Preferred path |
 | :--- | :--- | :--- | :--- |
 | `turboquant.integrations.mlx._cache_adapter.TurboQuantKCache` | internal | bypasses the model-family allowlist | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
-| `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache` | compatibility shim | bypasses the model-family allowlist | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
-| `mlx_lm.models.cache.KVCache._to_turboquant()` | private compatibility helper | bypasses the model-family allowlist | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
-| `mlx_lm.models.cache.KVCache.to_turboquant()` | deprecated public alias | bypasses the model-family allowlist | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
+| `turboquant.patch.apply_mlx_lm_patches()` | internal patch bootstrap | monkey-patches upstream mlx_lm in memory for TurboQuant dispatch | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
 | `turboquant.eval.compare._collect_logits_compressed()` | internal eval helper | constructs TurboQuantKCache directly for comparison harnesses | `turboquant.integrations.mlx.upgrade.upgrade_cache_list` |
 
 ## Release evidence contract

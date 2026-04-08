@@ -68,18 +68,13 @@ def test_release_workflow_requires_single_verified_publish_path() -> None:
     assert not (REPO_ROOT / ".github/workflows/python-app.yml").exists(), (
         "static-ci.yml plus release.yml must replace the legacy python-app workflow."
     )
-    assert "verify-vendored-surface:" in content, (
-        "release.yml must contain a dedicated vendored-surface verification job."
-    )
     assert "certify-apple-runtime:" in content, (
         "release.yml must contain a self-hosted Apple certification job."
     )
     assert (
-        "needs: [verify-static, verify-vendored-surface, "
-        "certify-apple-runtime]" in publish
+        "needs: [verify-static, certify-apple-runtime]" in publish
     ), (
-        "release.yml publish job must depend on static checks, "
-        "vendored audit, and Apple certification."
+        "release.yml publish job must depend on static checks and Apple certification."
     )
     assert "if: ${{ !contains(github.ref_name, '-rc') }}" in publish, (
         "release.yml publish job must skip RC tags so release-candidate tags "
@@ -88,9 +83,6 @@ def test_release_workflow_requires_single_verified_publish_path() -> None:
     assert "environment: pypi" in publish, (
         "release.yml publish job must declare the pypi environment so "
         "trusted publishing emits the expected environment claim."
-    )
-    assert "python tools/audit_vendored_surface.py" in content, (
-        "release.yml must run the vendored mlx_lm surface audit before publish."
     )
     assert (
         "Validate certification manifest" in content and "cert_manifest.json" in content
@@ -149,19 +141,13 @@ def test_release_workflow_manifest_validation_is_contract_driven() -> None:
     )
 
 
-def test_static_ci_runs_vendored_surface_audit() -> None:
+def test_static_ci_verifies_packaging_boundary() -> None:
     content = _read(".github/workflows/static-ci.yml")
     package_job = _extract_job_block(
         ".github/workflows/static-ci.yml",
         "package-and-syntax",
     )
 
-    assert "vendored-surface-audit:" in content, (
-        "static-ci.yml must contain a dedicated vendored surface audit job."
-    )
-    assert "python tools/audit_vendored_surface.py" in content, (
-        "static-ci.yml must fail on undocumented TurboQuant markers inside mlx_lm/."
-    )
     assert "python tools/verify_dist_contents.py" in package_job, (
         "static-ci.yml must verify the built wheel/sdist boundary after build."
     )

@@ -23,7 +23,7 @@ import pytest
 mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
 
 from turboquant.config import TurboQuantConfig  # noqa: E402
-from turboquant.integrations.mlx.cache_adapter import (  # noqa: E402
+from turboquant.integrations.mlx._cache_adapter import (  # noqa: E402
     TurboQuantKCache,
 )
 from turboquant.integrations.mlx.upgrade import (  # noqa: E402

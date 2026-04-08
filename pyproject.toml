@@ -33,6 +33,7 @@ dependencies = [
 [project.optional-dependencies]
 apple = [
   "mlx>=0.30.0,<1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "mlx-lm>=0.29.1,<1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
 ]
 test = [
   "pytest>=8",
@@ -54,18 +55,17 @@ Repository = "https://github.com/dawsonblock/TURB0"
 Issues = "https://github.com/dawsonblock/TURB0/issues"
 
 [tool.setuptools]
-# Wheels intentionally ship both the bounded turboquant package and the
-# vendored mlx_lm tree. Docs remain sdist-only via MANIFEST.in.
+# Wheels intentionally ship only the bounded turboquant package.
+# Docs remain sdist-only via MANIFEST.in.
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["turboquant*", "mlx_lm*"]
+include = ["turboquant*"]
 exclude = ["tests*", "benchmarks*"]
 
 [tool.setuptools.package-data]
 # Non-Python files that must survive in built artifacts.
-mlx_lm = ["py.typed"]
-turboquant = ["contract.json", "experimental/kernels/metal/decode_k.metal"]
+turboquant = ["contract.json", "experimental/kernels/metal/decode_k.metal", "experimental/kernels/metal/topk_residual_decode.metal"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -96,7 +96,6 @@ exclude = [
     ".venv",
     "build",
     "dist",
-    "mlx_lm",
 ]
 
 [tool.ruff.lint]
@@ -108,10 +107,4 @@ ignore = []
 "benchmarks/*" = ["E402", "E701"]
 "tests/integration_mlx/*" = ["E402"]
 "tests/unit_mlx/*" = ["E402"]
-
-[[tool.mypy.overrides]]
-module = "mlx_lm.*"
-
-ignore_errors = true
-
 

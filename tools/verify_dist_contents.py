@@ -3,8 +3,7 @@
 tools/verify_dist_contents.py — fail-closed audit for built wheel/sdist output.
 
 The wheel intentionally ships the bounded ``turboquant`` package together with
-the vendored ``mlx_lm`` tree, ``turboquant/contract.json``, and
-``mlx_lm/py.typed``. Shipped Python runtime modules that rely on colocated
+``turboquant/contract.json``. Shipped Python runtime modules that rely on colocated
 non-Python assets must ship those assets in the same built artifact. Top-level
 ``tests/``, ``benchmarks/``, and retained runtime evidence under ``artifacts/``
 remain outside the published artifact boundary, while ``docs/*.md`` remain
@@ -35,10 +34,8 @@ DEFAULT_DIST_DIR = REPO_ROOT / "dist"
 
 REQUIRED_SHARED_MEMBERS: tuple[str, ...] = (
     "turboquant/contract.json",
-    "mlx_lm/__init__.py",
-    "mlx_lm/py.typed",
 )
-REQUIRED_WHEEL_PREFIXES: tuple[str, ...] = ("mlx_lm/models/",)
+REQUIRED_WHEEL_PREFIXES: tuple[str, ...] = ()
 REQUIRED_SDIST_ONLY_MEMBERS: tuple[str, ...] = (
     "docs/product_contract.md",
     "docs/support_matrix.md",
@@ -49,6 +46,10 @@ REQUIRED_COLOCATED_ASSETS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "turboquant/experimental/kernels/metal/runtime.py",
         ("turboquant/experimental/kernels/metal/decode_k.metal",),
+    ),
+    (
+        "turboquant/experimental/kernels/metal/residual.py",
+        ("turboquant/experimental/kernels/metal/topk_residual_decode.metal",),
     ),
 )
 FORBIDDEN_TOP_LEVEL_PREFIXES: tuple[str, ...] = (

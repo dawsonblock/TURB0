@@ -117,7 +117,6 @@ def test_preset_registry_exposes_required_comparison_surfaces():
         registry["polarquant_exp"]["classification"]
         == "supported non-paper-facing"
     )
-    assert registry["legacy_topk"]["classification"] == "compatibility-only"
 
 
 def test_contract_presets_match_runtime_registry_metadata():

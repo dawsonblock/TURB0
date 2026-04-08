@@ -31,7 +31,7 @@ def test_contract_status_tracks_current_supported_boundary() -> None:
     assert "supported non-paper-facing" in lowered
     assert "outside the supported contract" not in lowered
     assert "artifacts/runtime-cert/" in text
-    assert "vendored `mlx_lm`" in text or "vendored mlx_lm" in lowered
+    assert "monkey-patch" in lowered or "upstream `mlx_lm`" in text
     assert "built wheels and source distributions do not ship" in lowered
     assert "published workflow artifact" in lowered or "manifest digest" in lowered
     assert "retained local evidence in this checkout" not in lowered

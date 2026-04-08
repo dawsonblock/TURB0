@@ -12,19 +12,15 @@ Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeo
 | `paper_prod_qjl` | paper-facing | `paper_prod_qjl` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Primary paper-facing two-stage preset using a 1-bit QJL residual. |
 | `paper_prod (preset alias)` | paper-facing | `paper_prod_qjl` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Paper-facing production-style preset using a 1-bit QJL residual. |
 | `polarquant_exp (supported non-paper-facing)` | supported non-paper-facing | `polarquant_exp` | `polarquant_exp` | `none` | 3.25 | 3.75 | Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification. |
-| `legacy_topk` | compatibility-only | `legacy_topk` | `legacy_topk` | `topk` | legacy / compatibility-only | legacy / compatibility-only | Explicit legacy top-k compatibility preset; not part of the paper-facing contract. |
-| `high_compression (legacy alias)` | compatibility-only | `paper_prod_qjl` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Legacy convenience alias for the QJL production-style preset. |
-| `balanced (legacy)` | compatibility-only | `balanced` | `legacy_topk` | `topk` | legacy / compatibility-only | legacy / compatibility-only | Legacy top-k compatibility preset; not part of the paper-facing contract. |
-| `max_quality (legacy)` | compatibility-only | `max_quality` | `legacy_topk` | `topk` | legacy / compatibility-only | legacy / compatibility-only | Legacy top-k compatibility preset; not part of the paper-facing contract. |
 
 Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the paper-facing alias `paper_prod`. `polarquant_exp` remains the supported non-paper-facing branch. Legacy top-k presets and legacy aliases remain compatibility surfaces.
 
 ## Exact deviations from the paper-facing story
 
 - **Non-power-of-two Hadamard handling** — The implementation uses an exact Hadamard transform only for power-of-two head dimensions and a deterministic orthogonal fallback otherwise.
-- **Legacy compatibility knobs** — Legacy aliases, residual_topk, and block_tokens remain for compatibility, but they are not part of the paper-facing preset contract.
-- **Vendored tree wider than support boundary** — The vendored mlx_lm tree contains many model files, but only the allowlisted families in this contract are supported by the canonical upgrade path.
+- **Legacy compatibility knobs** — residual_topk and block_tokens remain as narrow compatibility knobs, but compatibility presets are no longer part of the product contract.
 - **Compatibility and non-paper-facing branches** — legacy_topk remains a compatibility branch, while polarquant_exp is now a supported non-paper-facing branch: PolarQuant works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and family-scoped batch quality guardrails, but it remains outside the paper-facing preset story.
+- **Monkey-patched upstream mlx_lm integration** — TurboQuant now patches upstream mlx_lm at import time instead of shipping a vendored fork, while keeping the allowlisted upgrade_cache_list gate as the canonical runtime path.
 
 ## Model Architecture Matrix
 

@@ -99,6 +99,13 @@ def decode_topk_residual(
     *prefix, n_groups, k = values.shape
     g = group_size
 
-    out = mx.zeros((*prefix, n_groups, g), dtype=values.dtype)
-    out = mx.put_along_axis(out, indices, values, axis=-1)
+    try:
+        from turboquant.experimental.kernels.metal.residual import (
+            decode_topk_residual_metal,
+        )
+
+        out = decode_topk_residual_metal(values, indices, group_size=g)
+    except Exception:
+        out = mx.zeros((*prefix, n_groups, g), dtype=values.dtype)
+        out = mx.put_along_axis(out, indices, values, axis=-1)
     return out.reshape(*prefix, n_groups * g)

@@ -26,7 +26,7 @@ import pytest
 # Platform gate.
 mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
 
-from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache  # noqa: E402
+from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache  # noqa: E402
 
 _PROMPT_TOKENS = 320  # target prompt length — exceeds default block_tokens=256
 

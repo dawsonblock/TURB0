@@ -24,10 +24,8 @@ Contract coverage
 5. ``memory_report_model_family_default`` — ``model_family`` defaults to
    ``"llama"`` (a supported family) in ``memory_report``.
 
-6. ``infer_model_family_checks_model_type_attr`` — ``_infer_model_family`` in
-   ``mlx_lm/generate.py`` resolves a ``model.model_type`` attribute before
-   falling back to class-name search.  Guards against regression where
-   ``TinyModel.model_type="llama"`` stops being honoured.
+6. ``patch_layer_targets_upstream_hooks`` — ``turboquant.patch`` must patch the
+   upstream mlx_lm attention, cache, and generation hooks.
 """
 
 from __future__ import annotations
@@ -199,109 +197,18 @@ def test_eval_package_importable_without_mlx() -> None:
             sys.path.remove(str(REPO_ROOT))
 
 
-# ---------------------------------------------------------------------------
-# 6. _infer_model_family checks model_type attribute (AST check)
-# ---------------------------------------------------------------------------
+def test_patch_layer_targets_upstream_hooks() -> None:
+    """turboquant.patch must target the upstream mlx_lm hook points."""
+    patch_py = REPO_ROOT / "turboquant" / "patch.py"
+    assert patch_py.exists(), "turboquant/patch.py not found"
 
-
-def test_infer_model_family_checks_model_type_attr() -> None:
-    """_infer_model_family in generate.py must check model.model_type before class search."""
-    generate_py = REPO_ROOT / "mlx_lm" / "generate.py"
-    assert generate_py.exists(), "mlx_lm/generate.py not found"
-
-    tree = ast.parse(generate_py.read_text(encoding="utf-8"))
-
-    fn_node: ast.FunctionDef | None = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "_infer_model_family":
-            fn_node = node
-            break
-
-    assert fn_node is not None, "_infer_model_family not found in generate.py"
-
-    # Collect string constants inside the function body — "model_type" must appear.
-    source_lines = generate_py.read_text(encoding="utf-8").splitlines()
-    start = fn_node.lineno - 1
-    end = fn_node.end_lineno  # type: ignore[attr-defined]
-    fn_source = "\n".join(source_lines[start:end])
-
-    assert "model_type" in fn_source, (
-        "_infer_model_family does not reference 'model_type'.  "
-        "It must check model.model_type (standard mlx-lm attribute) before "
-        "falling back to class-name search, so that TinyModel and real models "
-        "with an explicit model_type are resolved correctly."
-    )
-
-
-# ---------------------------------------------------------------------------
-# 7. _collect_logits_compressed docstring documents the gate bypass
-# ---------------------------------------------------------------------------
-
-
-def test_compare_collect_logits_compressed_documents_bypass() -> None:
-    """_collect_logits_compressed must document that it bypasses the support gate."""
-    compare_py = REPO_ROOT / "turboquant" / "eval" / "compare.py"
-    assert compare_py.exists(), "turboquant/eval/compare.py not found"
-
-    tree = ast.parse(compare_py.read_text(encoding="utf-8"))
-
-    fn_node: ast.FunctionDef | None = None
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.FunctionDef)
-            and node.name == "_collect_logits_compressed"
-        ):
-            fn_node = node
-            break
-
-    assert fn_node is not None, (
-        "_collect_logits_compressed not found in turboquant/eval/compare.py"
-    )
-
-    # The first statement in the function body must be a docstring.
-    docstring = ast.get_docstring(fn_node) or ""
-    assert "bypass" in docstring.lower(), (
-        "_collect_logits_compressed must document in its docstring that it "
-        "bypasses the model-family support gate (i.e. the word 'bypass' must "
-        "appear).  Without this warning, contributors may copy the pattern "
-        "thinking it is a valid production path."
-    )
-
-
-# ---------------------------------------------------------------------------
-# 8. KVCache.to_turboquant docstring documents the gate bypass
-# ---------------------------------------------------------------------------
-
-
-def test_to_turboquant_documents_gate_bypass() -> None:
-    """KVCache.to_turboquant must document that it bypasses the support gate."""
-    cache_py = REPO_ROOT / "mlx_lm" / "models" / "cache.py"
-    assert cache_py.exists(), "mlx_lm/models/cache.py not found"
-
-    tree = ast.parse(cache_py.read_text(encoding="utf-8"))
-
-    fn_node: ast.FunctionDef | None = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "to_turboquant":
-            fn_node = node
-            break
-
-    assert fn_node is not None, "to_turboquant not found in mlx_lm/models/cache.py"
-
-    docstring = ast.get_docstring(fn_node) or ""
-    assert "bypass" in docstring.lower(), (
-        "KVCache.to_turboquant must document in its docstring that it bypasses "
-        "the model-family support gate (i.e. the word 'bypass' must appear).  "
-        "Without this warning callers may not realise they are skipping the "
-        "fail-closed gate enforced by upgrade_cache_list."
-    )
-    assert "deprecated" in docstring.lower(), (
-        "KVCache.to_turboquant must say it is deprecated so contributors do not "
-        "treat it as a peer runtime surface."
-    )
-    assert "compatibility" in docstring.lower(), (
-        "KVCache.to_turboquant must identify itself as a compatibility helper."
-    )
+    content = patch_py.read_text(encoding="utf-8")
+    assert "mlx_lm.models.base" in content
+    assert "mlx_lm.models.cache" in content
+    assert "mlx_lm.generate" in content
+    assert "scaled_dot_product_attention" in content
+    assert "make_prompt_cache" in content
+    assert "generate_step" in content
 
 
 # ---------------------------------------------------------------------------

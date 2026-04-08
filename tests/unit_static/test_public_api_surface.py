@@ -1,4 +1,4 @@
-import pytest
+from pathlib import Path
 
 import turboquant
 
@@ -43,17 +43,11 @@ def test_public_api_surface():
 
 
 def test_removed_turboquant_runtime():
-    """TurboQuantRuntime is removed from the supported surface."""
+    """The removed TurboQuantRuntime shim must stay deleted."""
     # It shouldn't be in __all__
     assert "TurboQuantRuntime" not in turboquant.__all__
-
-    from turboquant.runtime.api import TurboQuantRuntime
-
-    with pytest.raises(RuntimeError) as excinfo:
-        TurboQuantRuntime()
-
-    assert "prototype and has been removed" in str(excinfo.value)
-    assert "TurboQuantKCache" in str(excinfo.value)
+    api_py = Path(__file__).resolve().parents[2] / "turboquant" / "runtime" / "api.py"
+    assert not api_py.exists()
 
 
 def test_internal_adapter_not_exported_at_package_root():
