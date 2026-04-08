@@ -132,7 +132,8 @@ class FixedRotation:
             return x
         if self._can_use_fast_hadamard:
             x_fp32 = x if x.dtype == mx.float32 else x.astype(mx.float32)
-            return mx.hadamard_transform(x_fp32).astype(x.dtype)
+            rotated = mx.hadamard_transform(x_fp32)
+            return rotated if x.dtype == mx.float32 else rotated.astype(x.dtype)
         assert self._R is not None
         return x @ self._R
 
@@ -142,7 +143,8 @@ class FixedRotation:
             return x
         if self._can_use_fast_hadamard:
             x_fp32 = x if x.dtype == mx.float32 else x.astype(mx.float32)
-            return mx.hadamard_transform(x_fp32).astype(x.dtype)
+            rotated = mx.hadamard_transform(x_fp32)
+            return rotated if x.dtype == mx.float32 else rotated.astype(x.dtype)
         assert self._RT is not None
         return x @ self._RT
 
