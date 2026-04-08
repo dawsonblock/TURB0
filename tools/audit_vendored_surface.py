@@ -62,7 +62,13 @@ def _extract_section_tokens(text: str, section_name: str) -> list[str]:
 
     tokens: list[str] = []
     for line in body:
-        if not line.lstrip().startswith("- "):
+        stripped = line.lstrip()
+        if not (
+            stripped.startswith("- ")
+            or stripped.startswith("* ")
+            or (stripped[:2].isdigit() and stripped[2:4] == ". ")
+            or (stripped[:1].isdigit() and stripped[1:3] == ". ")
+        ):
             continue
         parts = line.split("`")
         tokens.extend(parts[index] for index in range(1, len(parts), 2))

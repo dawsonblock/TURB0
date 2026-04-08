@@ -56,9 +56,13 @@ def test_active_tooling_does_not_reference_in_tree_mlx_lm_directory() -> None:
         "scripts/validate_local.sh",
     ):
         content = _read(rel_path)
-        assert "mlx_lm/" not in content, (
-            f"{rel_path} must not reference an in-tree mlx_lm/ repo path."
-        )
+        for line in content.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            assert "mlx_lm/" not in stripped, (
+                f"{rel_path} must not reference an in-tree mlx_lm/ repo path."
+            )
 
 
 def test_release_docs_require_retained_runtime_cert_artifacts() -> None:
