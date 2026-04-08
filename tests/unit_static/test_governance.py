@@ -17,11 +17,11 @@ Contract coverage
     maintained MLX test layout is ``tests/unit_mlx/`` plus
     ``tests/integration_mlx/``.
 
-3. ``support_module_has_expected_families`` — ``SUPPORTED_FAMILIES`` in
-    ``turboquant/runtime/support.py`` must match the allowlisted families in
-    ``turboquant/contract.json``. Any addition to this set must
-    be deliberate and come with runtime-cert coverage; if it silently changes,
-    this test will catch it.
+3. ``support_module_has_expected_families`` — the hardcoded
+   ``SUPPORTED_FAMILIES`` in ``turboquant/runtime/support.py`` must match the
+   allowlisted families in ``turboquant/contract.json``. Any addition to this
+   set must be deliberate and come with runtime-cert coverage; if it silently
+   changes, this test will catch it.
 
 4. ``unsupported_family_raises_unsupported_model_error`` — calling
    ``assert_supported_model_family`` with an unlisted family must raise
@@ -154,7 +154,7 @@ def test_compatibility_conftest_tracks_current_test_layout() -> None:
 
 
 def test_support_module_has_expected_families() -> None:
-    """SUPPORTED_FAMILIES must match the allowlisted contract families."""
+    """Hardcoded SUPPORTED_FAMILIES must match the allowlisted contract families."""
     contract_json = REPO_ROOT / "turboquant" / "contract.json"
     assert contract_json.exists(), "turboquant/contract.json not found"
 

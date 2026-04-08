@@ -249,11 +249,12 @@ def polar_forward(
     return angles_list, r
 
 
+@mx.compile(shapeless=True)
 def polar_inverse(
     angles_list: list[mx.array],
     final_radii: mx.array,
 ) -> mx.array:
-    """Reconstruct x from the polar representation.
+    """Reconstruct x from the polar representation using a fused graph.
 
     Parameters
     ----------
@@ -267,27 +268,23 @@ def polar_inverse(
     n_levels = len(angles_list)
     radii = final_radii  # [..., d/2^n_levels]
 
-    # Reverse through levels n_levels → 2 (exclusive) to rebuild the
-    # previous level's radii.
     for ell in range(n_levels - 1, 0, -1):
-        angles = angles_list[ell]  # [..., m]
-        left = radii * mx.cos(angles)  # [..., m]
-        right = radii * mx.sin(angles)  # [..., m]
-        # Interleave left/right to double the last dimension
+        angles = angles_list[ell]
+        left = radii * mx.cos(angles)
+        right = radii * mx.sin(angles)
         *pfx, m = radii.shape
         radii = mx.reshape(
-            mx.stack([left, right], axis=-1),  # [..., m, 2]
-            [*pfx, m * 2],  # [..., 2m]
+            mx.stack([left, right], axis=-1),
+            [*pfx, m * 2],
         )
 
-    # Level-1 inverse → recover original x coordinates
-    angles_l1 = angles_list[0]  # [..., d//2]
-    x_even = radii * mx.cos(angles_l1)  # [..., d//2]
-    x_odd = radii * mx.sin(angles_l1)  # [..., d//2]
+    angles_l1 = angles_list[0]
+    x_even = radii * mx.cos(angles_l1)
+    x_odd = radii * mx.sin(angles_l1)
     *pfx, m = x_even.shape
     return mx.reshape(
-        mx.stack([x_even, x_odd], axis=-1),  # [..., d//2, 2]
-        [*pfx, m * 2],  # [..., d]
+        mx.stack([x_even, x_odd], axis=-1),
+        [*pfx, m * 2],
     )
 
 
