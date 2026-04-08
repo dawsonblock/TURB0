@@ -171,6 +171,13 @@ def strict_failures(results: dict[str, Any]) -> list[str]:
     return failures
 
 
+def annotate_strict_readiness(results: dict[str, Any]) -> list[str]:
+    failures = strict_failures(results)
+    results["strict_ready"] = not failures
+    results["strict_failures"] = failures
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="TurboQuant environment preflight")
     parser.add_argument(
@@ -186,19 +193,18 @@ def main() -> int:
     args = parser.parse_args()
 
     results = collect_results()
-    failures = strict_failures(results) if args.strict else []
-    results["strict_ready"] = not failures
-    results["strict_failures"] = failures
+    failures = annotate_strict_readiness(results)
 
     if args.json:
         print(json.dumps(results, indent=2))
     else:
         for key, value in results.items():
             print(f"{key}: {value}")
+        label = "ERROR" if args.strict else "STRICT REQUIREMENT"
         for failure in failures:
-            print(f"ERROR: {failure}")
+            print(f"{label}: {failure}")
 
-    return 1 if failures else 0
+    return 1 if args.strict and failures else 0
 
 
 if __name__ == "__main__":

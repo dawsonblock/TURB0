@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_canonical_import_surface() -> None:
     """Internal code and docs must prefer turboquant.integrations.mlx."""
     scan_dirs = [
+        "integrations",
         "turboquant",
         "mlx_lm",
         "tests",
@@ -21,7 +22,6 @@ def test_canonical_import_surface() -> None:
         re.compile(r"import integrations\.mlx"),
     )
     allowed_files = {
-        "integrations/mlx/cache_adapter.py",
         "integrations/mlx/upgrade.py",
         "tests/unit_static/test_canonical_import_surface.py",
     }

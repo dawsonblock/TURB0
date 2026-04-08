@@ -6,8 +6,8 @@ TurboQuantKCache.  It is intentionally separate from ``generate.py`` so that
 the policy can be unit-tested, reused across frontends, and evolved without
 touching the main generation loop.
 
-The legacy helper ``maybe_turboquant_k_cache`` in ``generate.py`` now
-delegates to :func:`upgrade_cache_list`.
+The patched upstream ``generate_step`` entry point delegates to
+:func:`upgrade_cache_list` when TurboQuant runtime arguments are present.
 
 Usage
 -----
@@ -137,8 +137,8 @@ def upgrade_cache_list(
     """
     # Gate 2 — model allowlist.  Must be checked before any cache mutation.
     # Fail-closed: None is not a valid bypass; callers must supply a family
-    # string from SUPPORTED_FAMILIES.  Use maybe_turboquant_k_cache / the
-    # generate_step shim (which skips the upgrade when inference returns None)
+    # string from SUPPORTED_FAMILIES.  Use the patched generate_step path
+    # (which skips the upgrade when inference returns None)
     # rather than passing None here.
     if model_family is None:
         from turboquant.errors import UnsupportedModelError
