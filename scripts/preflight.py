@@ -199,7 +199,10 @@ def main() -> int:
         print(json.dumps(results, indent=2))
     else:
         for key, value in results.items():
+            if key in {"strict_ready", "strict_failures"}:
+                continue
             print(f"{key}: {value}")
+        print(f"strict_ready: {results['strict_ready']}")
         label = "ERROR" if args.strict else "STRICT REQUIREMENT"
         for failure in failures:
             print(f"{label}: {failure}")
