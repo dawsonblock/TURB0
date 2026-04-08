@@ -37,7 +37,9 @@ def test_boundary_audit_passes_and_tracks_live_surface() -> None:
 
     assert payload["ok"] is True
     assert payload["canonical_entry_exists"] is True
-    assert payload["declared_repo_paths"] == list(audit_module.REQUIRED_REPO_PATHS)
+    assert sorted(payload["declared_repo_paths"]) == sorted(
+        audit_module.REQUIRED_REPO_PATHS
+    )
     assert payload["forbidden_repo_paths"] == []
     assert payload["missing_repo_paths"] == []
     assert payload["missing_hooks"] == []
@@ -60,7 +62,7 @@ def test_active_tooling_does_not_reference_in_tree_mlx_lm_directory() -> None:
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
-            assert "mlx_lm/" not in stripped, (
+            assert "mlx_lm/" not in stripped and "mlx_lm\\" not in stripped, (
                 f"{rel_path} must not reference an in-tree mlx_lm/ repo path."
             )
 

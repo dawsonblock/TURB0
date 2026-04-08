@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -42,6 +43,8 @@ REQUIRED_REPO_PATHS: tuple[str, ...] = (
     "turboquant/patch.py",
     "turboquant/integrations/mlx/upgrade.py",
 )
+CODE_TOKEN_RE = re.compile(r"`([^`]+)`")
+ORDERED_LIST_RE = re.compile(r"^\d+\. ")
 
 
 def _read(path: Path) -> str:
@@ -64,8 +67,9 @@ def _extract_section_tokens(text: str, section_name: str) -> list[str]:
     for line in body:
         if not _is_list_item(line):
             continue
-        parts = line.split("`")
-        tokens.extend(parts[index] for index in range(1, len(parts), 2))
+        if line.count("`") % 2 != 0:
+            continue
+        tokens.extend(CODE_TOKEN_RE.findall(line))
     return tokens
 
 
@@ -74,8 +78,7 @@ def _is_list_item(line: str) -> bool:
     if stripped.startswith(("- ", "* ")):
         return True
 
-    number, dot, remainder = stripped.partition(".")
-    return bool(number) and number.isdigit() and remainder.startswith(" ")
+    return bool(ORDERED_LIST_RE.match(stripped))
 
 
 def _find_phrase_violations(text: str, phrases: tuple[str, ...]) -> list[str]:
