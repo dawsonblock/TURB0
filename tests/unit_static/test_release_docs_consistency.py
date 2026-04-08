@@ -85,7 +85,7 @@ def test_release_candidate_notes_distinguish_structure_from_release_proof() -> N
     assert "not runtime proof" in normalized
 
 
-def test_release_checklist_requires_clean_source_export_and_retained_proof() -> None:
+def test_release_checklist_documents_clean_source_export_requirements() -> None:
     content = _read("docs/release-checklist.md")
     normalized = " ".join(content.lower().split())
 
