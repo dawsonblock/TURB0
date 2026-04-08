@@ -21,6 +21,9 @@ This checklist is the minimum bar for calling a tagged snapshot technically cred
 
 Use `./scripts/certify_apple_runtime.sh` as the authoritative release runtime gate.
 
+Passing a source archive, `python -m build`, `python tools/verify_dist_contents.py`,
+or `python -m pytest tests/unit_static -q` is not proof of Apple runtime certification.
+
 Release publication remains blocked unless the same tagged workflow runs the Apple-Silicon certification job,
 produces an evidence directory under `artifacts/runtime-cert/<timestamp>/`, and validates a real
 `cert_manifest.json` with `result: PASS`.
@@ -55,6 +58,22 @@ Required release evidence includes:
 Built wheels and source distributions do not ship `artifacts/runtime-cert/`
 bundles. Release claims must point at a workflow artifact, release evidence
 bundle, or pinned manifest digest.
+
+## Shared source zip gate
+
+- Do not zip a live working tree for sharing or release; it can retain transient
+  `__pycache__/` directories and `*.pyc` files that do not belong in a clean source export.
+- Use `make export-source-zip TQ_SOURCE_EXPORT_REF=<commit-or-tag>` so `git archive`
+  exports only tracked files from the exact commit or tag being cited.
+- Keep the source zip claim narrow: a clean export proves source hygiene, not Apple runtime certification.
+
+Minimum repeatable release path:
+
+```bash
+make build-dist
+python tools/verify_dist_contents.py
+make export-source-zip TQ_SOURCE_EXPORT_REF=<commit-or-tag>
+```
 
 Final tagged publish is stricter than a family-scoped local run:
 

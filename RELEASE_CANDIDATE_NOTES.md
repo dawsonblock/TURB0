@@ -24,6 +24,10 @@ blocked until the tagged Apple-arm64 workflow publishes an addressable
 certification artifact or pinned manifest digest whose `cert_manifest.json`
 reports `PASS` for both allowlisted families (`llama` and `gemma`).
 
+Passing `python -m build`, `python tools/verify_dist_contents.py`, or
+`python -m pytest tests/unit_static -q` in this checkout would still not turn
+this snapshot into runtime-certified release proof.
+
 The current RC workflow design still fails closed in the right place: generic
 Ubuntu validation can succeed while the final publish step remains blocked
 until the self-hosted `macOS` `ARM64` runner completes certification for the
@@ -164,6 +168,7 @@ verified but now considered exploratory and removed from primary support list.
 | Gate | Meaning in this archive |
 |---|---|
 | `python -m build` (sdist + wheel) | Structural packaging proof, not runtime proof |
+| `python tools/verify_dist_contents.py` | Built-distribution boundary proof, not runtime proof |
 | `pytest tests/unit_static -q` | Structural support-contract proof, not runtime proof |
 | `make test-structural` | Apple-Silicon structural gate without real model weights |
 | Tagged Apple-arm64 certification artifact | Required release evidence; this archive does not include it |
