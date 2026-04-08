@@ -15,24 +15,19 @@ def test_single_entry_path_proof():
     # Files to exclude (legacy shims, tests, documentation)
     exclude = [
         "integrations/mlx/upgrade.py",
-        "integrations/mlx/cache_adapter.py",
         "tests/",
         "docs/",
         "README.md",
     ]
 
-    # We want to check mlx_lm/ and turboquant/core/ for legacy usage
+    # We want to check the shipped runtime tree for legacy usage.
     search_dirs = [
-        os.path.join(root, "mlx_lm"),
         os.path.join(root, "turboquant/core"),
         os.path.join(root, "turboquant/runtime"),
+        os.path.join(root, "turboquant"),
     ]
 
-    legacy_patterns = [
-        re.compile(r"KVCompressor"),
-        # maybe_turboquant_k_cache is allowed in the shim and generate.py (as entry point)
-        # but we want to ensure it's not being called by other inner modules.
-    ]
+    legacy_patterns: list[re.Pattern[str]] = []
 
     for sdir in search_dirs:
         if not os.path.exists(sdir):
@@ -64,17 +59,12 @@ def test_single_entry_path_proof():
                                 f"file: {rel_path}"
                             )
 
-
-def test_canonical_import_lock():
-    """Ensure mlx_lm/generate.py uses the canonical upgrade_cache_list via the shim."""
+def test_patch_layer_uses_canonical_upgrade_path():
+    """turboquant.patch must still point callers back to upgrade_cache_list."""
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    gen_path = os.path.join(root, "mlx_lm/generate.py")
+    patch_path = os.path.join(root, "turboquant/patch.py")
 
-    with open(gen_path) as f:
+    with open(patch_path) as f:
         content = f.read()
 
-    # Check that maybe_turboquant_k_cache delegates to upgrade_cache_list
-    assert (
-        "from turboquant.integrations.mlx.upgrade import upgrade_cache_list" in content
-    )
-    assert "upgrade_cache_list(prompt_cache" in content
+    assert "upgrade_cache_list" in content

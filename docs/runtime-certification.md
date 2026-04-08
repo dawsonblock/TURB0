@@ -25,7 +25,7 @@ It does not certify:
 - production readiness
 - Linux or Windows
 - CUDA or ROCm
-- the full vendored `mlx_lm` tree
+- arbitrary upstream `mlx_lm` entry points outside the patched TurboQuant hooks
 - custom Metal kernels
 - distributed inference
 - training or fine-tuning

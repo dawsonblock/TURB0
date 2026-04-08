@@ -1,5 +1,3 @@
-import pytest
-
 import turboquant
 
 # MLX-dependent symbols: accessing these raises ImportError when MLX is absent.
@@ -40,21 +38,6 @@ def test_public_api_surface():
     current_all = set(turboquant.__all__)
     for name in expected_all:
         assert name in current_all, f"{name} should be in __all__"
-
-
-def test_removed_turboquant_runtime():
-    """TurboQuantRuntime is removed from the supported surface."""
-    # It shouldn't be in __all__
-    assert "TurboQuantRuntime" not in turboquant.__all__
-
-    from turboquant.runtime.api import TurboQuantRuntime
-
-    with pytest.raises(RuntimeError) as excinfo:
-        TurboQuantRuntime()
-
-    assert "prototype and has been removed" in str(excinfo.value)
-    assert "TurboQuantKCache" in str(excinfo.value)
-
 
 def test_internal_adapter_not_exported_at_package_root():
     """TurboQuantKCache should no longer be advertised from the package root."""

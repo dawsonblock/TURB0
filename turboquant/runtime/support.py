@@ -1,106 +1,26 @@
-"""
-turboquant.runtime.support — central model-family support gate.
-
-This module is the single source of truth for which model families have
-TurboQuant attention wiring and runtime-certification coverage.
-
-The allowlist itself is loaded from the machine-readable support contract at
-``turboquant/contract.json`` so that runtime gating, generated docs, and
-release artifacts can all share the same family list.
-
-Callers
--------
-- ``integrations.mlx.upgrade.upgrade_cache_list`` — Gate 2 check
-- ``tests/unit_static/test_governance.py``          — static contract tests
-
-Rules for adding a new family
-------------------------------
-1. Wire its attention module to dispatch through TurboQuant's streaming
-   attention path (see ``mlx_lm/models/gemma.py`` for the reference pattern).
-2. Add runtime-certification coverage in
-   ``scripts/certify_apple_runtime.sh`` / ``benchmarks/runtime_cert/``.
-3. Add the normalised family name to :data:`SUPPORTED_FAMILIES`.
-4. Update ``docs/support_matrix.md``.
-
-Do NOT add a family here before completing steps 1–3.
-"""
+"""Central model-family support gate for runtime imports."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Any, cast
-
 from turboquant.errors import UnsupportedModelError
 
-_SUPPORT_CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contract.json"
-
-
-def load_support_contract() -> dict[str, Any]:
-    return cast(
-        dict[str, Any],
-        json.loads(_SUPPORT_CONTRACT_PATH.read_text(encoding="utf-8")),
-    )
-
-
-_SUPPORT_CONTRACT = load_support_contract()
-
-# Families with explicit TurboQuant attention wiring and runtime-cert coverage.
-# Any model_family string not in this set will be rejected at the upgrade
-# boundary before any cache is mutated.
-SUPPORTED_FAMILIES: frozenset[str] = frozenset(
-    family["name"]
-    for family in _SUPPORT_CONTRACT["families"]
-    if family["status"] == "allowlisted"
-)
+SUPPORTED_FAMILIES: frozenset[str] = frozenset({"llama", "gemma"})
 
 
 def _normalize(name: str) -> str:
-    """Normalise a raw model family string for allowlist lookup.
-
-    Examples
-    --------
-    >>> _normalize("llama3_1")
-    'llama'
-    >>> _normalize("Gemma2")
-    'gemma'
-    """
+    """Normalise a raw model family string for allowlist lookup."""
     return name.lower().split("_")[0].rstrip("0123456789")
 
 
 def is_supported_model_family(name: str) -> bool:
-    """Return ``True`` if *name* belongs to a TurboQuant-supported family.
-
-    Parameters
-    ----------
-    name:
-        Raw model family string (e.g. ``"llama"``, ``"llama3_1"``,
-        ``"gemma2"``).  Normalisation is applied before the lookup.
-    """
+    """Return ``True`` if *name* belongs to a TurboQuant-supported family."""
     return _normalize(name) in SUPPORTED_FAMILIES
 
 
 def assert_supported_model_family(name: str) -> None:
-    """Raise :exc:`~turboquant.errors.UnsupportedModelError` if *name* is not
-    in the supported allowlist.
-
-    This is the canonical Gate 2 check.  Call it before mutating any cache.
-
-    Parameters
-    ----------
-    name:
-        Raw model family string.
-
-    Raises
-    ------
-    UnsupportedModelError
-        When ``_normalize(name)`` is not in :data:`SUPPORTED_FAMILIES`.
-    """
+    """Raise when *name* is not in the supported allowlist."""
     if not is_supported_model_family(name):
         raise UnsupportedModelError(
-            f"Model family {name!r} is not supported by TurboQuant.  "
-            f"Supported families: {sorted(SUPPORTED_FAMILIES)}.  "
-            "To add support, wire the attention layer, add runtime-cert "
-            "coverage, then add the normalised name to "
-            "turboquant.runtime.support.SUPPORTED_FAMILIES."
+            f"Model family {name!r} is not supported by TurboQuant. "
+            f"Supported families: {sorted(SUPPORTED_FAMILIES)}."
         )

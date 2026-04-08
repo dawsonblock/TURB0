@@ -152,71 +152,6 @@
       "residual_kind": "none",
       "paper_facing": false,
       "notes": "Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification."
-    },
-    {
-      "name": "legacy_topk",
-      "display_name": "legacy_topk",
-      "algorithm": "legacy_topk",
-      "classification": "compatibility-only",
-      "canonical_preset": "legacy_topk",
-      "algorithm_aliases": [],
-      "k_bits": 4,
-      "k_group_size": 32,
-      "v_bits": 4,
-      "v_group_size": 32,
-      "residual_kind": "topk",
-      "residual_topk": 2,
-      "paper_facing": false,
-      "notes": "Explicit legacy top-k compatibility preset; not part of the paper-facing contract."
-    },
-    {
-      "name": "high_compression",
-      "display_name": "high_compression (legacy alias)",
-      "algorithm": "paper_prod_qjl",
-      "classification": "compatibility-only",
-      "canonical_preset": "paper_prod_qjl",
-      "algorithm_aliases": [
-        "paper_prod_qjl",
-        "turboquant_prod"
-      ],
-      "k_bits": 3,
-      "k_group_size": 64,
-      "v_bits": 4,
-      "v_group_size": 64,
-      "residual_kind": "qjl",
-      "qjl_dim": 64,
-      "paper_facing": false,
-      "notes": "Legacy convenience alias for the QJL production-style preset."
-    },
-    {
-      "name": "balanced",
-      "display_name": "balanced (legacy)",
-      "algorithm": "legacy_topk",
-      "classification": "compatibility-only",
-      "canonical_preset": "balanced",
-      "k_bits": 4,
-      "k_group_size": 32,
-      "v_bits": 4,
-      "v_group_size": 32,
-      "residual_kind": "topk",
-      "residual_topk": 2,
-      "paper_facing": false,
-      "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract."
-    },
-    {
-      "name": "max_quality",
-      "display_name": "max_quality (legacy)",
-      "algorithm": "legacy_topk",
-      "classification": "compatibility-only",
-      "canonical_preset": "max_quality",
-      "k_bits": 4,
-      "k_group_size": 16,
-      "v_bits": 8,
-      "v_group_size": 16,
-      "residual_kind": "topk",
-      "residual_topk": 4,
-      "paper_facing": false,
-      "notes": "Legacy top-k compatibility preset; not part of the paper-facing contract."
     }
   ],
   "secondary_surfaces": [
@@ -227,21 +162,9 @@
       "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
     },
     {
-      "path": "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache",
-      "status": "compatibility shim",
-      "gate": "bypasses the model-family allowlist",
-      "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
-    },
-    {
-      "path": "mlx_lm.models.cache.KVCache._to_turboquant()",
-      "status": "private compatibility helper",
-      "gate": "bypasses the model-family allowlist",
-      "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
-    },
-    {
-      "path": "mlx_lm.models.cache.KVCache.to_turboquant()",
-      "status": "deprecated public alias",
-      "gate": "bypasses the model-family allowlist",
+      "path": "turboquant.patch.apply_mlx_lm_patches()",
+      "status": "internal patch bootstrap",
+      "gate": "monkey-patches upstream mlx_lm in memory for TurboQuant dispatch",
       "preferred": "turboquant.integrations.mlx.upgrade.upgrade_cache_list"
     },
     {
@@ -258,15 +181,15 @@
     },
     {
       "title": "Legacy compatibility knobs",
-      "description": "Legacy aliases, residual_topk, and block_tokens remain for compatibility, but they are not part of the paper-facing preset contract."
-    },
-    {
-      "title": "Vendored tree wider than support boundary",
-      "description": "The vendored mlx_lm tree contains many model files, but only the allowlisted families in this contract are supported by the canonical upgrade path."
+      "description": "residual_topk and block_tokens remain as narrow compatibility knobs, but compatibility presets are no longer part of the product contract."
     },
     {
       "title": "Compatibility and non-paper-facing branches",
-      "description": "legacy_topk remains a compatibility branch, while polarquant_exp is now a supported non-paper-facing branch: PolarQuant works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and family-scoped batch quality guardrails, but it remains outside the paper-facing preset story."
+      "description": "legacy_topk remains a compatibility-only branch outside the product contract and preset matrix, while polarquant_exp is now a supported non-paper-facing branch: PolarQuant works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and family-scoped batch quality guardrails, but it remains outside the paper-facing preset story."
+    },
+    {
+      "title": "Monkey-patched upstream mlx_lm integration",
+      "description": "TurboQuant now patches upstream mlx_lm at import time instead of shipping a vendored fork, while keeping the allowlisted upgrade_cache_list gate as the canonical runtime path."
     }
   ]
 }

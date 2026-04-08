@@ -94,13 +94,11 @@ def render_preset_modes(contract: JsonDict) -> str:
             "- `paper_mse` — scalar-only paper baseline.",
             "- `paper_prod_qjl` — primary two-stage paper-facing preset.",
             "- `polarquant_exp` — closest available first-stage-only non-paper research path.",
-            "- `legacy_topk`, `balanced`, `max_quality`, and `high_compression` — compatibility-only surfaces for historical comparisons and older config loading.",
             "",
             "## Alias Discipline",
             "",
             "- `paper_prod_qjl` is the primary two-stage preset name for new comparisons.",
             "- `paper_prod` remains a paper-facing alias for compatibility.",
-            "- `high_compression` remains a compatibility alias and should not be treated as a separate paper-facing method.",
             "",
             "## Scope",
             "",
@@ -141,8 +139,7 @@ def render_support_matrix(contract: JsonDict) -> str:
             "",
             "Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the "
             "paper-facing alias `paper_prod`. `polarquant_exp` remains the "
-            "supported non-paper-facing branch. Legacy top-k presets and "
-            "legacy aliases remain compatibility surfaces.",
+            "supported non-paper-facing branch.",
             "",
             "## Exact deviations from the paper-facing story",
             "",
@@ -317,9 +314,7 @@ def render_product_contract(contract: JsonDict) -> str:
             "",
             "Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the "
             "paper-facing alias `paper_prod`. `polarquant_exp` is the supported "
-            "non-paper-facing branch. `legacy_topk`, `balanced`, `max_quality`, "
-            "and `high_compression` remain compatibility-only surfaces rather "
-            "than the main algorithm story.",
+            "non-paper-facing branch.",
             "",
             "Generated preset taxonomy: `docs/preset_modes.md`.",
             "",
@@ -346,6 +341,21 @@ def render_product_contract(contract: JsonDict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_generated_support(contract: JsonDict) -> str:
+    names = sorted(
+        family["name"]
+        for family in contract["families"]
+        if family["status"] == "allowlisted"
+    )
+    families = ", ".join(f'"{name}"' for name in names)
+    return (
+        '"""Generated from turboquant/contract.json by '
+        'scripts/render_support_contract.py."""\n\n'
+        "from __future__ import annotations\n\n"
+        f"SUPPORTED_FAMILIES: frozenset[str] = frozenset({{{families}}})\n"
+    )
+
+
 def render_docs() -> dict[Path, str]:
     contract = load_contract()
     return {
@@ -353,6 +363,9 @@ def render_docs() -> dict[Path, str]:
         REPO_ROOT / "docs" / "preset_modes.md": render_preset_modes(contract),
         REPO_ROOT / "docs" / "supported-surface.md": render_supported_surface(contract),
         REPO_ROOT / "docs" / "product_contract.md": render_product_contract(contract),
+        REPO_ROOT / "turboquant" / "runtime" / "_generated_support.py": (
+            render_generated_support(contract)
+        ),
     }
 
 

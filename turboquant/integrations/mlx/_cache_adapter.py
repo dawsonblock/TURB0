@@ -40,8 +40,8 @@ from dataclasses import asdict
 from typing import Any, cast
 
 import mlx.core as mx
-
 from mlx_lm.models.cache import _BaseCache
+
 from turboquant.config import TurboQuantConfig
 
 

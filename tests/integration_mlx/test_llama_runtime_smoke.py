@@ -31,7 +31,7 @@ import pytest
 # Platform gate — entire module is skipped on non-Apple hosts.
 mx = pytest.importorskip("mlx.core", reason="Requires MLX (Apple Silicon)")
 
-from turboquant.integrations.mlx.cache_adapter import TurboQuantKCache  # noqa: E402
+from turboquant.integrations.mlx._cache_adapter import TurboQuantKCache  # noqa: E402
 
 
 def test_llama_runtime_smoke(tmp_path):

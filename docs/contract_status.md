@@ -12,6 +12,7 @@ tagged release workflow all consume or validate against that same contract.
 ## Supported public runtime surface
 
 - Canonical runtime path: `turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)`
+- Upstream `mlx_lm` integration is applied through an import-time monkey-patch layer
 - Package-root MLX surface remains lazy and fail-closed; callers without MLX on
   Apple Silicon get an `ImportError` instead of a silent fallback.
 - Supported platform slice: Apple Silicon `darwin-arm64`
@@ -28,8 +29,7 @@ tagged release workflow all consume or validate against that same contract.
 ## What ships in built distributions
 
 - The wheel intentionally ships the bounded `turboquant` package together with
-  the vendored `mlx_lm` tree, `turboquant/contract.json`, and
-  `mlx_lm/py.typed`.
+  `turboquant/contract.json`.
 - The source distribution additionally ships `docs/*.md` for contract and
   release review.
 - Built wheels and source distributions do not ship generated
@@ -37,7 +37,7 @@ tagged release workflow all consume or validate against that same contract.
 
 ## What this checkout proves statically
 
-- Package buildability, vendored-boundary auditing, contract/doc alignment,
+- Package buildability, support-contract verification, contract/doc alignment,
   import safety, and release-workflow policy can all be checked from the source
   tree on generic CI.
 - Those checks prove a bounded package and a mechanically enforced support
@@ -70,9 +70,7 @@ rather than portable release proof.
 ## Compatibility-only or secondary surfaces
 
 - `turboquant.integrations.mlx._cache_adapter.TurboQuantKCache`
-- `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache`
-- `mlx_lm.models.cache.KVCache._to_turboquant()`
-- `mlx_lm.models.cache.KVCache.to_turboquant()`
+- `turboquant.patch.apply_mlx_lm_patches()`
 - `turboquant.eval.compare._collect_logits_compressed()`
 - Legacy compatibility branches such as `legacy_topk`
 - Exploratory real-model `paper_mse` quality tests under `tests/integration_mlx/test_dense_vs_paper_mse_275bpc.py` and `tests/integration_mlx/test_dense_vs_paper_mse_375bpc.py`

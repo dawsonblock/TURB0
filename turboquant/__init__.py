@@ -33,6 +33,7 @@ from turboquant._deps import (
     require_mlx,
 )
 from turboquant.config import TurboQuantConfig
+from turboquant.patch import apply_mlx_lm_patches
 
 if TYPE_CHECKING:
     from turboquant.calibration.fit_quantizer import calibrate
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
 
 # Validate MLX version bounds at import time (no-op if MLX is absent)
 check_mlx_version()
+apply_mlx_lm_patches()
 
 # Lazy imports for MLX-dependent runtime symbols
 _MLX_DEPENDENT = frozenset(

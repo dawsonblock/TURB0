@@ -26,6 +26,18 @@ import mlx.core as mx
 from turboquant.errors import TurboQuantShapeError
 
 
+@mx.compile(shapeless=True)
+def _decode_topk_residual_compiled(
+    values: mx.array,
+    indices: mx.array,
+    group_size: int,
+) -> mx.array:
+    *prefix, n_groups, _ = values.shape
+    out = mx.zeros((*prefix, n_groups, group_size), dtype=values.dtype)
+    out = mx.put_along_axis(out, indices, values, axis=-1)
+    return out.reshape(*prefix, n_groups * group_size)
+
+
 def encode_topk_residual(
     residual: mx.array,
     k: int,
@@ -96,9 +108,12 @@ def decode_topk_residual(
             f"k ({values.shape[-1]}) cannot be greater than group_size ({group_size})"
         )
 
-    *prefix, n_groups, k = values.shape
-    g = group_size
+    try:
+        from turboquant.experimental.kernels.metal.residual import (
+            decode_topk_residual_metal,
+        )
 
-    out = mx.zeros((*prefix, n_groups, g), dtype=values.dtype)
-    out = mx.put_along_axis(out, indices, values, axis=-1)
-    return out.reshape(*prefix, n_groups * g)
+        out = decode_topk_residual_metal(values, indices, group_size=group_size)
+        return out.reshape(*values.shape[:-2], values.shape[-2] * group_size)
+    except Exception:
+        return _decode_topk_residual_compiled(values, indices, group_size)

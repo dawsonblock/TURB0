@@ -5,16 +5,6 @@ on:
   pull_request:
 
 jobs:
-  vendored-surface-audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Audit vendored mlx_lm surface
-        run: python tools/audit_vendored_surface.py
-
   package-and-syntax:
     runs-on: ubuntu-latest
     strategy:
@@ -34,7 +24,7 @@ jobs:
       - name: Build wheel and sdist
         run: python -m build
       - name: Compile source tree
-        run: python -m compileall turboquant mlx_lm tests
+        run: python -m compileall turboquant tests
       - name: Check Distributions
         run: twine check dist/*
       - name: Verify distribution boundary

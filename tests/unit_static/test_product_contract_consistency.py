@@ -180,35 +180,32 @@ def test_supported_surface_generated_doc_has_secondary_surfaces() -> None:
     assert "upgrade_cache_list" in content
     assert "Secondary surfaces" in content
     assert "turboquant.integrations.mlx._cache_adapter.TurboQuantKCache" in content
-    assert "turboquant.integrations.mlx.cache_adapter.TurboQuantKCache" in content
-    assert "KVCache.to_turboquant()" in content
+    assert "turboquant.patch.apply_mlx_lm_patches()" in content
     assert "contract.json" in content
     assert (
-        "| `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache` | "
-        "compatibility shim | bypasses the model-family allowlist | "
+        "| `turboquant.patch.apply_mlx_lm_patches()` | "
+        "internal patch bootstrap | monkey-patches upstream mlx_lm in memory for TurboQuant dispatch | "
         "`turboquant.integrations.mlx.upgrade.upgrade_cache_list` |" in content
     ), (
-        "The compatibility shim must still point callers back to the "
+        "The patch bootstrap must still point callers back to the "
         "canonical support-gated upgrade_cache_list(...) path."
     )
 
 
 def test_runtime_api_points_to_upgrade_cache_list() -> None:
-    """runtime/api.py must still point callers at the canonical path."""
-    content = _read("turboquant/runtime/api.py")
-    assert "upgrade_cache_list" in content
-    assert "Do not instantiate TurboQuantKCache directly" in content
+    """The removed runtime/api.py shim must stay deleted."""
+    path = REPO_ROOT / "turboquant" / "runtime" / "api.py"
+    assert not path.exists()
 
 
-def test_vendored_doc_marks_to_turboquant_as_secondary_helper() -> None:
-    """VENDORED_MLX_LM.md must classify to_turboquant() as secondary."""
+def test_vendored_doc_describes_patch_layer() -> None:
+    """VENDORED_MLX_LM.md must describe the monkey-patch migration."""
     content = _read("VENDORED_MLX_LM.md")
     lowered = content.lower()
 
-    assert "to_turboquant()" in content
-    assert "deprecated" in lowered
-    assert "bypasses the turboquant model-family support gate" in lowered
-    assert "canonical public path is `upgrade_cache_list(...)`" in content
+    assert "monkey-patch" in lowered or "monkey patch" in lowered
+    assert "upstream `mlx_lm`" in content or "upstream mlx_lm" in lowered
+    assert "upgrade_cache_list(...)" in content
 
 
 def test_validation_local_distinguishes_smoke_from_real_certification() -> None:

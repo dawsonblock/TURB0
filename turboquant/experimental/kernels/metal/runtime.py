@@ -4,6 +4,7 @@ from pathlib import Path
 import mlx.core as mx
 
 _kernels = {}
+_THREADGROUP_SIZE = int(os.getenv("TQ_THREADGROUP_SIZE", "64"))
 
 
 def get_kernel_source():
@@ -33,15 +34,13 @@ def decode_k_metal(
         )
 
     kernel = _kernels[cache_key]
-    threadgroup_size = int(os.getenv("TQ_THREADGROUP_SIZE", "64"))
-
     if resid_vals is None:
         resid_vals = mx.zeros((1,), dtype=mx.float16)
         resid_idx = mx.zeros((1,), dtype=mx.uint16)
 
     total_elements = scales.size * config.k_group_size
     grid = (total_elements, 1, 1)
-    threadgroup = (threadgroup_size, 1, 1)
+    threadgroup = (_THREADGROUP_SIZE, 1, 1)
 
     out_shape = packed_k.shape[:-1] + (d_head,)
     n_groups = scales.shape[-1]

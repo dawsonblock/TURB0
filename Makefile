@@ -31,7 +31,7 @@ install-apple:
 	$(PIP) install -e '.[apple,dev]'
 
 compile:
-	$(PYTHON) -m compileall turboquant mlx_lm tests
+	$(PYTHON) -m compileall turboquant tests
 
 lint:
 	nox -s lint
@@ -88,4 +88,3 @@ validate-apple:
 clean:
 	rm -rf build dist *.egg-info .pytest_cache .mypy_cache .nox .ruff_cache
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
-
