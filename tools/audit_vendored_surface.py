@@ -22,6 +22,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
@@ -93,7 +94,26 @@ def _find_phrase_violations(text: str, phrases: tuple[str, ...]) -> list[str]:
     ]
 
 
+def _module_has_top_level_function(path: Path, function_name: str) -> bool:
+    if not path.exists():
+        return False
+
+    try:
+        module = ast.parse(_read(path), filename=str(path))
+    except SyntaxError:
+        return False
+
+    return any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == function_name
+        for node in module.body
+    )
+
+
 def run_audit() -> dict[str, object]:
+    canonical_entry_exists = _module_has_top_level_function(
+        ENTRY_MODULE, "upgrade_cache_list"
+    )
     missing_docs = [
         str(path.relative_to(REPO_ROOT))
         for path in (CONTINUITY_DOC, BOUNDARY_DOC)
@@ -108,7 +128,7 @@ def run_audit() -> dict[str, object]:
             "missing_hooks": [],
             "mismatched_hooks": False,
             "canonical_entry": REQUIRED_ENTRY,
-            "canonical_entry_exists": ENTRY_MODULE.exists(),
+            "canonical_entry_exists": canonical_entry_exists,
             "declared_repo_paths": [],
             "missing_repo_paths": [],
             "forbidden_repo_paths": [],
@@ -163,11 +183,9 @@ def run_audit() -> dict[str, object]:
             "VENDORED_MLX_LM.md Active repo touchpoints must enumerate the current bounded repo paths."
         )
 
-    patch_module_text = _read(PATCH_MODULE) if PATCH_MODULE.exists() else ""
-    entry_module_text = _read(ENTRY_MODULE) if ENTRY_MODULE.exists() else ""
-    if "def apply_mlx_lm_patches" not in patch_module_text:
+    if not _module_has_top_level_function(PATCH_MODULE, "apply_mlx_lm_patches"):
         doc_violations.append("turboquant/patch.py no longer exposes apply_mlx_lm_patches().")
-    if "upgrade_cache_list" not in entry_module_text:
+    if not canonical_entry_exists:
         doc_violations.append(
             "turboquant/integrations/mlx/upgrade.py no longer defines upgrade_cache_list."
         )
@@ -179,7 +197,7 @@ def run_audit() -> dict[str, object]:
         or not hook_sets_match
         or missing_repo_paths
         or forbidden_repo_paths
-        or not ENTRY_MODULE.exists()
+        or not canonical_entry_exists
     )
 
     return {
@@ -193,7 +211,7 @@ def run_audit() -> dict[str, object]:
         "missing_hooks": missing_hooks,
         "mismatched_hooks": not hook_sets_match,
         "canonical_entry": REQUIRED_ENTRY,
-        "canonical_entry_exists": ENTRY_MODULE.exists(),
+        "canonical_entry_exists": canonical_entry_exists,
         "declared_repo_paths": declared_repo_paths,
         "missing_repo_paths": missing_repo_paths,
         "forbidden_repo_paths": forbidden_repo_paths,

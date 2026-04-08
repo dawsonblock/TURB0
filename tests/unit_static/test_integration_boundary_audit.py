@@ -46,6 +46,31 @@ def test_boundary_audit_passes_and_tracks_live_surface() -> None:
     assert payload["mismatched_hooks"] is False
 
 
+def test_module_function_detection_uses_real_defs(tmp_path) -> None:
+    audit_module = _load_audit_module()
+    probe = tmp_path / "probe.py"
+
+    probe.write_text(
+        '"""def upgrade_cache_list(): pass"""\n'
+        "# def apply_mlx_lm_patches(): pass\n",
+        encoding="utf-8",
+    )
+    assert (
+        audit_module._module_has_top_level_function(probe, "upgrade_cache_list") is False
+    )
+
+    probe.write_text(
+        "@decorator\n"
+        "def upgrade_cache_list():\n"
+        "    return None\n"
+        "async def apply_mlx_lm_patches():\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    assert audit_module._module_has_top_level_function(probe, "upgrade_cache_list") is True
+    assert audit_module._module_has_top_level_function(probe, "apply_mlx_lm_patches") is True
+
+
 def test_active_tooling_does_not_reference_in_tree_mlx_lm_directory() -> None:
     audit_tool = _read("tools/audit_vendored_surface.py")
     assert "MLX_LM_DIR" not in audit_tool
