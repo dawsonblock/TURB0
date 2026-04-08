@@ -85,7 +85,8 @@ build-dist:
 
 export-source-zip:
 	@mkdir -p dist
-	@ref="$${TQ_SOURCE_EXPORT_REF:-HEAD}"; \
+	@ref="$(TQ_SOURCE_EXPORT_REF)"; \
+	if [ -z "$$ref" ]; then ref="HEAD"; fi; \
 	safe_ref="$$(printf '%s' "$$ref" | tr '/:' '__')"; \
 	out="dist/turboquant-source-$${safe_ref}.zip"; \
 	rm -f "$$out"; \

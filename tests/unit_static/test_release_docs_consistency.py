@@ -94,7 +94,7 @@ def test_release_checklist_requires_clean_source_export_and_retained_proof() -> 
     assert "not proof of apple runtime certification" in normalized
     assert "__pycache__/" in content
     assert "*.pyc" in content
-    assert "make export-source-zip tq_source_export_ref=<commit-or-tag>" in normalized
+    assert "make export-source-zip TQ_SOURCE_EXPORT_REF=<commit-or-tag>" in content
     assert "git archive" in content
 
 
