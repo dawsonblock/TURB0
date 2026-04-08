@@ -139,8 +139,7 @@ def render_support_matrix(contract: JsonDict) -> str:
             "",
             "Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the "
             "paper-facing alias `paper_prod`. `polarquant_exp` remains the "
-            "supported non-paper-facing branch. Legacy top-k presets and "
-            "legacy aliases remain compatibility surfaces.",
+            "supported non-paper-facing branch.",
             "",
             "## Exact deviations from the paper-facing story",
             "",

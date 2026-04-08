@@ -185,7 +185,7 @@
     },
     {
       "title": "Compatibility and non-paper-facing branches",
-      "description": "legacy_topk remains a compatibility branch, while polarquant_exp is now a supported non-paper-facing branch: PolarQuant works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and family-scoped batch quality guardrails, but it remains outside the paper-facing preset story."
+      "description": "legacy_topk remains a compatibility-only branch outside the product contract and preset matrix, while polarquant_exp is now a supported non-paper-facing branch: PolarQuant works through the allowlisted upgrade_cache_list path, has Llama and Gemma certification runtime smoke stages, and family-scoped batch quality guardrails, but it remains outside the paper-facing preset story."
     },
     {
       "title": "Monkey-patched upstream mlx_lm integration",

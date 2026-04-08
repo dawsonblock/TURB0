@@ -13,8 +13,9 @@ The support-gated path is:
 `turboquant_streaming_attention(...)`
 
 Routing through `base.py` is not the same as being in the supported allowlist.
-Only the generated `SUPPORTED_FAMILIES` gate (`llama`, `gemma`) defines the
-supported model-family boundary.
+Only the hardcoded `SUPPORTED_FAMILIES` gate (`llama`, `gemma`) defines the
+supported model-family boundary, and static tests keep it aligned with
+`turboquant/contract.json`.
 
 ## 2. Primary components
 
@@ -63,7 +64,8 @@ support contract.
 
 ## 4. Support boundary
 
-- allowlisted families are generated from `turboquant/contract.json`
+- allowlisted families are hardcoded in `turboquant/runtime/support.py`
+  and statically checked against `turboquant/contract.json`
 - direct adapter construction remains secondary
 - experimental Metal kernels remain optional acceleration paths
 - public static CI checks buildability and static coherence, not Apple runtime
