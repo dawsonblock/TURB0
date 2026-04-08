@@ -13,7 +13,7 @@ Working trees may retain generated `artifacts/runtime-cert/` bundles for archaeo
 | `paper_prod (preset alias)` | paper-facing | `paper_prod_qjl` | `paper_prod_qjl` | `qjl` | 2.875 | 3.562 | Paper-facing production-style preset using a 1-bit QJL residual. |
 | `polarquant_exp (supported non-paper-facing)` | supported non-paper-facing | `polarquant_exp` | `polarquant_exp` | `none` | 3.25 | 3.75 | Supported non-paper-facing PolarQuant branch with family-scoped runtime and quality certification. |
 
-Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the paper-facing alias `paper_prod`. `polarquant_exp` remains the supported non-paper-facing branch. Legacy top-k presets and legacy aliases remain compatibility surfaces.
+Paper-facing presets are `paper_mse`, `paper_prod_qjl`, and the paper-facing alias `paper_prod`. `polarquant_exp` remains the supported non-paper-facing branch.
 
 ## Exact deviations from the paper-facing story
 
