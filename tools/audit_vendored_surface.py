@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -43,8 +42,6 @@ REQUIRED_REPO_PATHS: tuple[str, ...] = (
     "turboquant/patch.py",
     "turboquant/integrations/mlx/upgrade.py",
 )
-SECTION_RE = re.compile(r"^##\s+(?P<name>[^\n]+)\n(?P<body>.*?)(?=^##\s+|\Z)", re.MULTILINE | re.DOTALL)
-CODE_TOKEN_RE = re.compile(r"`([^`]+)`")
 
 
 def _read(path: Path) -> str:
@@ -52,21 +49,36 @@ def _read(path: Path) -> str:
 
 
 def _extract_section_tokens(text: str, section_name: str) -> list[str]:
-    for match in SECTION_RE.finditer(text):
-        if match.group("name").strip().lower() != section_name.lower():
+    in_section = False
+    body: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if in_section:
+                break
+            in_section = line[3:].strip().lower() == section_name.lower()
             continue
-        return [
-            token
-            for line in match.group("body").splitlines()
-            if line.lstrip().startswith("- ")
-            for token in CODE_TOKEN_RE.findall(line)
-        ]
-    return []
+        if in_section:
+            body.append(line)
+
+    tokens: list[str] = []
+    for line in body:
+        if not line.lstrip().startswith("- "):
+            continue
+        parts = line.split("`")
+        tokens.extend(parts[index] for index in range(1, len(parts), 2))
+    return tokens
 
 
 def _find_phrase_violations(text: str, phrases: tuple[str, ...]) -> list[str]:
     normalized = " ".join(text.lower().split())
-    return [phrase for phrase in phrases if " ".join(phrase.lower().split()) not in normalized]
+    normalized_phrases = {
+        phrase: " ".join(phrase.lower().split()) for phrase in phrases
+    }
+    return [
+        phrase
+        for phrase, normalized_phrase in normalized_phrases.items()
+        if normalized_phrase not in normalized
+    ]
 
 
 def run_audit() -> dict[str, object]:
