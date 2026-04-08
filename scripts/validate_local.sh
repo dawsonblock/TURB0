@@ -7,16 +7,24 @@ echo "Running TurboQuant Local Validation..."
 python3 scripts/preflight.py
 
 # 2. Run static tests
-echo "\nRunning static tests..."
+printf '\nRunning static tests...\n'
 python3 -m pytest tests/unit_static/
 
 # 3. Optional: Run strictly hardware dependent tests if on platform
-if python3 scripts/preflight.py --strict 2>/dev/null; then
-    echo "\nRunning MLX-dependent tests..."
+runtime_validation_ran=false
+if python3 scripts/preflight.py --strict >/dev/null 2>&1; then
+    runtime_validation_ran=true
+    printf '\nRunning MLX-dependent tests...\n'
     python3 -m pytest tests/unit_mlx/
     python3 -m pytest tests/integration_mlx/
 else
-    echo "\nSkipping MLX tests (not on Apple Silicon / missing MLX)."
+    printf '\nSkipping MLX tests (not on Apple Silicon / missing MLX).\n'
 fi
 
-echo "\nAll local validation checks passed."
+if [ "$runtime_validation_ran" = true ]; then
+    printf '\nStatic/local validation passed.\n'
+    printf 'Full Apple runtime validation passed.\n'
+else
+    printf '\nStatic/local validation passed.\n'
+    printf 'Full Apple runtime validation was skipped because strict preflight requirements were not met.\n'
+fi

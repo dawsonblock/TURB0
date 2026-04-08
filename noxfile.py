@@ -60,4 +60,4 @@ def lint(session: nox.Session) -> None:
 def typecheck(session: nox.Session) -> None:
     """Run type checking with mypy."""
     session.install("mypy", ".")
-    session.run("mypy", "turboquant/", "mlx_lm/")
+    session.run("mypy", "turboquant/", "integrations/")

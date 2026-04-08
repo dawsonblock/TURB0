@@ -25,8 +25,9 @@
 TurboQuantX1 is a research-stage KV-cache compression library for transformer
 inference on Apple Silicon via
 [mlx-lm](https://github.com/ml-explore/mlx-lm). The repository contains
-exploratory code, compatibility paths, and a vendored `mlx_lm` tree, but the
-formal support claim is intentionally narrower than the codebase footprint.
+exploratory code, compatibility paths, and an import-time/runtime patch layer
+for upstream `mlx_lm`, but the formal support claim is intentionally narrower
+than the codebase footprint.
 
 > **Accuracy rule**
 >
@@ -46,24 +47,25 @@ formal support claim is intentionally narrower than the codebase footprint.
 | Paper-facing presets | `paper_prod`, `paper_mse` |
 | Supported non-paper-facing branch | `polarquant_exp` |
 | Compatibility-only surfaces | `legacy_topk`, direct adapter construction, deprecated cache-conversion helpers |
-| Out of scope | blanket vendored-model support, non-Apple runtimes, production deployment claims |
+| Out of scope | blanket upstream-model support, non-Apple runtimes, production deployment claims |
 
 | What this repo is | What this repo is not |
 |---|---|
 | A narrow, contract-validated runtime slice | A general-purpose LLM runtime |
-| A research-stage Apple-Silicon MLX integration | Blanket support for every vendored `mlx_lm` model family |
+| A research-stage Apple-Silicon MLX integration | Blanket support for every upstream `mlx_lm` model family reachable through the patch layer |
 | A repo with explicit release-evidence rules | Proof of a current PASS without published evidence |
 
 ## Runtime Contract
 
 Contract summary: TurboQuant supports one canonical runtime path for
 allowlisted Llama and Gemma models via `upgrade_cache_list(...)` inside the
-`mlx_lm` decode flow. Direct adapter construction and deprecated cache
-conversion helpers remain secondary surfaces that bypass the support gate.
+patched upstream `mlx_lm` decode flow. Direct adapter construction and
+deprecated cache conversion helpers remain secondary surfaces that bypass the
+support gate.
 
 The validated promotion path is:
 
-`generate_step(...)` -> `maybe_turboquant_k_cache(...)` -> `upgrade_cache_list(...)` -> `TurboQuantKCache.update_and_fetch(...)` -> `TurboQuantKeysView` -> `scaled_dot_product_attention(...)` -> `turboquant_streaming_attention(...)`
+`patched mlx_lm.generate.generate_step(...)` -> `upgrade_cache_list(...)` -> `TurboQuantKCache.update_and_fetch(...)` -> `TurboQuantKeysView` -> `scaled_dot_product_attention(...)` -> `turboquant_streaming_attention(...)`
 
 Important boundaries:
 
@@ -152,8 +154,9 @@ delegates into the same upgrade machinery.
 | Llama | allowlisted | stronger | real-model smoke, PolarQuant runtime smoke, PolarQuant quality guardrail, `paper_mse` batch quality guardrail, long-context stability, dense-vs-TurboQuant benchmark sweeps |
 | Gemma | allowlisted | narrower | real-model smoke, PolarQuant runtime smoke, PolarQuant quality guardrail, dense-vs-TurboQuant benchmark sweeps; narrower overall because the conservative `paper_mse` gate is still Llama-only |
 
-Families present in the vendored `mlx_lm` tree are not automatically supported.
-Allowlist membership is a contract decision, not a side effect of vendored code.
+Families reachable through upstream `mlx_lm` are not automatically supported.
+Allowlist membership is a contract decision, not a side effect of patch
+reachability.
 
 ## Validation And Certification
 
@@ -233,7 +236,7 @@ For the full evidence model, read
 | [docs/evaluation.md](docs/evaluation.md) | Exploratory quality-evaluation guidance |
 | [docs/validation-local.md](docs/validation-local.md) | Local validation walkthrough |
 | [docs/benchmark_methodology.md](docs/benchmark_methodology.md) | Benchmark publication and provenance rules |
-| [VENDORED_MLX_LM.md](VENDORED_MLX_LM.md) | Vendored mlx-lm boundary and patch notes |
+| [docs/vendored-upstream-boundary.md](docs/vendored-upstream-boundary.md) | Current upstream `mlx_lm` patch boundary |
 
 ## Project Layout
 
@@ -246,7 +249,6 @@ TurboQuantX1/
 │   ├── integrations/mlx/
 │   ├── eval/
 │   └── kernels/
-├── mlx_lm/
 ├── benchmarks/
 │   ├── exploratory/
 │   └── runtime_cert/

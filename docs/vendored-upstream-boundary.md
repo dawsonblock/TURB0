@@ -1,20 +1,29 @@
 # Upstream mlx-lm Boundary
 
-TurboQuant maintains a vendored slice of `mlx-lm` (`mlx_lm/`) solely for
-end-to-end framework scaffolding. It is NOT an integration package
-representing full compatibility.
+TurboQuant no longer ships a vendored `mlx_lm/` tree in this repository.
 
-## Supported Scope
+Instead, TurboQuant integrates with upstream `mlx_lm` through a narrow
+import-time/runtime patch layer. The canonical runtime entry point remains
+`turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)`, and the patch
+layer routes supported decode flows back to that allowlisted upgrade path.
 
-- Custom Cache implementation injected for local evaluation.
-- Attention logic modifications explicitly scoped to Llama and Gemma architectures executing locally on Apple Silicon via MLX Compiler paths.
+## Supported scope
+
+- Import/runtime patching of upstream `mlx_lm` hooks used by the bounded
+  TurboQuant decode path.
+- Support-gated cache promotion through `upgrade_cache_list(...)`.
+- Allowlisted Apple-Silicon MLX runtime coverage for the `llama` and `gemma`
+  families only.
 
 ## Unsupported
 
-- Upstream changes to other model architectures.
-- Metal-specific generation tools (we strictly rely on the compiler).
-- VLM support or multimodality.
+- Blanket support for every architecture reachable through upstream `mlx_lm`.
+- Vendored-upstream maintenance inside this checkout.
+- VLM support, multimodality, or non-Apple runtime claims.
 
-## Maintenance
+## Current maintenance boundary
 
-Changes to `mlx-lm` models other than Llama and Gemma are preserved strictly to maintain structural equivalence with upstream and are inherently uncertified by TurboQuant.
+TurboQuant maintains its own runtime code under `turboquant/` plus the
+compatibility shim surface that points callers back to the canonical
+`upgrade_cache_list(...)` path. Upstream `mlx_lm` is patched in memory at
+import/runtime; it is not copied into this repository.

@@ -32,6 +32,9 @@ def test_preflight_runs_from_source_checkout() -> None:
     payload = json.loads(proc.stdout)
     assert "Cannot import turboquant" not in payload["errors"]
     assert payload["turboquant_version"] is not None
+    assert payload["strict_ready"] == (not payload["strict_failures"])
+    if payload["strict_failures"]:
+        assert payload["strict_ready"] is False
 
 
 def test_preflight_mlx_version_uses_metadata_fallback(monkeypatch) -> None:

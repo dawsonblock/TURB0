@@ -5,7 +5,7 @@
 #   2. Full certification - requires TQ_TEST_LLAMA_MODEL / TQ_TEST_GEMMA_MODEL
 #      secrets and fails closed unless the script writes a PASS cert_manifest.json.
 #
-# Trigger: PRs that touch turboquant/ or mlx_lm/ run only the structural tier.
+# Trigger: PRs that touch turboquant/ or integrations/ run only the structural tier.
 # Full certification runs only on push to main or explicit manual dispatch.
 
 name: apple-runtime-cert
@@ -15,7 +15,7 @@ on:
     branches: [main]
     paths:
       - 'turboquant/**'
-      - 'mlx_lm/**'
+      - 'integrations/**'
       - 'tests/integration_mlx/**'
       - 'benchmarks/runtime_cert/**'
       - 'scripts/certify_apple_runtime.sh'
@@ -25,7 +25,7 @@ on:
   pull_request:
     paths:
       - 'turboquant/**'
-      - 'mlx_lm/**'
+      - 'integrations/**'
       - 'tests/integration_mlx/**'
       - 'benchmarks/runtime_cert/**'
       - 'scripts/certify_apple_runtime.sh'

@@ -8,7 +8,7 @@ that a portable source snapshot contains a current Apple certification bundle.
 
 - Single machine-readable authority: `turboquant/contract.json`
 - Support-gated upgrade entry point: `turboquant.integrations.mlx.upgrade.upgrade_cache_list(...)`
-- Convenience wrapper: `mlx_lm.generate.maybe_turboquant_k_cache(...)`, which delegates to `upgrade_cache_list(...)`
+- Patched upstream decode hook: `mlx_lm.generate.generate_step(...)` delegates to `upgrade_cache_list(...)` when TurboQuant runtime arguments are provided
 - Attention consumption path: `mlx_lm.models.base.scaled_dot_product_attention(...)` dispatches `TurboQuantKeysView` to `turboquant.runtime.attention.turboquant_streaming_attention(...)`
 - Runtime allowlist gate: `turboquant.runtime.support.SUPPORTED_FAMILIES`, loaded from `turboquant/contract.json`
 
@@ -17,12 +17,10 @@ that a portable source snapshot contains a current Apple certification bundle.
 These surfaces exist in the source tree but are not peer supported runtime entry points:
 
 - `turboquant.integrations.mlx._cache_adapter.TurboQuantKCache` — internal direct adapter construction
-- `turboquant.integrations.mlx.cache_adapter.TurboQuantKCache` — compatibility shim over the internal adapter
-- `mlx_lm.models.cache.KVCache._to_turboquant()` — private compatibility helper
-- `mlx_lm.models.cache.KVCache.to_turboquant()` — deprecated public alias
+- `integrations.mlx.upgrade.upgrade_cache_list(...)` — deprecated compatibility shim over the canonical runtime entry point
 - `turboquant.eval.compare._collect_logits_compressed()` — internal eval helper that constructs TurboQuant caches directly
 
-All of those surfaces bypass the model-family support gate. The supported contract is the gated `upgrade_cache_list(...)` path.
+Direct adapter construction and eval helpers bypass the model-family support gate. The supported contract is the gated `upgrade_cache_list(...)` path; the deprecated `integrations.mlx.upgrade` shim lands back on that same path.
 
 ## Public claims retained
 
@@ -56,7 +54,7 @@ convert them into timeless benchmark claims without pinned provenance.
 
 ## Claims deliberately removed or narrowed
 
-- The vendored `mlx_lm` tree is no longer described as blanket support for every model file it contains.
+- This repo does not ship a vendored `mlx_lm` tree, and upstream patch reachability is not described as blanket support.
 - Direct adapter construction is no longer treated as a peer public runtime API.
 - Historical benchmark tables were removed from primary docs unless they can be tied to addressable evidence.
 - The exploratory real-model `paper_mse` quality tests are no longer presented as certification or product-proof gates.

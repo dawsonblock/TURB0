@@ -43,7 +43,7 @@ same tagged revision.
 
 - `TurboQuantKVCache.state()` updated to use `k_group_size` and `rotation` keys
 - State round-trip tests updated to match new schema
-- `meta_state` tuple in `integrations/mlx/cache_adapter.py` extended to 17 fields
+- `meta_state` tuple in `turboquant/integrations/mlx/_cache_adapter.py` extended to 17 fields
   including `v_enabled`, `rotation_pad_to_pow2`, `residual_mode`, QJL params
 
 ### Phase 4 — Docs alignment
@@ -74,8 +74,8 @@ same tagged revision.
   - Added `per-file-ignores` in `pyproject.toml` for `E402` in
     `tests/integration_mlx/*` and `tests/unit_mlx/*` (intentional MLX-guard
     pattern)
-  - `# noqa: F403` on wildcard re-export lines in legacy shims
-    `integrations/mlx/cache_adapter.py` and `integrations/mlx/upgrade.py`
+  - `# noqa: F401,F403` retained on the wildcard re-export line in the
+    deprecated compatibility shim `integrations/mlx/upgrade.py`
   - Removed unused `angle_bits` variable from
     `benchmarks/exploratory/bench_polar_vs_scalar.py`
   - Replaced path-dependent bare imports with `importlib.import_module()` in
@@ -102,8 +102,8 @@ same tagged revision.
 
 ### Runtime fix — Centralized SDPA dispatch
 
-- `mlx_lm/models/base.py` patched: `scaled_dot_product_attention` now
-  type-guards on `TurboQuantKeysView` and routes to
+- Upstream `mlx_lm.models.base.scaled_dot_product_attention` is patched at
+  import/runtime so it type-guards on `TurboQuantKeysView` and routes to
   `turboquant_streaming_attention` automatically
 - **No per-model changes required for new architectures** — confirmed working
   on Llama-3 and Gemma-2 without any model-specific wiring. Qwen is currently
