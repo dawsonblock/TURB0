@@ -131,7 +131,9 @@ class FixedRotation:
         if self.rotation_type == "identity":
             return x
         if self._can_use_fast_hadamard:
-            return mx.hadamard_transform(x.astype(mx.float32)).astype(x.dtype)
+            x_fp32 = x if x.dtype == mx.float32 else x.astype(mx.float32)
+            rotated = mx.hadamard_transform(x_fp32)
+            return rotated if x.dtype == mx.float32 else rotated.astype(x.dtype)
         assert self._R is not None
         return x @ self._R
 
@@ -140,7 +142,9 @@ class FixedRotation:
         if self.rotation_type == "identity":
             return x
         if self._can_use_fast_hadamard:
-            return mx.hadamard_transform(x.astype(mx.float32)).astype(x.dtype)
+            x_fp32 = x if x.dtype == mx.float32 else x.astype(mx.float32)
+            rotated = mx.hadamard_transform(x_fp32)
+            return rotated if x.dtype == mx.float32 else rotated.astype(x.dtype)
         assert self._RT is not None
         return x @ self._RT
 
