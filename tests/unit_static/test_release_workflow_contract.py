@@ -142,7 +142,6 @@ def test_release_workflow_manifest_validation_is_contract_driven() -> None:
 
 
 def test_static_ci_verifies_packaging_boundary() -> None:
-    content = _read(".github/workflows/static-ci.yml")
     package_job = _extract_job_block(
         ".github/workflows/static-ci.yml",
         "package-and-syntax",

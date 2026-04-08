@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import Any
 
 _PATCHED = False
 
