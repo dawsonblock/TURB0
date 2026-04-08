@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PIP ?= uv pip
 
-.PHONY: help install-dev install-apple compile lint typecheck test test-static test-mlx test-structural test-path-proof test-smoke-llama test-smoke-gemma test-long-context certify-apple-runtime certify-structural build-dist export-source-zip validate-apple clean
+.PHONY: help install-dev install-apple compile lint typecheck test test-static test-mlx test-unit-mlx test-structural test-path-proof test-smoke-llama test-smoke-gemma test-long-context certify-apple-runtime certify-structural build-dist export-source-zip validate-apple clean
 
 help:
 	@printf "Targets:\n"
