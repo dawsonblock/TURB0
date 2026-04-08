@@ -147,8 +147,9 @@ def run_audit() -> dict[str, object]:
     boundary_hooks = _extract_section_tokens(boundary_text, "Patched upstream hooks")
     hook_sets_match = set(continuity_hooks) == set(boundary_hooks)
     missing_hooks = sorted(
-        set(REQUIRED_HOOKS) - set(continuity_hooks)
-    ) + sorted(set(REQUIRED_HOOKS) - set(boundary_hooks))
+        (set(REQUIRED_HOOKS) - set(continuity_hooks))
+        | (set(REQUIRED_HOOKS) - set(boundary_hooks))
+    )
 
     declared_repo_paths = _extract_section_tokens(continuity_text, "Active repo touchpoints")
     missing_repo_paths = sorted(
