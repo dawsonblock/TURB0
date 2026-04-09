@@ -27,7 +27,7 @@ TurboQuant is a **research-stage** KV-cache compression library that plugs into 
 
 ## Quick Start
 
-> **Runtime inference requires Apple Silicon.** All other platforms support static checks, linting, and contract validation only.
+> **Apple Silicon is required for runtime inference.** All other platforms support static checks, linting, and contract validation only.
 
 ```bash
 git clone https://github.com/dawsonblock/TURB0.git
@@ -99,11 +99,12 @@ turboquant_streaming_attention(...)
 
 The attention fast path scores flat K-history slices from runtime-packed tensors and decodes V in chunks with an online softmax (log-sum-exp streaming reduction), avoiding a full dense V concatenation at every decode step.
 
-**Key boundaries:**
+**Contract summary:**
 
 - `upgrade_cache_list(...)` is the canonical, support-gated entry point.
 - `TurboQuantKCache(...)` is internal/eval-only — it bypasses the model-family allowlist.
-- The decode path returns `events` but does **not** automatically persist `events.jsonl`.
+- `KVCache.to_turboquant()` is a convenience alias for the cache adapter constructor.
+- The decode path returns `events` but does not automatically persist `events.jsonl`.
 - Cache state is persisted as `TurboQuantKVCache.state()` at `schema_version == 4`.
 
 ---
@@ -176,7 +177,7 @@ export TQ_TEST_GEMMA_MODEL="mlx-community/gemma-2-2b-it-4bit"
 bash scripts/certify_apple_runtime.sh
 ```
 
-> **Evidence rule** — `artifacts/runtime-cert/` bundles are workflow outputs; built wheels and sdists do not ship that directory. Static CI passing on Linux does not constitute an Apple runtime PASS. Only a tagged `apple-runtime-cert` workflow artifact with `cert_manifest.json` reporting PASS for both allowlisted families does.
+> **Evidence rule** — `artifacts/runtime-cert/` bundles are workflow outputs; built wheels and source distributions do not ship that directory. Static CI passing on Linux is not a runtime go/no-go — source and built snapshots do not, by themselves, prove a current Apple runtime PASS. Only a published certification artifact or pinned manifest digest from a tagged `apple-runtime-cert` workflow run proves a current PASS for both allowlisted families.
 
 ---
 
