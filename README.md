@@ -78,7 +78,8 @@ The higher-level `mlx_lm.generate.generate(...)` wrapper delegates into the same
 TurboQuant patches three upstream symbols at import time — no vendored fork:
 
 ```
-mlx_lm.generate.generate_step   (patched)
+mlx_lm.models.cache.make_prompt_cache   (patched)
+mlx_lm.generate.generate_step           (patched)
          │
          ▼
 upgrade_cache_list(...)          ← canonical support-gated entry point
