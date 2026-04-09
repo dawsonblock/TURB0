@@ -103,7 +103,7 @@ The attention fast path scores flat K-history slices from runtime-packed tensors
 
 - `upgrade_cache_list(...)` is the canonical, support-gated entry point.
 - `TurboQuantKCache(...)` is internal/eval-only — it bypasses the model-family allowlist.
-- `KVCache.to_turboquant()` is a convenience alias for the cache adapter constructor.
+- `KVCache.to_turboquant()` is mentioned here as documentation shorthand for the cache-adapter upgrade path; it is **not** currently a shipped/runtime-available `KVCache` method. Use `upgrade_cache_list(...)` for supported upgrades.
 - The decode path returns `events` but does not automatically persist `events.jsonl`.
 - Cache state is persisted as `TurboQuantKVCache.state()` at `schema_version == 4`.
 
