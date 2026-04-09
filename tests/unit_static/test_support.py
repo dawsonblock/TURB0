@@ -88,8 +88,8 @@ def test_empty_string_is_not_supported() -> None:
     assert is_supported_model_family("") is False
 
 
-def test_none_normalises_to_unsupported() -> None:
-    # None gets stringified to "none", which is not in the allowlist.
+def test_none_string_is_not_supported() -> None:
+    # The string "none" is not a member of the allowlist.
     assert is_supported_model_family("none") is False
 
 

@@ -304,7 +304,7 @@ def test_to_state_dict_reflects_config_values() -> None:
     assert sd["quantizer_mode"] == "scalar"
 
 
-def test_to_state_dict_algorithm_is_normalised() -> None:
+def test_to_state_dict_algorithm_is_normalized() -> None:
     # alias 'turboquant_mse' should be stored as canonical 'paper_mse'
     cfg = TurboQuantConfig(
         algorithm="turboquant_mse",
