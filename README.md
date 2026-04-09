@@ -141,7 +141,7 @@ Gemma coverage is intentionally narrower: the conservative `paper_mse` batch qua
 ### Static checks (any platform)
 
 ```bash
-make test-static        # 123 unit tests, no MLX required
+make test-static        # static unit test suite, no MLX required
 make compile            # bytecode check across all source + test modules
 ```
 
