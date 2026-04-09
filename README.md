@@ -1,121 +1,46 @@
 <div align="center">
 
-# TurboQuantX1
+# TurboQuant
 
-**Contract-driven KV-cache compression for Apple-Silicon MLX LLMs**
+### Research-grade KV-cache compression for Apple Silicon MLX LLMs
 
-[![Python](https://img.shields.io/badge/python-3.9--3.11-blue)](https://python.org)
-[![MLX](https://img.shields.io/badge/MLX-%3E%3D0.30.0%20%3C1.0.0-orange)](https://github.com/ml-explore/mlx)
-[![Platform](https://img.shields.io/badge/platform-Apple%20Silicon-black)](https://apple.com/mac)
-[![Version](https://img.shields.io/badge/version-0.2.2-green)](RELEASE_CANDIDATE_NOTES.md)
+[![Static CI](https://github.com/dawsonblock/TURB0/actions/workflows/static-ci.yml/badge.svg)](https://github.com/dawsonblock/TURB0/actions/workflows/static-ci.yml)
+[![Python](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11-3776AB?logo=python&logoColor=white)](https://python.org)
+[![MLX](https://img.shields.io/badge/MLX-%3E%3D0.30.0%2C%3C1.0.0-FF6600?logo=apple&logoColor=white)](https://github.com/ml-explore/mlx)
+[![Platform](https://img.shields.io/badge/platform-Apple%20Silicon-000000?logo=apple&logoColor=white)](https://apple.com/mac)
+[![Version](https://img.shields.io/badge/version-0.2.2-22C55E)](RELEASE_CANDIDATE_NOTES.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-*Paper-facing presets: `paper_prod`, `paper_mse` · Supported non-paper-facing branch: `polarquant_exp`*
+**Compress transformer KV-caches at decode time on Apple Silicon — with a narrow, contract-validated runtime path.**
 
-<p>
-    <a href="#current-slice">Current Slice</a> ·
-    <a href="#runtime-contract">Runtime Contract</a> ·
-    <a href="#quick-start">Quick Start</a> ·
-    <a href="#validation-and-certification">Validation</a> ·
-    <a href="#documentation-map">Docs</a>
-</p>
+[Quick Start](#quick-start) · [How It Works](#how-it-works) · [Presets](#presets) · [Model Support](#model-support) · [Validation](#validation--certification) · [Docs](#documentation)
 
 </div>
 
-TurboQuantX1 is a research-stage KV-cache compression library for transformer
-inference on Apple Silicon via
-[mlx-lm](https://github.com/ml-explore/mlx-lm). The repository contains
-exploratory code, compatibility paths, and an import-time/runtime patch layer
-for upstream `mlx_lm`, but the formal support claim is intentionally narrower
-than the codebase footprint.
+---
 
-> **Accuracy rule**
->
-> The machine-readable source of truth is `turboquant/contract.json`. The
-> generated contract docs summarize it. Generated `artifacts/runtime-cert/` bundles are workflow outputs, and built wheels and source distributions do not ship those generated directories. Neither a source
-> archive nor a built distribution proves a current PASS without an addressable
-> certification artifact, release evidence bundle, or pinned manifest digest.
+TurboQuant is a **research-stage** KV-cache compression library that plugs into [`mlx-lm`](https://github.com/ml-explore/mlx-lm) inference on Apple Silicon. It patches the upstream decode loop at import time and routes allowlisted model families through a compressed attention path — no per-model fork required.
 
-## Current Slice
+> **Scope note** — The machine-readable source of truth is [`turboquant/contract.json`](turboquant/contract.json). This repository does not prove a current Apple runtime PASS without a published certification artifact or pinned manifest digest from the tagged `apple-runtime-cert` workflow.
 
-| Topic | Current contract |
-|---|---|
-| Platform | `darwin-arm64` on Apple Silicon |
-| Python / MLX | Python `3.9`-`3.11`, MLX `>= 0.30.0` and `< 1.0.0` |
-| Canonical runtime path | `upgrade_cache_list(...)` inside the `mlx_lm` decode flow |
-| Allowlisted model families | `llama`, `gemma` |
-| Paper-facing presets | `paper_prod`, `paper_mse` |
-| Supported non-paper-facing branch | `polarquant_exp` |
-| Compatibility-only surfaces | `legacy_topk`, direct adapter construction, deprecated cache-conversion helpers |
-| Out of scope | blanket upstream-model support, non-Apple runtimes, production deployment claims |
-
-| What this repo is | What this repo is not |
-|---|---|
-| A narrow, contract-validated runtime slice | A general-purpose LLM runtime |
-| A research-stage Apple-Silicon MLX integration | Blanket support for every upstream `mlx_lm` model family reachable through the patch layer |
-| A repo with explicit release-evidence rules | Proof of a current PASS without published evidence |
-
-## Runtime Contract
-
-Contract summary: TurboQuant supports one canonical runtime path for
-allowlisted Llama and Gemma models via `upgrade_cache_list(...)` inside the
-patched upstream `mlx_lm` decode flow. Direct adapter construction and
-deprecated cache conversion helpers remain secondary surfaces that bypass the
-support gate.
-
-The validated promotion path is:
-
-`patched mlx_lm.generate.generate_step(...)` -> `upgrade_cache_list(...)` -> `TurboQuantKCache.update_and_fetch(...)` -> `TurboQuantKeysView` -> `scaled_dot_product_attention(...)` -> `turboquant_streaming_attention(...)`
-
-Important boundaries:
-
-- `upgrade_cache_list(...)` is the canonical support-gated entry point.
-- `TurboQuantKCache(...)`, `KVCache._to_turboquant()`, and `KVCache.to_turboquant()` remain compatibility or eval surfaces, not peer public runtime APIs.
-- The canonical decode path returns runtime-upgrade events, but it does not automatically persist `events.jsonl`.
-- Evidence depth is intentionally asymmetric today: Llama coverage is stronger; Gemma remains narrower overall because the conservative `paper_mse` batch quality guardrail is still Llama-scoped even though PolarQuant runtime and quality stages now run on both families, and the unified KV bundle only records Gemma `paper_mse` as a research-only observational tranche when explicitly requested.
-
-The supported public cache-state persistence format is
-`TurboQuantKVCache.state()` with `schema_version == 4`.
-
-Generated summaries of the contract live in
-[docs/product_contract.md](docs/product_contract.md),
-[docs/support_matrix.md](docs/support_matrix.md), and
-[docs/supported-surface.md](docs/supported-surface.md).
-
-## Presets And Branches
-
-| Surface | Contract status | Residual | Use it when |
-|---|---|---|---|
-| `paper_prod` / `paper_prod_qjl` | paper-facing | `qjl` | You want the primary production-style research path |
-| `paper_mse` | paper-facing | `none` | You want the conservative reference path and batch-quality guardrail |
-| `polarquant_exp` | supported non-paper-facing | `none` | You want the PolarQuant runtime path with family-scoped certification |
-| `balanced`, `max_quality`, `legacy_topk` | compatibility-only | `topk` | You are loading historical configs or comparing legacy behavior |
-
-Notes:
-
-- `high_compression` remains a legacy alias for the `paper_prod_qjl` family.
-- `balanced`, `max_quality`, and `legacy_topk` are legacy top-k compatibility-only surfaces.
-- `polarquant_exp` is part of the formal supported product contract, but it is not part of the paper-facing preset story.
-- Exact preset math and deviations are generated in [docs/support_matrix.md](docs/support_matrix.md).
+---
 
 ## Quick Start
 
-Apple Silicon is required for runtime inference. Non-Apple platforms are for
-static checks, linting, and contract-oriented verification only.
+> **Runtime inference requires Apple Silicon.** All other platforms support static checks, linting, and contract validation only.
 
 ```bash
 git clone https://github.com/dawsonblock/TURB0.git
 cd TURB0
+
+# Apple Silicon — full runtime
 pip install -e '.[apple]'
-```
 
-For static or development work without the Apple runtime extras:
-
-```bash
+# Any platform — static / dev work only
 pip install -e '.[dev]'
 ```
 
-Canonical cache upgrade after prefill:
+### Upgrade a cache after prefill
 
 ```python
 from mlx_lm import load
@@ -126,7 +51,7 @@ from turboquant.integrations.mlx.upgrade import upgrade_cache_list
 model, tokenizer = load("mlx-community/Llama-3.2-1B-Instruct-4bit")
 cache = make_prompt_cache(model)
 
-# ... run prefill here ...
+# ... run your prefill here ...
 
 cfg = TurboQuantConfig.from_preset("paper_prod")
 events = upgrade_cache_list(
@@ -137,55 +62,101 @@ events = upgrade_cache_list(
 )
 ```
 
-The same runtime path also supports PolarQuant for allowlisted families:
+The same path works for PolarQuant:
 
 ```python
 cfg = TurboQuantConfig.polarquant_exp(rotation="random_orthogonal")
 events = upgrade_cache_list(cache, k_start=64, config=cfg, model_family="gemma")
 ```
 
-If you use the higher-level `mlx_lm.generate.generate(...)` wrapper, it still
-delegates into the same upgrade machinery.
+The higher-level `mlx_lm.generate.generate(...)` wrapper delegates into the same machinery automatically once the patch layer is active.
+
+---
+
+## How It Works
+
+TurboQuant patches three upstream symbols at import time — no vendored fork:
+
+```
+mlx_lm.generate.generate_step   (patched)
+         │
+         ▼
+upgrade_cache_list(...)          ← canonical support-gated entry point
+         │
+         ▼
+TurboQuantKCache.update_and_fetch(...)
+         │
+         ▼
+TurboQuantKeysView
+         │
+         ▼
+mlx_lm.models.base.scaled_dot_product_attention   (patched)
+         │
+         ▼
+turboquant_streaming_attention(...)
+```
+
+The attention fast path scores flat K-history slices from runtime-packed tensors and decodes V in chunks with an online softmax (log-sum-exp streaming reduction), avoiding a full dense V concatenation at every decode step.
+
+**Key boundaries:**
+
+- `upgrade_cache_list(...)` is the canonical, support-gated entry point.
+- `TurboQuantKCache(...)` is internal/eval-only — it bypasses the model-family allowlist.
+- The decode path returns `events` but does **not** automatically persist `events.jsonl`.
+- Cache state is persisted as `TurboQuantKVCache.state()` at `schema_version == 4`.
+
+---
+
+## Presets
+
+| Preset | Classification | K bits | V bits | Residual | Use when |
+|---|---|:---:|:---:|---|---|
+| `paper_prod` / `paper_prod_qjl` | paper-facing | 3 | 4 | QJL (1-bit) | Primary two-stage research path |
+| `paper_mse` | paper-facing | 3 | 4 | none | Conservative scalar-only reference |
+| `polarquant_exp` | supported, non-paper-facing | 3 | 4 | none | PolarQuant with family-scoped certification |
+| `legacy_topk`, `balanced`, `max_quality` | compatibility-only | — | — | top-k | Loading historical configs only |
+
+- `paper_prod` is a stable alias for `paper_prod_qjl`.
+- `high_compression` is a legacy alias for the `paper_prod_qjl` family.
+- `polarquant_exp` is a formally supported contract surface but is outside the paper-facing preset story.
+- Generated preset math lives in [docs/support_matrix.md](docs/support_matrix.md).
+
+---
 
 ## Model Support
 
-| Family | Status | Evidence depth | Current coverage |
+| Family | Status | Evidence depth | Coverage |
 |---|---|---|---|
-| Llama | allowlisted | stronger | real-model smoke, PolarQuant runtime smoke, PolarQuant quality guardrail, `paper_mse` batch quality guardrail, long-context stability, dense-vs-TurboQuant benchmark sweeps |
-| Gemma | allowlisted | narrower | real-model smoke, PolarQuant runtime smoke, PolarQuant quality guardrail, dense-vs-TurboQuant benchmark sweeps; narrower overall because the conservative `paper_mse` gate is still Llama-only |
+| **Llama** | ✅ allowlisted | stronger | real-model smoke · PolarQuant runtime & quality · `paper_mse` batch guardrail · long-context stability · dense-vs-TQ benchmark sweeps |
+| **Gemma** | ✅ allowlisted | narrower | real-model smoke · PolarQuant runtime & quality · dense-vs-TQ benchmark sweeps |
 
-Families reachable through upstream `mlx_lm` are not automatically supported.
-Allowlist membership is a contract decision, not a side effect of patch
-reachability.
+> Families reachable through the patch layer are **not** automatically supported. Allowlist membership is a contract decision, not a side effect of patch reachability. See [`turboquant/runtime/support.py`](turboquant/runtime/support.py) and [`turboquant/contract.json`](turboquant/contract.json).
 
-## Validation And Certification
+Gemma coverage is intentionally narrower: the conservative `paper_mse` batch quality guardrail is still Llama-scoped.
 
-If you only validated this repo from a non-Apple or no-MLX environment, the
-strongest honest claim is that the package build/install structure and
-non-runtime validation lanes work there. That is useful, but it is not a
-runtime go/no-go for the Apple-Silicon MLX path.
+---
 
-This repository layout and its static checks do not, by themselves, prove a
-current Apple runtime PASS for any release. Only a published certification
-artifact or pinned manifest digest from the tagged Apple-arm64 workflow does
-that.
+## Validation & Certification
 
-Local validation entry points:
+### Static checks (any platform)
 
 ```bash
-make test-static
-make test-mlx
-make test-structural
-make test-path-proof
-make test-smoke-llama
-make test-smoke-gemma
-make test-long-context
+make test-static        # 123 unit tests, no MLX required
+make compile            # bytecode check across all source + test modules
 ```
 
-On Apple Silicon, the smoke targets above default to `TinyModel` when the
-real-model environment variables are unset.
+### Apple Silicon runtime checks
 
-Real-model smoke targets:
+```bash
+make test-structural    # path-proof, cache roundtrip, streaming attention — no model weights
+make test-path-proof    # verify TQ path is exercised, not dense fallback
+make test-smoke-llama   # Llama smoke (TinyModel by default)
+make test-smoke-gemma   # Gemma smoke (TinyModel by default)
+make test-long-context  # long-context stability (TinyModel by default)
+make test-mlx           # full MLX suite
+```
+
+### Real-model smoke (Apple Silicon)
 
 ```bash
 export TQ_TEST_LLAMA_MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"
@@ -196,7 +167,7 @@ make test-smoke-gemma
 make test-long-context
 ```
 
-Full Apple-Silicon certification bundle:
+### Full certification bundle
 
 ```bash
 export TQ_TEST_LLAMA_MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"
@@ -204,66 +175,70 @@ export TQ_TEST_GEMMA_MODEL="mlx-community/gemma-2-2b-it-4bit"
 bash scripts/certify_apple_runtime.sh
 ```
 
-Important release-evidence rules:
+> **Evidence rule** — `artifacts/runtime-cert/` bundles are workflow outputs; built wheels and sdists do not ship that directory. Static CI passing on Linux does not constitute an Apple runtime PASS. Only a tagged `apple-runtime-cert` workflow artifact with `cert_manifest.json` reporting PASS for both allowlisted families does.
 
-- Generated `artifacts/runtime-cert/` bundles are workflow outputs; built wheels and source distributions do not ship those generated directories.
-- `scripts/certify_apple_runtime.sh` snapshots `contract.json` into the artifact directory so the evidence bundle carries both the run result and the exact contract it satisfied.
-- Primary docs should not publish timeless benchmark tables without addressable provenance.
-- Benchmark claims require an artifact or manifest plus commit, model ids, MLX version, hardware, script, and invocation arguments.
-
-For the full evidence model, read
-[docs/runtime-certification.md](docs/runtime-certification.md),
-[docs/validation-local.md](docs/validation-local.md), and
-[docs/benchmark_methodology.md](docs/benchmark_methodology.md).
-
-## Documentation Map
-
-| Document | Purpose |
-|---|---|
-| [docs/theory.md](docs/theory.md) | Theory-facing map of paper claims, implementation anchors, and current evidence limits |
-| [docs/preset_modes.md](docs/preset_modes.md) | Generated preset taxonomy with paper-facing, non-paper-facing, and compatibility-only tags |
-| [docs/bit_budget_sweep.md](docs/bit_budget_sweep.md) | Research-only bit-budget sweep command, schema, and interpretation guide |
-| [docs/kv_paper_eval.md](docs/kv_paper_eval.md) | Unified research-only KV report command with explicit fast-check vs heavy-offline tiers |
-| [docs/vector_search.md](docs/vector_search.md) | Research-only vector-search benchmark lane on a bundled mini dataset plus an explicit larger public-corpus path |
-| [docs/benchmark_index.md](docs/benchmark_index.md) | Generated index of benchmark/report surfaces, stable outputs, and lane boundaries |
-| [docs/family_evidence_matrix.md](docs/family_evidence_matrix.md) | Generated family-by-family split between release-gated evidence and research-only adjunct evidence |
-| [docs/product_contract.md](docs/product_contract.md) | Generated top-level product boundary |
-| [docs/supported-surface.md](docs/supported-surface.md) | Generated canonical vs secondary surface definition |
-| [docs/support_matrix.md](docs/support_matrix.md) | Generated family and preset matrix |
-| [docs/runtime-certification.md](docs/runtime-certification.md) | Certification scope, stages, and evidence contract |
-| [docs/architecture.md](docs/architecture.md) | Runtime path and component map |
-| [docs/integration.md](docs/integration.md) | Model-family wiring and PolarQuant integration details |
-| [docs/evaluation.md](docs/evaluation.md) | Exploratory quality-evaluation guidance |
-| [docs/validation-local.md](docs/validation-local.md) | Local validation walkthrough |
-| [docs/benchmark_methodology.md](docs/benchmark_methodology.md) | Benchmark publication and provenance rules |
-| [docs/vendored-upstream-boundary.md](docs/vendored-upstream-boundary.md) | Current upstream `mlx_lm` patch boundary |
+---
 
 ## Project Layout
 
 ```text
-TurboQuantX1/
+TURB0/
 ├── turboquant/
-│   ├── config.py
-│   ├── core/
-│   ├── runtime/
-│   ├── integrations/mlx/
-│   ├── eval/
-│   └── kernels/
+│   ├── config.py                  # TurboQuantConfig — the runtime config API
+│   ├── contract.json              # machine-readable support contract
+│   ├── patch.py                   # upstream mlx_lm patch bootstrap
+│   ├── core/                      # rotation, quantizer, QJL, PolarQuant
+│   ├── runtime/                   # attention fast path, support gate
+│   ├── integrations/mlx/          # upgrade_cache_list, cache adapter
+│   ├── eval/                      # logit comparison helpers
+│   └── kernels/                   # experimental Metal kernel stubs
 ├── benchmarks/
-│   ├── exploratory/
-│   └── runtime_cert/
+│   ├── exploratory/               # micro-benchmarks and ablations
+│   └── runtime_cert/              # certification benchmark scripts
 ├── tests/
-├── scripts/
-└── docs/
+│   ├── unit_static/               # contract / structural tests (no MLX)
+│   ├── unit_mlx/                  # unit tests requiring MLX
+│   └── integration_mlx/          # full-path integration tests
+├── scripts/                       # certify_apple_runtime.sh, validate_local.sh
+├── tools/                         # dist verification, surface audit
+└── docs/                          # generated and hand-written documentation
 ```
+
+---
+
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Runtime path and component map |
+| [docs/theory.md](docs/theory.md) | Paper-claim traceability and current evidence limits |
+| [docs/product_contract.md](docs/product_contract.md) | Generated top-level product boundary |
+| [docs/support_matrix.md](docs/support_matrix.md) | Generated family and preset matrix |
+| [docs/supported-surface.md](docs/supported-surface.md) | Generated canonical vs secondary surface definitions |
+| [docs/preset_modes.md](docs/preset_modes.md) | Generated preset taxonomy |
+| [docs/runtime-certification.md](docs/runtime-certification.md) | Certification scope, stages, and evidence contract |
+| [docs/validation-local.md](docs/validation-local.md) | Local validation walkthrough |
+| [docs/benchmark_methodology.md](docs/benchmark_methodology.md) | Benchmark publication and provenance rules |
+| [docs/benchmark_index.md](docs/benchmark_index.md) | Generated index of benchmark surfaces and lane boundaries |
+| [docs/family_evidence_matrix.md](docs/family_evidence_matrix.md) | Release-gated vs research-only evidence split |
+| [docs/integration.md](docs/integration.md) | Model-family wiring and PolarQuant integration details |
+| [docs/evaluation.md](docs/evaluation.md) | Exploratory quality-evaluation guidance |
+| [docs/bit_budget_sweep.md](docs/bit_budget_sweep.md) | Research-only bit-budget sweep |
+| [docs/kv_paper_eval.md](docs/kv_paper_eval.md) | Unified KV report command (fast-check vs heavy-offline tiers) |
+| [docs/vector_search.md](docs/vector_search.md) | Research-only vector-search benchmark lane |
+| [docs/vendored-upstream-boundary.md](docs/vendored-upstream-boundary.md) | Upstream `mlx_lm` patch boundary |
+
+---
 
 ## Contributing
 
-1. Run `make test-static` on any platform.
-2. On Apple Silicon, run `make test-mlx` and `make test-structural` before widening claims.
+1. Run `make test-static` on any platform before opening a PR.
+2. On Apple Silicon, run `make test-mlx` and `make test-structural` before widening any runtime claims.
 3. If you change runtime-contract or evidence wording, update `turboquant/contract.json` and regenerate the derived docs.
-4. If you change the preset registry or preset classifications, update `turboquant/config.py`, `turboquant/contract.json`, and regenerate the derived docs together.
-5. If you add a model family or preset to the supported story, extend the certification surface before updating the README.
+4. If you change the preset registry or classifications, update `turboquant/config.py` and `turboquant/contract.json` together, then regenerate the derived docs.
+5. If you add a model family or preset to the supported story, extend the certification surface **before** updating the README.
+
+---
 
 ## License
 
